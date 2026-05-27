@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    name: Lint + Test (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt ruff mypy pytest pytest-cov
+
+      - name: Ruff lint
+        run: ruff check packages/ scripts/
+
+      - name: Mypy type-check
+        run: mypy packages/ scripts/ --ignore-missing-imports
+
+      - name: Run tests
+        run: pytest tests/ --cov=packages --cov-report=term-missing
+        continue-on-error: true  # no tests yet in pre-work phase

@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Data — never commit raw PDFs or audio to git
+data/raw_pdfs/
+data/annotations/similarity_pairs.jsonl
+data/ingested_hashes.json
+*.pdf
+*.mp3
+
+# Model weights
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.pth
+models/
+
+# FastF1 cache
+fastf1_cache/
+*.cache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Next.js
+apps/web/.next/
+apps/web/node_modules/
+apps/web/.env.local
+
+# Node
+node_modules/
+.pnp
+.pnp.js
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/.terraform.lock.hcl
+
+# Logs
+*.log
+logs/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid

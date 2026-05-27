@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "racejudge"
+version = "0.1.0"
+description = "The Stewards' Precedent Engine — F1 stewarding decision pipeline and web platform"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["packages"]
+
+# ---------------------------------------------------------------------------
+# Dev tooling
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "I", "UP", "B", "C4", "PIE", "RET", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.isort]
+known-first-party = ["packages"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+# ---------------------------------------------------------------------------
+# Workspaces (for IDEs)
+# ---------------------------------------------------------------------------
+
+[tool.pyright]
+include = ["packages", "scripts"]
+pythonVersion = "3.12"
