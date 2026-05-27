@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.core.config import settings
-from apps.api.routers import decisions, health
+from apps.api.routers import decisions, health, search
 
 
 @asynccontextmanager
@@ -40,3 +40,4 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(decisions.router, prefix="/v1")
+app.include_router(search.router, prefix="/v1")
