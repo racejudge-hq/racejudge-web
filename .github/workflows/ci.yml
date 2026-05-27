@@ -19,14 +19,13 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt ruff mypy pytest pytest-cov
+        run: pip install -r requirements.txt
 
       - name: Ruff lint
-        run: ruff check packages/ scripts/
+        run: ruff check packages/ apps/ scripts/ tests/
 
       - name: Mypy type-check
-        run: mypy packages/ scripts/ --ignore-missing-imports
+        run: mypy packages/ apps/ scripts/ --ignore-missing-imports
 
       - name: Run tests
         run: pytest tests/ --cov=packages --cov-report=term-missing
-        continue-on-error: true  # no tests yet in pre-work phase

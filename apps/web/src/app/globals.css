@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+  --rj-red:    #e8002d;   /* FIA red */
+  --rj-black:  #0a0a0a;
+  --rj-white:  #fafafa;
+  --rj-grey:   #1a1a1a;
+}
+
+body {
+  background: var(--rj-black);
+  color: var(--rj-white);
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+}
