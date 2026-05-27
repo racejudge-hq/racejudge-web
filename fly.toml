@@ -1,0 +1,41 @@
+# Fly.io deployment config for RACEJUDGE FastAPI backend
+# Deploy: fly deploy
+# First deploy: fly launch --no-deploy (then fly deploy)
+
+app      = "racejudge-api"
+primary_region = "iad"   # US East (closest to Neon Postgres US East)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ENVIRONMENT = "production"
+  LOG_LEVEL   = "INFO"
+
+# Secrets (set via: fly secrets set KEY=value)
+# DATABASE_URL, REDIS_URL, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# R2_SECRET_ACCESS_KEY, API_KEY_ENCRYPTION_SECRET
+
+[http_service]
+  internal_port        = 8000
+  force_https          = true
+  auto_stop_machines   = "stop"
+  auto_start_machines  = true
+  min_machines_running = 0   # scale to zero in dev; set to 1 in prod
+
+  [http_service.concurrency]
+    type       = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size   = "shared-cpu-1x"   # 256 MB — enough for Phase 1 (upgrade Phase 6)
+  memory = "256mb"
+
+# Health check
+[[http_service.checks]]
+  grace_period  = "10s"
+  interval      = "30s"
+  method        = "GET"
+  path          = "/health"
+  timeout       = "5s"
