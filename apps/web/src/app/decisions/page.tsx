@@ -40,6 +40,7 @@ export default async function DecisionsPage({ searchParams }: Props) {
         <select
           name="season"
           defaultValue={params.season ?? ""}
+          aria-label="Filter by season"
           className="px-3 py-2 bg-gray-900 border border-gray-700 rounded text-sm"
         >
           <option value="">All seasons</option>
