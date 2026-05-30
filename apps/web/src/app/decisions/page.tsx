@@ -22,7 +22,7 @@ export default async function DecisionsPage({ searchParams }: Props) {
     <main className="max-w-3xl mx-auto px-4 py-10 space-y-6">
       <header>
         <h1 className="text-3xl font-bold">
-          RACE<span style={{ color: "var(--rj-red)" }}>JUDGE</span>
+          RACE<span className="rj-brand-red">JUDGE</span>
         </h1>
         <p className="text-gray-400 text-sm mt-1">
           FIA stewards&apos; decisions — searchable and browsable

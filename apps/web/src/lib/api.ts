@@ -46,3 +46,50 @@ export async function getDecision(docId: string): Promise<DecisionDetail> {
   if (!res.ok) throw new Error(`GET /v1/decisions/${docId} failed: ${res.status}`);
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+export interface SearchResult {
+  doc_id: string;
+  title: string;
+  season: number;
+  published_at: string | null;
+  score: number;
+  snippet: string;
+}
+
+export async function searchDecisions(
+  q: string,
+  season?: number,
+  limit = 20,
+): Promise<SearchResult[]> {
+  const url = new URL(`${API_BASE}/v1/search`);
+  url.searchParams.set("q", q);
+  if (season) url.searchParams.set("season", String(season));
+  url.searchParams.set("limit", String(limit));
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error(`GET /v1/search failed: ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Annotations
+// ---------------------------------------------------------------------------
+
+export interface AnnotationStats {
+  total_annotations: number;
+  triplet_pairs: number;
+  target_pairs: number;
+  progress_pct: number;
+  by_annotator: Record<string, number>;
+}
+
+export async function getAnnotationStats(): Promise<AnnotationStats> {
+  const res = await fetch(`${API_BASE}/v1/annotations/stats/summary`, {
+    next: { revalidate: 30 },
+  });
+  if (!res.ok) throw new Error(`GET /v1/annotations/stats/summary failed: ${res.status}`);
+  return res.json();
+}

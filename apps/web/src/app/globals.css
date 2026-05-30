@@ -12,3 +12,7 @@ body {
   color: var(--rj-white);
   font-family: ui-monospace, "JetBrains Mono", monospace;
 }
+
+.rj-brand-red {
+  color: var(--rj-red);
+}
