@@ -46,11 +46,9 @@ _SESSION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Lap number
-_LAP_RE = re.compile(
-    r"\b(?:lap|turn)\s+(\d{1,3})\b",
-    re.IGNORECASE,
-)
+# Lap number — prefer "lap N" over "Turn N" (turn = corner, lap = race lap)
+_LAP_RE = re.compile(r"\blap\s+(\d{1,3})\b", re.IGNORECASE)
+_TURN_RE = re.compile(r"\bturn\s+(\d{1,3})\b", re.IGNORECASE)
 
 # Penalty points — "2 penalty points"
 _PEN_POINTS_RE = re.compile(
@@ -69,7 +67,7 @@ _OUTCOME_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"reprimand", re.IGNORECASE),               "reprimand"),
     (re.compile(r"no\s+further\s+action", re.IGNORECASE),  "no further action"),
     (re.compile(r"warning", re.IGNORECASE),                 "warning"),
-    (re.compile(r"fine\s+of\s+([\d,]+)\s*(?:euro|€|\$)", re.IGNORECASE), "fine"),
+    (re.compile(r"fined?\s+(?:of\s+)?([\d,]+)\s*(?:euro|€|\$)", re.IGNORECASE), "fine"),
 ]
 
 # Infraction type — ordered by specificity
@@ -117,6 +115,11 @@ def extract_session_type(text: str) -> str | None:
 
 def extract_lap_number(text: str) -> int | None:
     m = _LAP_RE.search(text)
+    return int(m.group(1)) if m else None
+
+
+def extract_turn_number(text: str) -> int | None:
+    m = _TURN_RE.search(text)
     return int(m.group(1)) if m else None
 
 

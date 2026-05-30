@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.core.config import settings
-from apps.api.routers import decisions, health, search
+from apps.api.routers import annotations, decisions, health, predict, search, telemetry
 
 
 @asynccontextmanager
@@ -34,10 +34,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
 app.include_router(health.router)
 app.include_router(decisions.router, prefix="/v1")
 app.include_router(search.router, prefix="/v1")
+app.include_router(annotations.router, prefix="/v1")
+app.include_router(telemetry.router, prefix="/v1")
+app.include_router(predict.router, prefix="/v1")

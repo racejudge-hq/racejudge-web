@@ -40,29 +40,30 @@ pytest-cov>=5.0.0
 # ============================================================
 # Phase 3 additions (uncomment when starting Phase 3)
 # ============================================================
-# faster-whisper>=1.0.0
-# pyannote.audio>=3.1.0
-# fastf1>=3.3.0
-# celery[redis]>=5.4.0
-# prefect>=3.0.0
+# faster-whisper>=1.0.0          # Whisper ASR (CTranslate2 backend)
+# pyannote.audio>=3.1.0          # speaker diarization (requires HF_TOKEN)
+fastf1>=3.3.0                    # F1 telemetry (needed for TelemetrySlicer)
+# celery[redis]>=5.4.0           # async task queue
+prefect>=3.0.0                   # pipeline orchestration
 
 
 # ============================================================
 # Phase 4 additions (uncomment when starting Phase 4)
 # ============================================================
-# sentence-transformers>=3.0.0
-# pgvector>=0.3.0
-# asyncpg>=0.29.0
-# sqlalchemy[asyncio]>=2.0.0
-# alembic>=1.13.0
+# sentence-transformers>=3.0.0   # BGE-M3 embeddings
+# pgvector>=0.3.0                # pgvector Python client
+asyncpg>=0.29.0                  # async Postgres driver
+sqlalchemy[asyncio]>=2.0.0       # ORM + async support
+alembic>=1.13.0                  # DB migrations
 
 
 # ============================================================
 # Phase 5 additions (uncomment when starting Phase 5)
 # ============================================================
-# xgboost>=2.0.0
-# scikit-learn>=1.5.0
-# peft>=0.11.0          # LoRA fine-tuning
+# xgboost>=2.0.0                 # penalty prediction model Layer A
+# scikit-learn>=1.5.0            # preprocessing + meta-learner
+# joblib>=1.4.0                  # model serialization
+# peft>=0.11.0                   # LoRA fine-tuning for Llama Layer B
 
 
 # ============================================================

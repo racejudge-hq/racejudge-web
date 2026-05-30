@@ -98,3 +98,71 @@ CREATE TABLE IF NOT EXISTS ingested_hashes (
     sha256_hash     TEXT PRIMARY KEY,
     ingested_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ---------------------------------------------------------------------------
+-- guidelines
+-- ---------------------------------------------------------------------------
+-- FIA Penalty Guidelines + Driving Standards Guidelines (Phase 1 seed).
+-- Used for article_cited feature in Model 4A and LLM context in Model 4B.
+
+CREATE TABLE IF NOT EXISTS guidelines (
+    article_id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    document_name       TEXT        NOT NULL,
+    section             TEXT,
+    article_number      TEXT        NOT NULL,
+    article_text        TEXT        NOT NULL,
+    recommended_penalty TEXT,
+    effective_date      DATE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (document_name, article_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_guidelines_document   ON guidelines (document_name);
+CREATE INDEX IF NOT EXISTS idx_guidelines_article    ON guidelines (article_number);
+
+-- ---------------------------------------------------------------------------
+-- team_radio_clips
+-- ---------------------------------------------------------------------------
+-- Downloaded and transcribed team radio clips (Phase 3).
+
+CREATE TABLE IF NOT EXISTS team_radio_clips (
+    clip_id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_key     INTEGER         NOT NULL,
+    driver_number   SMALLINT        NOT NULL,
+    date            TIMESTAMPTZ     NOT NULL,
+    recording_url   TEXT            NOT NULL UNIQUE,
+    r2_key          TEXT,                                  -- Cloudflare R2 key after upload
+    transcript      TEXT,                                  -- Whisper output
+    speaker_label   TEXT,                                  -- 'driver'/'engineer'/'other'
+    sentiment_score REAL,                                  -- Phase 5
+    urgency_score   REAL,                                  -- Phase 5
+    incident_id     UUID REFERENCES incidents(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_radio_session    ON team_radio_clips (session_key);
+CREATE INDEX IF NOT EXISTS idx_radio_driver     ON team_radio_clips (driver_number);
+CREATE INDEX IF NOT EXISTS idx_radio_date       ON team_radio_clips (date DESC);
+
+-- ---------------------------------------------------------------------------
+-- annotations
+-- ---------------------------------------------------------------------------
+-- Human annotation labels (Phase 2 labelling UI).
+
+CREATE TABLE IF NOT EXISTS annotations (
+    annotation_id   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    doc_id          TEXT        NOT NULL,
+    annotator       TEXT        NOT NULL DEFAULT 'anonymous',
+    infraction_type TEXT,
+    outcome         TEXT,
+    penalty_class   TEXT        CHECK (penalty_class IN ('NFA','REP','5s','10s','DT','GRID','DSQ')),
+    penalty_points  SMALLINT,
+    article_cited   TEXT,
+    notes           TEXT,
+    positive_doc_id TEXT,                                  -- triplet positive
+    negative_doc_id TEXT,                                  -- triplet negative
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_annotations_doc_id    ON annotations (doc_id);
+CREATE INDEX IF NOT EXISTS idx_annotations_annotator ON annotations (annotator);
