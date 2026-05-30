@@ -15,12 +15,19 @@ env/
 .env.*
 !.env.example
 
-# Data — never commit raw PDFs or audio to git
+# Data — never commit raw PDFs, audio, or large JSONL to git
 data/raw_pdfs/
-data/annotations/similarity_pairs.jsonl
+data/parsed/decisions.jsonl
+data/annotations/
 data/ingested_hashes.json
+audio_cache/
 *.pdf
 *.mp3
+
+# Office documents
+*.docx
+*.doc
+*.xlsx
 
 # Model weights
 *.bin

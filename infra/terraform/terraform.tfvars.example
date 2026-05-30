@@ -1,8 +1,33 @@
-# Copy to terraform.tfvars and fill in your values.
-# NEVER commit terraform.tfvars — it's in .gitignore.
+# RACEJUDGE — Terraform variable values
+# -------------------------------------------------------
+# Copy this file to terraform.tfvars, fill in values.
+# NEVER commit terraform.tfvars — it contains secrets.
+# It is already in .gitignore.
+#
+# How to get each value:
+#
+#   cloudflare_account_id:
+#     Cloudflare dashboard → right sidebar on any page → "Account ID"
+#
+#   database_url:
+#     neon.tech → your project → "Connection string" tab
+#     Format: postgresql://user:pass@ep-xxx.eu-west-2.aws.neon.tech/racejudge?sslmode=require
+#
+#   redis_url:
+#     upstash.com → your database → "Connect" tab → Redis URL
+#     Format: rediss://default:TOKEN@HOST:6379
+#
+#   clerk_secret_key:
+#     clerk.com → your application → API Keys → Secret key
+#     Format: sk_live_XXXX  (use sk_test_... during development)
+#
+#   hf_token (optional):
+#     huggingface.co → Settings → Access Tokens → New token (read scope)
+#     Only needed for pyannote speaker diarization (Phase 3)
+# -------------------------------------------------------
 
-cloudflare_account_id = "your_cloudflare_account_id"
-database_url          = "postgresql://user:pass@host/racejudge?sslmode=require"
-redis_url             = "redis://default:token@upstash-endpoint:6379"
-clerk_secret_key      = "sk_live_..."
-hf_token              = "hf_..."  # optional, needed for pyannote diarization
+cloudflare_account_id = "abc123def456..."      # 32-char hex, from Cloudflare dashboard
+database_url          = "postgresql://racejudge:PASSWORD@ep-XXXX.eu-west-2.aws.neon.tech/racejudge?sslmode=require"
+redis_url             = "rediss://default:TOKEN@global-XXXX.upstash.io:6379"
+clerk_secret_key      = "sk_live_XXXXXXXXXXXXXXXXXXXX"
+hf_token              = ""                     # leave empty to skip diarization

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -33,6 +34,42 @@ log = logging.getLogger(__name__)
 
 AUDIO_CACHE_DIR = Path(__file__).resolve().parents[3] / "audio_cache"
 AUDIO_CACHE_DIR.mkdir(exist_ok=True)
+
+R2_BUCKET_AUDIO = os.environ.get("R2_BUCKET_AUDIO", "racejudge-audio")
+
+
+def _upload_to_r2(local_path: Path, session_key: int, driver_number: int) -> str | None:
+    """Upload a clip to R2. Returns the R2 key, or None if creds are missing."""
+    account_id = os.environ.get("R2_ACCOUNT_ID")
+    access_key = os.environ.get("R2_ACCESS_KEY_ID")
+    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
+    if not all([account_id, access_key, secret_key]):
+        return None
+    try:
+        import boto3
+        client = boto3.client(
+            "s3",
+            endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name="auto",
+        )
+        r2_key = f"radio/{session_key}/{driver_number}/{local_path.name}"
+        with local_path.open("rb") as f:
+            client.put_object(
+                Bucket=R2_BUCKET_AUDIO,
+                Key=r2_key,
+                Body=f,
+                ContentType="audio/mpeg",
+                Metadata={
+                    "session_key": str(session_key),
+                    "driver_number": str(driver_number),
+                },
+            )
+        return r2_key
+    except Exception as exc:
+        log.warning("R2 upload failed for %s: %s", local_path.name, exc)
+        return None
 
 
 def _parse_dt(s: str) -> datetime:
@@ -136,7 +173,7 @@ class RadioFetcher:
         session_key: int,
         driver_number: int,
     ) -> Path | None:
-        """Download a clip to cache. Returns local path or None on failure."""
+        """Download a clip to cache, then upload to R2 if credentials are set."""
         dest = _cache_path(session_key, driver_number, url)
         if dest.exists():
             log.debug("Cache hit: %s", dest.name)
@@ -144,10 +181,16 @@ class RadioFetcher:
         try:
             log.info("Downloading radio clip: %s", url)
             urllib.request.urlretrieve(url, dest)
-            return dest
         except Exception as exc:
             log.warning("Failed to download %s: %s", url, exc)
             return None
+
+        # Upload to R2 if credentials are available (non-blocking best-effort)
+        r2_key = _upload_to_r2(dest, session_key, driver_number)
+        if r2_key:
+            log.info("Uploaded to R2: %s", r2_key)
+
+        return dest
 
     def fetch_all_driver_clips(
         self,

@@ -166,3 +166,114 @@ CREATE TABLE IF NOT EXISTS annotations (
 
 CREATE INDEX IF NOT EXISTS idx_annotations_doc_id    ON annotations (doc_id);
 CREATE INDEX IF NOT EXISTS idx_annotations_annotator ON annotations (annotator);
+
+-- ---------------------------------------------------------------------------
+-- events
+-- ---------------------------------------------------------------------------
+-- One row per Grand Prix weekend (round).
+
+CREATE TABLE IF NOT EXISTS events (
+    event_id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    season          SMALLINT    NOT NULL CHECK (season >= 2018),
+    round_number    SMALLINT    NOT NULL,
+    circuit         TEXT        NOT NULL,
+    country         TEXT        NOT NULL,
+    event_name      TEXT        NOT NULL,
+    event_date      DATE,
+    openf1_meeting_key INTEGER,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (season, round_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_season ON events (season);
+
+-- ---------------------------------------------------------------------------
+-- sessions
+-- ---------------------------------------------------------------------------
+-- One row per session within an event (FP1/FP2/FP3/Q/Sprint/Race).
+
+CREATE TABLE IF NOT EXISTS sessions (
+    session_id      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_id        UUID        NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+    session_type    TEXT        NOT NULL CHECK (session_type IN
+                        ('practice_1','practice_2','practice_3',
+                         'qualifying','sprint_qualifying','sprint','race')),
+    session_key     INTEGER     UNIQUE,                    -- OpenF1 session_key
+    start_time      TIMESTAMPTZ,
+    end_time        TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_event_id    ON sessions (event_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_session_key ON sessions (session_key);
+
+-- ---------------------------------------------------------------------------
+-- race_control_messages
+-- ---------------------------------------------------------------------------
+-- OpenF1 race control messages (flags, investigations, VSC, SC, etc.).
+
+CREATE TABLE IF NOT EXISTS race_control_messages (
+    message_id      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_key     INTEGER     NOT NULL,
+    date            TIMESTAMPTZ NOT NULL,
+    category        TEXT,                                  -- 'Flag', 'SafetyCar', 'Drs', etc.
+    message         TEXT        NOT NULL,
+    flag            TEXT,                                  -- 'GREEN', 'YELLOW', 'RED', 'CHEQUERED'
+    scope           TEXT,                                  -- 'Track', 'Sector', 'Driver'
+    sector          SMALLINT,
+    driver_number   SMALLINT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rcm_session_key ON race_control_messages (session_key);
+CREATE INDEX IF NOT EXISTS idx_rcm_date        ON race_control_messages (date DESC);
+CREATE INDEX IF NOT EXISTS idx_rcm_category    ON race_control_messages (category);
+
+-- ---------------------------------------------------------------------------
+-- lap_features
+-- ---------------------------------------------------------------------------
+-- Per-lap telemetry features for incidents (Phase 3 + 5).
+-- Designed as a TimescaleDB hypertable on the 'time' column.
+
+CREATE TABLE IF NOT EXISTS lap_features (
+    id              UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    time            TIMESTAMPTZ NOT NULL,                  -- hypertable partition key
+    session_key     INTEGER     NOT NULL,
+    driver_number   SMALLINT    NOT NULL,
+    lap_number      SMALLINT    NOT NULL,
+    lap_time_ms     INTEGER,                               -- lap time in milliseconds
+    sector1_ms      INTEGER,
+    sector2_ms      INTEGER,
+    sector3_ms      INTEGER,
+    speed_i1        REAL,                                  -- speed trap km/h
+    speed_i2        REAL,
+    speed_fl        REAL,
+    speed_st        REAL,
+    compound        TEXT,                                  -- 'SOFT','MEDIUM','HARD','INTER','WET'
+    tyre_life_laps  SMALLINT,
+    is_personal_best BOOLEAN   NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id, time)
+);
+
+-- TimescaleDB hypertable (run after CREATE TABLE if TimescaleDB is enabled):
+-- SELECT create_hypertable('lap_features', 'time', if_not_exists => TRUE);
+
+CREATE INDEX IF NOT EXISTS idx_lap_features_session  ON lap_features (session_key, driver_number);
+CREATE INDEX IF NOT EXISTS idx_lap_features_time     ON lap_features (time DESC);
+
+-- ---------------------------------------------------------------------------
+-- Full-text search on decisions
+-- ---------------------------------------------------------------------------
+-- GIN index for fast Postgres FTS (Phase 2 upgrade from BM25 in-memory).
+-- The tsvector combines title (weight A) + raw_text (weight B).
+
+ALTER TABLE decisions
+    ADD COLUMN IF NOT EXISTS search_vector tsvector
+    GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(raw_text, '')), 'B')
+    ) STORED;
+
+CREATE INDEX IF NOT EXISTS idx_decisions_fts
+    ON decisions USING gin(search_vector);
