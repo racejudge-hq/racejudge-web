@@ -28,4 +28,32 @@ jobs:
         run: mypy packages/ apps/ scripts/ --ignore-missing-imports
 
       - name: Run tests
-        run: pytest tests/ --cov=packages --cov-report=term-missing
+        run: pytest tests/ --cov=packages --cov-report=term-missing -q
+
+  build-web:
+    name: Build (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_API_URL: http://localhost:8000

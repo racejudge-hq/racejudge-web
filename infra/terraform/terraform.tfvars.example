@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars — it's in .gitignore.
+
+cloudflare_account_id = "your_cloudflare_account_id"
+database_url          = "postgresql://user:pass@host/racejudge?sslmode=require"
+redis_url             = "redis://default:token@upstash-endpoint:6379"
+clerk_secret_key      = "sk_live_..."
+hf_token              = "hf_..."  # optional, needed for pyannote diarization

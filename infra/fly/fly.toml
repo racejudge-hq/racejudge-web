@@ -1,0 +1,38 @@
+# Fly.io deployment config — RACEJUDGE API
+# Region: iad (US East, close to Neon LHR read replica)
+# Scale to zero when idle; min 1 machine during race weekends
+
+app = "racejudge-api"
+primary_region = "iad"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "../../Dockerfile"
+
+[deploy]
+  release_command = "alembic upgrade head"
+  strategy = "rolling"
+
+[env]
+  PORT = "8000"
+  ENVIRONMENT = "production"
+  LOG_LEVEL = "info"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
