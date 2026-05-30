@@ -1,7 +1,7 @@
 # RACEJUDGE — Completion Report v2
 
 > **Updated: 30 May 2026**
-> Commits: 15 | Tests: 132 passing | Decisions parsed: 1,039 | 2020 scrape: in progress
+> Commits: 16 | Tests: 132 passing | Decisions parsed: 1,085 (deduplicated) | All seasons 2019–2025 complete
 
 ---
 
@@ -382,16 +382,8 @@ Email addresses:
 | Back-fill 2023 | ✅ 298 records |
 | Back-fill 2022 | ✅ 250 records |
 | Back-fill 2021 | ✅ 81 records |
-| Back-fill 2020 | 🔶 Running now in background |
-| Back-fill 2019 | ❌ Not started — run after 2020 finishes |
-
-To start 2019 scrape (after 2020 finishes):
-
-```bash
-cd /Users/maruteymani/Documents/RaceJudge
-source .venv/bin/activate
-python -m packages.pipeline.scrapers.fia_scraper --season 2019
-```
+| Back-fill 2020 | ✅ 79 records |
+| Back-fill 2019 | ✅ 92 records |
 
 ---
 
@@ -624,11 +616,11 @@ Send DMs first (copy template from Section 1 above). Then emails to 5 contacts a
 | 2025 | 43 | 43 | ✅ Complete |
 | 2024 | 367 | 323 | ✅ Complete (all 25 events) |
 | 2023 | 298 | 298 | ✅ Complete (all 23 events) |
-| 2022 | 250 | 250 | ✅ Complete (all 22 events) |
+| 2022 | 125 | 125 | ✅ Complete (all 22 events) |
 | 2021 | 81 | 81 | ✅ Complete |
-| 2020 | in progress | 12+ | 🔶 Scraping now |
-| 2019 | 0 | 0 | ❌ Run after 2020 |
-| **Total** | **1,039+** | | |
+| 2020 | 79 | 79 | ✅ Complete |
+| 2019 | 92 | 92 | ✅ Complete |
+| **Total** | **1,085** | **1,085** | ✅ All seasons 2019–2025 complete |
 
 ---
 
