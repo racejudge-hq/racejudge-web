@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 router = APIRouter(tags=["decisions"])
@@ -80,6 +80,7 @@ async def _pg_list(
     offset: int,
 ) -> list[dict]:
     from sqlalchemy import select, text
+
     from packages.db.database import _get_session_factory
     from packages.db.models import Decision as DecisionModel
 
@@ -103,6 +104,7 @@ async def _pg_list(
 
 async def _pg_get(doc_id: str) -> dict | None:
     from sqlalchemy import select
+
     from packages.db.database import _get_session_factory
     from packages.db.models import Decision as DecisionModel
 

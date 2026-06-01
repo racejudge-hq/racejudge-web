@@ -1,6 +1,7 @@
 """Tests for packages.pipeline.parsers.decision_parser."""
 
 import pytest
+
 from packages.pipeline.parsers.decision_parser import (
     batch_extract,
     extract_car_number,
@@ -12,7 +13,6 @@ from packages.pipeline.parsers.decision_parser import (
     extract_penalty_points,
     extract_session_type,
 )
-
 
 # ---------------------------------------------------------------------------
 # extract_car_number

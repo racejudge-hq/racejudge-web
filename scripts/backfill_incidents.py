@@ -59,7 +59,8 @@ def _load_decisions(season: int | None) -> list[dict]:
 async def _get_existing_doc_ids() -> set[str]:
     """Return set of doc_ids that already have incident rows."""
     try:
-        from sqlalchemy import select, text
+        from sqlalchemy import select
+
         from packages.db.database import _get_session_factory
         from packages.db.models import Incident
 

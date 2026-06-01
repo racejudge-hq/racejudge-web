@@ -76,7 +76,7 @@ def extract_text_task(self, record: dict) -> dict:
             normalize_decision_title,
         )
     except ImportError as exc:
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
     raw_text = record.get("raw_text", "")
     title    = record.get("title", "")

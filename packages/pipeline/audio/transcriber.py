@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import os
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -59,23 +58,23 @@ def _require_faster_whisper():
     try:
         from faster_whisper import WhisperModel
         return WhisperModel
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "faster-whisper not installed. Uncomment faster-whisper>=1.0.0 "
             "in requirements.txt and run: pip install -r requirements.txt"
-        )
+        ) from exc
 
 
 def _require_pyannote():
     try:
         from pyannote.audio import Pipeline
         return Pipeline
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "pyannote.audio not installed. Uncomment pyannote.audio>=3.1.0 "
             "in requirements.txt and run: pip install -r requirements.txt\n"
-            "Also set HF_TOKEN env var (requires pyannote model access on HuggingFace)."
-        )
+            "Also set HF_TOKEN env var (requires pyannote model access on HuggingFace)"
+        ) from exc
 
 
 class Transcriber:
@@ -173,7 +172,6 @@ class Transcriber:
 
     def _apply_diarization(self, result: TranscriptResult, audio_path: Path) -> TranscriptResult:
         """Assign speaker labels to transcript segments via pyannote."""
-        import torch
         diarization = self._diarizer(str(audio_path))
 
         # Build (start, end, speaker) timeline from pyannote
@@ -182,7 +180,7 @@ class Transcriber:
             speaker_timeline.append((turn.start, turn.end, speaker))
 
         for seg in result.segments:
-            mid = (seg.start + seg.end) / 2.0
+            (seg.start + seg.end) / 2.0
             best_speaker = None
             best_overlap = 0.0
             for s_start, s_end, speaker in speaker_timeline:

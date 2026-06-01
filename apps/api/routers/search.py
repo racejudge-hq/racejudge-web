@@ -37,6 +37,7 @@ class SearchResult(BaseModel):
 
 async def _pg_search(q: str, season: int | None, limit: int) -> list[dict]:
     from sqlalchemy import text
+
     from packages.db.database import _get_session_factory
 
     factory = _get_session_factory()
@@ -138,7 +139,7 @@ def _bm25_search(q: str, season: int | None, limit: int) -> list[dict]:
     num_docs = len(records)
 
     scored = []
-    for rec, doc_tokens in zip(records, tokenized):
+    for rec, doc_tokens in zip(records, tokenized, strict=False):
         score = _bm25(query_tokens, doc_tokens, doc_freq, num_docs, avg_dl)
         if score > 0:
             scored.append((score, rec))

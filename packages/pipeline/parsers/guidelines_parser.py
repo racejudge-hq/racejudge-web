@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -98,10 +98,10 @@ def _require_pdfplumber():
     try:
         import pdfplumber
         return pdfplumber
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "pdfplumber not installed. Run: pip install pdfplumber"
-        )
+        ) from exc
 
 
 def parse_guidelines_pdf(
@@ -285,7 +285,7 @@ KNOWN_GUIDELINES: list[dict[str, Any]] = [
 def get_seed_guidelines() -> list[GuidelineRow]:
     """Return the hardcoded seed guidelines as GuidelineRow objects."""
     return [
-        GuidelineRow(**{k: v for k, v in g.items()})
+        GuidelineRow(**dict(g.items()))
         for g in KNOWN_GUIDELINES
     ]
 

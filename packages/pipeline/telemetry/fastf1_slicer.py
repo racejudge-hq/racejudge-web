@@ -34,11 +34,11 @@ def _require_fastf1():
     try:
         import fastf1
         return fastf1
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "fastf1 not installed. Uncomment fastf1>=3.3.0 in requirements.txt "
             "and run: pip install -r requirements.txt"
-        )
+        ) from exc
 
 
 class TelemetrySlicer:

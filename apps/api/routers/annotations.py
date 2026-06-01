@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -119,7 +119,7 @@ async def submit_annotation(
     If positive_doc_id is provided, also creates a relevance triplet.
     """
     annotation_id = str(uuid.uuid4())
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = datetime.now(UTC).isoformat()
 
     record = {
         "annotation_id": annotation_id,

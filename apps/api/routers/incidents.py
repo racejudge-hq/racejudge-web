@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 router = APIRouter(tags=["incidents"])
@@ -100,8 +100,10 @@ async def _pg_list(
     offset: int,
 ) -> list[dict]:
     from sqlalchemy import select, text
+
     from packages.db.database import _get_session_factory
-    from packages.db.models import Incident as IncidentModel, Decision
+    from packages.db.models import Decision
+    from packages.db.models import Incident as IncidentModel
 
     factory = _get_session_factory()
     if factory is None:
@@ -141,8 +143,9 @@ async def _pg_list(
 async def _pg_get(incident_id: str) -> dict | None:
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
     from packages.db.database import _get_session_factory
-    from packages.db.models import Incident as IncidentModel, RaceControlMessage, TeamRadioClip
+    from packages.db.models import Incident as IncidentModel
 
     factory = _get_session_factory()
     if factory is None:
@@ -263,9 +266,11 @@ async def extract_incident(body: ExtractRequest) -> dict:
     if not _DB_AVAILABLE:
         raise HTTPException(status_code=503, detail="DATABASE_URL required")
 
-    from sqlalchemy import select, text
+    from sqlalchemy import select
+
     from packages.db.database import _get_session_factory
-    from packages.db.models import Incident as IncidentModel, Decision
+    from packages.db.models import Decision
+    from packages.db.models import Incident as IncidentModel
     from packages.pipeline.extractors.incident_extractor import IncidentExtractor
 
     factory = _get_session_factory()

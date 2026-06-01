@@ -1,6 +1,7 @@
 """Tests for driver_resolver.py"""
 
 import pytest
+
 from packages.pipeline.resolvers.driver_resolver import DriverResolver
 
 

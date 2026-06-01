@@ -20,10 +20,9 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 import logging
-import re
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ def _parse_dt(s: str) -> datetime:
         dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f")
     else:
         dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
-    return dt.replace(tzinfo=timezone.utc)
+    return dt.replace(tzinfo=UTC)
 
 
 def _is_investigation_message(msg: str) -> bool:
@@ -81,6 +80,7 @@ class RaceControlLinker:
         Returns count of new messages inserted.
         """
         from sqlalchemy import select
+
         from packages.db.models import RaceControlMessage
 
         raw_messages = self._client.race_control(session_key=session_key)
@@ -108,7 +108,7 @@ class RaceControlLinker:
 
             rc = RaceControlMessage(
                 session_key   = session_key,
-                date          = _parse_dt(date_str) if date_str else datetime.now(tz=timezone.utc),
+                date          = _parse_dt(date_str) if date_str else datetime.now(tz=UTC),
                 category      = msg.get("category"),
                 message       = message,
                 flag          = msg.get("flag"),
@@ -130,8 +130,9 @@ class RaceControlLinker:
         Link all matching RC messages to a single incident.
         Returns count of messages linked.
         """
-        from sqlalchemy import select, update
-        from packages.db.models import Incident, RaceControlMessage, Decision
+        from sqlalchemy import select
+
+        from packages.db.models import Decision, Incident, RaceControlMessage
 
         # Fetch incident + decision
         inc_result = await db.execute(
@@ -154,10 +155,8 @@ class RaceControlLinker:
         decision = dec_result.scalar_one_or_none()
         published_at = None
         if decision and decision.published_at:
-            try:
+            with contextlib.suppress(Exception):
                 published_at = _parse_dt(decision.published_at)
-            except Exception:
-                pass
 
         # Fetch unlinked RC messages for this session
         rc_result = await db.execute(
@@ -180,13 +179,11 @@ class RaceControlLinker:
                     should_link = True
 
             # Strategy 2: driver keyword match
-            if not should_link and _is_investigation_message(rc.message):
-                if _driver_mentioned(rc.message, drv_code, car_num):
+            if not should_link and _is_investigation_message(rc.message) and _driver_mentioned(rc.message, drv_code, car_num):
                     should_link = True
 
             # Strategy 3: car number in driver_number field
-            if not should_link and rc.driver_number is not None and car_num is not None:
-                if rc.driver_number == car_num:
+            if not should_link and rc.driver_number is not None and car_num is not None and rc.driver_number == car_num:
                     should_link = True
 
             if should_link:
@@ -208,6 +205,7 @@ class RaceControlLinker:
         Returns stats dict.
         """
         from sqlalchemy import select
+
         from packages.db.models import Incident
 
         new_rc = await self.fetch_and_store_rc_messages(session_key, db)

@@ -145,7 +145,7 @@ def link_decision(record: dict, client: OpenF1Client) -> dict:
 # ---------------------------------------------------------------------------
 
 def run(season: int | None = None) -> None:
-    records = [json.loads(l) for l in PARSED_JSONL.read_text().splitlines() if l.strip()]
+    records = [json.loads(line) for line in PARSED_JSONL.read_text().splitlines() if line.strip()]
     if season:
         records = [r for r in records if r.get("season") == season]
 

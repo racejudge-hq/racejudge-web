@@ -31,8 +31,8 @@ from pathlib import Path
 from typing import Any
 
 from packages.ml.features import (
-    PENALTY_CLASSES,
     PENALTY_CLASS_TO_IDX,
+    PENALTY_CLASSES,
     batch_extract_features,
     extract_features,
 )
@@ -71,22 +71,22 @@ def _require_sklearn():
     try:
         import sklearn
         return sklearn
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "scikit-learn not installed. Uncomment scikit-learn>=1.4.0 "
             "in requirements.txt and run: pip install -r requirements.txt"
-        )
+        ) from exc
 
 
 def _require_xgboost():
     try:
         import xgboost
         return xgboost
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "xgboost not installed. Uncomment xgboost>=2.0.0 "
             "in requirements.txt and run: pip install -r requirements.txt"
-        )
+        ) from exc
 
 
 def _build_pipeline(n_classes: int):
@@ -145,7 +145,7 @@ class PenaltyPredictor:
         *,
         val_records: list[dict] | None = None,
         verbose: bool = True,
-    ) -> "PenaltyPredictor":
+    ) -> PenaltyPredictor:
         """
         Train on enriched incident records.
         records with penalty_class == None are skipped (unlabelled).
@@ -181,8 +181,7 @@ class PenaltyPredictor:
         pipeline.fit(X, y, **fit_kwargs)
         log.info("Training complete")
 
-        predictor = cls(pipeline=pipeline)
-        return predictor
+        return cls(pipeline=pipeline)
 
     # ------------------------------------------------------------------
     # Inference
@@ -208,7 +207,7 @@ class PenaltyPredictor:
         return {
             "predicted_class": predicted_class,
             "predicted_class_idx": class_idx,
-            "proba": {cls: round(float(p), 4) for cls, p in zip(PENALTY_CLASSES, proba)},
+            "proba": {cls: round(float(p), 4) for cls, p in zip(PENALTY_CLASSES, proba, strict=False)},
             "confidence": round(float(proba.max()), 4),
             "penalty_points_delta": feat.get("penalty_points_delta", 0),
         }
@@ -228,7 +227,7 @@ class PenaltyPredictor:
         return path
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "PenaltyPredictor":
+    def load(cls, path: str | Path | None = None) -> PenaltyPredictor:
         import joblib
         path = Path(path) if path else MODELS_DIR / "penalty_v1.pkl"
         if not path.exists():
@@ -243,15 +242,15 @@ class PenaltyPredictor:
     @staticmethod
     def evaluate(
         records: list[dict],
-        predictor: "PenaltyPredictor",
+        predictor: PenaltyPredictor,
     ) -> dict[str, Any]:
         """
         Compute Macro-F1 and ECE on a held-out set.
         Gate: do not ship publicly if ECE >= 0.05.
         """
-        from sklearn.metrics import classification_report, f1_score
         import numpy as np
         import pandas as pd
+        from sklearn.metrics import classification_report, f1_score
 
         feats = batch_extract_features(records)
         df = pd.DataFrame(feats)
@@ -296,7 +295,7 @@ def _compute_ece(y_true, y_proba, n_bins: int = 10) -> float:
         labels_c = (y_true == c).astype(float)
         bin_edges = np.linspace(0, 1, n_bins + 1)
 
-        for lo, hi in zip(bin_edges[:-1], bin_edges[1:]):
+        for lo, hi in zip(bin_edges[:-1], bin_edges[1:], strict=False):
             mask = (probs_c >= lo) & (probs_c < hi)
             if mask.sum() == 0:
                 continue

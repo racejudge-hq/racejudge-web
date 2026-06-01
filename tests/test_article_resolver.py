@@ -1,7 +1,8 @@
 """Tests for article_resolver.py"""
 
 import pytest
-from packages.pipeline.resolvers.article_resolver import ArticleResolver, ArticleCitation
+
+from packages.pipeline.resolvers.article_resolver import ArticleCitation, ArticleResolver
 
 
 @pytest.fixture

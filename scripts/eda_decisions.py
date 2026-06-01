@@ -39,7 +39,7 @@ def load_records(path: Path) -> list[dict]:
 def run_eda(records: list[dict]) -> dict:
     from packages.pipeline.parsers.decision_parser import batch_extract
 
-    print(f"\nRACEJUDGE — Decision Data EDA")
+    print("\nRACEJUDGE — Decision Data EDA")
     print(f"{'=' * 50}")
     print(f"Total records: {len(records)}")
 
@@ -84,18 +84,18 @@ def run_eda(records: list[dict]) -> dict:
 
     # Session type distribution
     sessions = Counter(e.get("session_type") for e in extracted if e.get("session_type"))
-    print(f"\nSession types:")
+    print("\nSession types:")
     for session, count in sessions.most_common():
         print(f"  {session}: {count}")
 
     # Extraction coverage
     fields = ["car_number", "driver_name", "infraction_type", "outcome", "lap_number"]
-    print(f"\nExtraction coverage (% of docs):")
+    print("\nExtraction coverage (% of docs):")
     for field in fields:
         count = sum(1 for e in extracted if e.get(field) is not None)
         print(f"  {field}: {count}/{len(extracted)} ({count/len(extracted)*100:.1f}%)")
 
-    report = {
+    return {
         "total_records": len(records),
         "by_season": dict(seasons),
         "needs_ocr": needs_ocr,
@@ -108,7 +108,6 @@ def run_eda(records: list[dict]) -> dict:
             for f in fields
         },
     }
-    return report
 
 
 def main() -> None:

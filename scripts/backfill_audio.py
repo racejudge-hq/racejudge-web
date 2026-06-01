@@ -20,7 +20,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 async def _get_session_keys_with_incidents(season: int | None) -> list[int]:
     try:
         from sqlalchemy import text
+
         from packages.db.database import _get_session_factory
         factory = _get_session_factory()
         if factory is None:
@@ -58,6 +59,7 @@ async def _get_session_keys_with_incidents(season: int | None) -> list[int]:
 
 async def _insert_clips(clips: list[dict], db) -> int:
     from sqlalchemy.dialects.postgresql import insert
+
     from packages.db.models import TeamRadioClip
 
     inserted = 0
@@ -68,7 +70,7 @@ async def _insert_clips(clips: list[dict], db) -> int:
         stmt = insert(TeamRadioClip).values(
             session_key   = clip["session_key"],
             driver_number = clip["driver_number"],
-            date          = _parse_dt(clip.get("date", "")) or datetime.now(tz=timezone.utc),
+            date          = _parse_dt(clip.get("date", "")) or datetime.now(tz=UTC),
             recording_url = url,
             r2_key        = clip.get("r2_key"),
         ).on_conflict_do_nothing(index_elements=["recording_url"])
@@ -85,7 +87,7 @@ def _parse_dt(s: str) -> datetime | None:
     try:
         s = s.rstrip("Z")
         fmt = "%Y-%m-%dT%H:%M:%S.%f" if "." in s else "%Y-%m-%dT%H:%M:%S"
-        return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+        return datetime.strptime(s, fmt).replace(tzinfo=UTC)
     except Exception:
         return None
 
@@ -122,13 +124,8 @@ async def process_session(session_key: int, db, dry_run: bool) -> dict:
     for clip in all_clips:
         local_path = clip.get("path")
         if local_path and Path(local_path).exists():
-            try:
-                from packages.pipeline.audio.asr_worker import transcribe_clip_task
-                # We don't have clip_id yet (just inserted), skip queuing for now
-                # The batch_transcribe_session_task handles this
-                queued += 1
-            except Exception:
-                pass
+            # The batch_transcribe_session_task handles queuing by session_key
+            queued += 1
 
     return {"session_key": session_key, "clips": len(all_clips), "inserted": inserted}
 

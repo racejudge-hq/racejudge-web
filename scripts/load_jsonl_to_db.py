@@ -35,7 +35,7 @@ def main() -> None:
         print(f"No decisions.jsonl found at {JSONL}. Run the scraper first.")
         sys.exit(1)
 
-    records = [json.loads(l) for l in JSONL.read_text().splitlines() if l.strip()]
+    records = [json.loads(line) for line in JSONL.read_text().splitlines() if line.strip()]
     print(f"Loading {len(records)} records into Postgres...")
 
     conn = psycopg2.connect(database_url)

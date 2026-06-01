@@ -24,12 +24,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pdfplumber
@@ -237,7 +238,8 @@ def _find_decision_links_playwright(season: int) -> list[dict]:
       1. Load the season+F1 filter page and discover all GP event URLs.
       2. Visit each event page and collect stewards' decision PDF links.
     """
-    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+    from playwright.sync_api import TimeoutError as PWTimeout
+    from playwright.sync_api import sync_playwright
 
     base_url = _season_filter_url(season)
     log.info("[Playwright] Loading season %d filter: %s", season, base_url)
@@ -270,10 +272,8 @@ def _find_decision_links_playwright(season: int) -> list[dict]:
             log.info("[Playwright] Event: %s", event_name)
             try:
                 page.goto(event_url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT)
-                try:
+                with contextlib.suppress(PWTimeout):
                     page.wait_for_selector("a[href$='.pdf']", timeout=PDF_LINK_TIMEOUT)
-                except PWTimeout:
-                    pass  # event may have no PDF links yet
                 event_soup = BeautifulSoup(page.content(), "html.parser")
                 docs = _parse_decision_links(event_soup, season)
                 log.info("  → %d decision documents", len(docs))
@@ -400,7 +400,7 @@ def ingest_season(
             "season": season,
             "published_at": doc.get("published_at"),
             "parser_version": "v1.1-pdfplumber",
-            "parsed_at": datetime.now(timezone.utc).isoformat(),
+            "parsed_at": datetime.now(UTC).isoformat(),
             "char_count": len(raw_text),
             "needs_ocr": len(raw_text) < 50,
         }
@@ -477,7 +477,7 @@ if __name__ == "__main__":
     elif args.seasons:
         seasons = args.seasons
     else:
-        seasons = [datetime.now(timezone.utc).year]
+        seasons = [datetime.now(UTC).year]
         print(f"No season specified — defaulting to current year ({seasons[0]})")
 
     run(seasons, use_playwright=not args.no_playwright)

@@ -48,8 +48,7 @@ def _fetch_drivers(season: int) -> list[dict]:
     url = f"{JOLPICA_BASE}/{season}/drivers.json?limit=30"
     try:
         data = _fetch(url)
-        drivers = data.get("MRData", {}).get("DriverTable", {}).get("Drivers", [])
-        return drivers
+        return data.get("MRData", {}).get("DriverTable", {}).get("Drivers", [])
     except Exception as exc:
         log.warning("Failed to fetch drivers for %d: %s", season, exc)
         return []
@@ -115,6 +114,7 @@ def _merge_teams(existing: list[dict], new_records: list[dict]) -> list[dict]:
 async def _upsert_drivers_db(drivers: list[dict]) -> None:
     try:
         from sqlalchemy.dialects.postgresql import insert
+
         from packages.db.database import _get_session_factory
         from packages.db.models import Driver
 
@@ -153,6 +153,7 @@ async def _upsert_drivers_db(drivers: list[dict]) -> None:
 async def _upsert_teams_db(teams: list[dict]) -> None:
     try:
         from sqlalchemy.dialects.postgresql import insert
+
         from packages.db.database import _get_session_factory
         from packages.db.models import Team
 
@@ -212,7 +213,6 @@ async def run(seasons: list[int], cache_only: bool) -> None:
 
     # Invalidate in-memory driver resolver index
     try:
-        from packages.pipeline.resolvers.driver_resolver import _indices
         import packages.pipeline.resolvers.driver_resolver as mod
         mod._indices = None
     except Exception:

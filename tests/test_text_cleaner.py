@@ -1,6 +1,7 @@
 """Tests for packages.pipeline.parsers.text_cleaner."""
 
 import pytest
+
 from packages.pipeline.parsers.text_cleaner import (
     clean_decision_text,
     extract_article_citations,

@@ -13,9 +13,8 @@ Output: list of {article_number, document_name, article_id (if in DB)}
 
 from __future__ import annotations
 
-import re
 import logging
-from pathlib import Path
+import re
 
 log = logging.getLogger(__name__)
 
@@ -182,6 +181,7 @@ class ArticleResolver:
 
         try:
             from sqlalchemy import select
+
             from packages.db.models import Guideline
 
             article_nums = [c.article_number for c in citations]

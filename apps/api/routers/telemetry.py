@@ -51,10 +51,10 @@ def _get_slicer():
         raise HTTPException(
             status_code=503,
             detail=f"FastF1 not available: {exc}. Install fastf1>=3.3.0.",
-        )
+        ) from exc
     except Exception as exc:
         log.error("TelemetrySlicer init error: %s", exc)
-        raise HTTPException(status_code=503, detail=f"Telemetry service unavailable: {exc}")
+        raise HTTPException(status_code=503, detail=f"Telemetry service unavailable: {exc}") from exc
 
 
 @router.get("/telemetry/incident", response_model=TelemetryResponse)
@@ -82,7 +82,7 @@ async def get_incident_telemetry(
         )
     except Exception as exc:
         log.error("Telemetry fetch error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if data.get("laps") is None:
         raise HTTPException(
@@ -121,7 +121,7 @@ async def compare_driver_telemetry(
         )
     except Exception as exc:
         log.error("Comparison error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return {
         "year": year,

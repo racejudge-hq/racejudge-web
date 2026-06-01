@@ -13,7 +13,6 @@ from typing import Any
 
 from sqlalchemy import (
     ARRAY,
-    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -86,7 +85,7 @@ class Decision(Base):
     parsed_at:      Mapped[datetime] = mapped_column(server_default=func.now())
     created_at:     Mapped[datetime] = mapped_column(server_default=func.now())
 
-    incidents: Mapped[list["Incident"]] = relationship("Incident", back_populates="decision")
+    incidents: Mapped[list[Incident]] = relationship("Incident", back_populates="decision")
 
     __table_args__ = (
         CheckConstraint("season >= 2018", name="ck_decisions_season"),
@@ -117,11 +116,11 @@ class Incident(Base):
     created_at:          Mapped[datetime]   = mapped_column(server_default=func.now())
     updated_at:          Mapped[datetime]   = mapped_column(server_default=func.now(), onupdate=func.now())
 
-    decision: Mapped["Decision"] = relationship("Decision", back_populates="incidents")
-    race_control_messages: Mapped[list["RaceControlMessage"]] = relationship(
+    decision: Mapped[Decision] = relationship("Decision", back_populates="incidents")
+    race_control_messages: Mapped[list[RaceControlMessage]] = relationship(
         "RaceControlMessage", back_populates="incident"
     )
-    radio_clips: Mapped[list["TeamRadioClip"]] = relationship(
+    radio_clips: Mapped[list[TeamRadioClip]] = relationship(
         "TeamRadioClip", back_populates="incident"
     )
 
@@ -146,7 +145,7 @@ class Event(Base):
     openf1_meeting_key: Mapped[int | None] = mapped_column(Integer)
     created_at:         Mapped[datetime] = mapped_column(server_default=func.now())
 
-    sessions: Mapped[list["Session"]] = relationship("Session", back_populates="event")
+    sessions: Mapped[list[Session]] = relationship("Session", back_populates="event")
 
     __table_args__ = (
         CheckConstraint("season >= 2018", name="ck_events_season"),
@@ -165,7 +164,7 @@ class Session(Base):
     end_time:     Mapped[datetime | None] = mapped_column()
     created_at:   Mapped[datetime] = mapped_column(server_default=func.now())
 
-    event: Mapped["Event"] = relationship("Event", back_populates="sessions")
+    event: Mapped[Event] = relationship("Event", back_populates="sessions")
 
 
 class RaceControlMessage(Base):
@@ -183,7 +182,7 @@ class RaceControlMessage(Base):
     incident_id:   Mapped[str | None] = mapped_column(ForeignKey("incidents.incident_id"))
     created_at:    Mapped[datetime] = mapped_column(server_default=func.now())
 
-    incident: Mapped["Incident | None"] = relationship("Incident", back_populates="race_control_messages")
+    incident: Mapped[Incident | None] = relationship("Incident", back_populates="race_control_messages")
 
 
 class TeamRadioClip(Base):
@@ -202,7 +201,7 @@ class TeamRadioClip(Base):
     incident_id:    Mapped[str | None] = mapped_column(ForeignKey("incidents.incident_id"))
     created_at:     Mapped[datetime] = mapped_column(server_default=func.now())
 
-    incident: Mapped["Incident | None"] = relationship("Incident", back_populates="radio_clips")
+    incident: Mapped[Incident | None] = relationship("Incident", back_populates="radio_clips")
 
 
 class Annotation(Base):

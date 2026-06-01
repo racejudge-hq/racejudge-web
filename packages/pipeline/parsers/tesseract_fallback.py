@@ -15,7 +15,6 @@ Returns raw OCR text with page separators.
 from __future__ import annotations
 
 import logging
-import tempfile
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -39,8 +38,8 @@ def ocr_pdf(pdf_path: str | Path, dpi: int = 300) -> str:
         RuntimeError: if pdf2image or pytesseract are not installed.
     """
     try:
-        from pdf2image import convert_from_path
         import pytesseract
+        from pdf2image import convert_from_path
     except ImportError as e:
         raise RuntimeError(
             f"OCR dependency missing: {e}\n"

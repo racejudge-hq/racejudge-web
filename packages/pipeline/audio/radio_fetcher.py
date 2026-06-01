@@ -25,7 +25,7 @@ import hashlib
 import logging
 import os
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -79,7 +79,7 @@ def _parse_dt(s: str) -> datetime:
         dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f")
     else:
         dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
-    return dt.replace(tzinfo=timezone.utc)
+    return dt.replace(tzinfo=UTC)
 
 
 def _cache_path(session_key: int, driver_number: int, url: str) -> Path:
@@ -117,10 +117,7 @@ class RadioFetcher:
           - driver_number: int
           - session_key: int
         """
-        if isinstance(incident_time, str):
-            incident_dt = _parse_dt(incident_time)
-        else:
-            incident_dt = incident_time
+        incident_dt = _parse_dt(incident_time) if isinstance(incident_time, str) else incident_time
 
         window_start = incident_dt - timedelta(seconds=window_seconds)
         window_end = incident_dt + timedelta(seconds=window_seconds)

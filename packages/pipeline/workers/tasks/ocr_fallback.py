@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import logging
-import tempfile
 from pathlib import Path
 
 from celery import shared_task
@@ -49,14 +48,14 @@ def ocr_fallback_task(self, pdf_path: str, pdf_url: str = "", season: int = 0) -
         dict with doc_id and char_count after OCR.
     """
     try:
-        from pdf2image import convert_from_path
         import pytesseract
-    except ImportError:
+        from pdf2image import convert_from_path
+    except ImportError as exc:
         raise RuntimeError(
             "OCR dependencies not installed.\n"
             "Run: pip install pytesseract pdf2image pillow\n"
             "And: brew install tesseract  (macOS) or apt install tesseract-ocr"
-        )
+        ) from exc
 
     path   = Path(pdf_path)
     logger.info("OCR fallback: %s", path.name)

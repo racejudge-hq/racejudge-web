@@ -17,8 +17,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ log = logging.getLogger(__name__)
 def _parse_dt(s: str) -> datetime:
     s = s.rstrip("Z")
     fmt = "%Y-%m-%dT%H:%M:%S.%f" if "." in s else "%Y-%m-%dT%H:%M:%S"
-    return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+    return datetime.strptime(s, fmt).replace(tzinfo=UTC)
 
 
 class WeatherLinker:
@@ -98,7 +97,8 @@ class WeatherLinker:
         Returns count of incidents updated.
         """
         from sqlalchemy import select
-        from packages.db.models import Incident, Decision, RaceControlMessage
+
+        from packages.db.models import Decision, Incident, RaceControlMessage
 
         # Get incidents for session without weather context
         result = await db.execute(

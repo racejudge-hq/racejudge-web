@@ -29,9 +29,9 @@ log = logging.getLogger(__name__)
 async def _get_session_keys(season: int | None) -> list[int]:
     """Fetch distinct session_keys from incidents table (optionally filtered by season)."""
     try:
-        from sqlalchemy import select, text
+        from sqlalchemy import text
+
         from packages.db.database import _get_session_factory
-        from packages.db.models import Incident, Decision
 
         factory = _get_session_factory()
         if factory is None:

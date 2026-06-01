@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from packages.pipeline.parsers.guidelines_parser import (
+from packages.pipeline.parsers.guidelines_parser import (  # noqa: E402
     get_seed_guidelines,
     guidelines_to_dicts,
     parse_guidelines_pdf,

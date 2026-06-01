@@ -1,9 +1,10 @@
 """Tests for packages.ml.features — feature extraction for penalty prediction."""
 
 import pytest
+
 from packages.ml.features import (
-    PENALTY_CLASSES,
     PENALTY_CLASS_TO_IDX,
+    PENALTY_CLASSES,
     _lap_phase,
     _norm_session,
     _norm_tyre,
@@ -12,7 +13,6 @@ from packages.ml.features import (
     batch_extract_features,
     extract_features,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

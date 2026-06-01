@@ -1,13 +1,14 @@
 """Tests for incident_extractor.py"""
 
 import pytest
+
 from packages.pipeline.extractors.incident_extractor import (
-    IncidentExtractor,
     ExtractionResult,
-    _normalise_penalty_type,
-    _normalise_infraction_category,
-    _parse_penalty_seconds,
+    IncidentExtractor,
     _infer_contact,
+    _normalise_infraction_category,
+    _normalise_penalty_type,
+    _parse_penalty_seconds,
 )
 
 

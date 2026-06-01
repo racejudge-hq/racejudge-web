@@ -18,12 +18,12 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Prefect imports are lazy so this file is importable without prefect installed
 try:
-    from prefect import flow, task, get_run_logger
+    from prefect import flow, get_run_logger, task
     from prefect.artifacts import create_markdown_artifact
     _PREFECT = True
 except ImportError:
@@ -44,7 +44,7 @@ PARSED_JSONL = ROOT / "data" / "parsed" / "decisions.jsonl"
 def scrape_season_task(season: int, use_playwright: bool = True) -> list[dict]:
     """Scrape one FIA season and return new parsed records."""
     log = get_run_logger()
-    from packages.pipeline.scrapers.fia_scraper import ingest_season, _load_hash_db, _save_hash_db
+    from packages.pipeline.scrapers.fia_scraper import _load_hash_db, _save_hash_db, ingest_season
 
     ingested_hashes = _load_hash_db()
     log.info("Scraping season %d (%d hashes already ingested)", season, len(ingested_hashes))
@@ -124,7 +124,7 @@ def ingest_flow(
     log = get_run_logger()
 
     if not seasons:
-        seasons = [datetime.now(timezone.utc).year]
+        seasons = [datetime.now(UTC).year]
 
     total_new = 0
     total_pg  = 0
@@ -139,7 +139,7 @@ def ingest_flow(
         "seasons": seasons,
         "new_records": total_new,
         "postgres_inserted": total_pg,
-        "run_at": datetime.now(timezone.utc).isoformat(),
+        "run_at": datetime.now(UTC).isoformat(),
     }
 
     if _PREFECT:

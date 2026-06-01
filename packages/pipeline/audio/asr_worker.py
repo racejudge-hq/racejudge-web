@@ -51,10 +51,8 @@ def _load_model():
         )
         log.info("Whisper %s loaded (device=%s, compute=%s)", MODEL_SIZE, DEVICE, COMPUTE_TYPE)
         return model
-    except ImportError:
-        raise RuntimeError(
-            "faster-whisper not installed. pip install faster-whisper"
-        )
+    except ImportError as exc:
+        raise RuntimeError("faster-whisper not installed. pip install faster-whisper") from exc
 
 
 _model = None
@@ -134,7 +132,7 @@ def transcribe_clip_task(self, clip_id: str, audio_path: str) -> dict:
         result = transcribe_audio(audio_path)
     except Exception as exc:
         log.error("Transcription failed for clip %s: %s", clip_id, exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
     transcript = result["text"]
     log.info("Clip %s transcribed: %d chars", clip_id, len(transcript))

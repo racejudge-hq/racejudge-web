@@ -75,7 +75,7 @@ def _lap_phase(lap: int | None, total_laps: int | None) -> str:
     frac = lap / total_laps
     if frac <= 1 / 3:
         return "early"
-    elif frac <= 2 / 3:
+    if frac <= 2 / 3:
         return "mid"
     return "late"
 

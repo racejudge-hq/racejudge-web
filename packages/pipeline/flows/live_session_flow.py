@@ -20,15 +20,14 @@ Usage:
 from __future__ import annotations
 
 import logging
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 log = logging.getLogger(__name__)
 
 # Graceful stub if Prefect not installed
 try:
-    from prefect import flow, task, get_run_logger
+    from prefect import flow, get_run_logger, task
     from prefect.tasks import task_input_hash
     HAS_PREFECT = True
 except ImportError:
@@ -78,9 +77,7 @@ def _is_incident_message(msg: dict) -> bool:
         return True
     if category == "INCIDENT":
         return True
-    if any(note in message for note in INCIDENT_FLAG_NOTES):
-        return True
-    return False
+    return bool(any(note in message for note in INCIDENT_FLAG_NOTES))
 
 
 # ---------------------------------------------------------------------------
@@ -180,7 +177,7 @@ def store_incident_task(incident_data: dict) -> str:
 
     record = {
         **incident_data,
-        "stored_at": datetime.now(timezone.utc).isoformat(),
+        "stored_at": datetime.now(UTC).isoformat(),
     }
 
     with open(output_path, "a") as f:

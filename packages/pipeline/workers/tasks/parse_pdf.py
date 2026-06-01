@@ -67,8 +67,8 @@ def parse_pdf_task(self, pdf_path: str, pdf_url: str = "", season: int = 0) -> d
     """
     try:
         import pdfplumber
-    except ImportError:
-        raise RuntimeError("pdfplumber not installed — run: pip install pdfplumber")
+    except ImportError as exc:
+        raise RuntimeError("pdfplumber not installed — run: pip install pdfplumber") from exc
 
     path = Path(pdf_path)
     if not path.exists():

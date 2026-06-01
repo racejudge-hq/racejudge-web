@@ -164,7 +164,7 @@ def _suggest_similar_pair(
 
     random.shuffle(eligible)
     for bucket in eligible:
-        docs = [d for d in bucket]
+        docs = list(bucket)
         random.shuffle(docs)
         for i in range(len(docs)):
             for j in range(i + 1, len(docs)):
@@ -264,10 +264,8 @@ def annotate() -> None:
 
         if need_similar and (not need_dissim or random.random() < 0.5):
             result = _suggest_similar_pair(decisions, seen_pairs)
-            suggested_label = "similar"
         else:
             result = _suggest_dissimilar_pair(decisions, seen_pairs)
-            suggested_label = "dissimilar"
 
         if result is None:
             print(f"\n{YELLOW}No more unique pairs to suggest. Session complete.{RESET}")
@@ -283,17 +281,16 @@ def annotate() -> None:
             if choice in ("s", "similar"):
                 label = "similar"
                 break
-            elif choice in ("d", "dissimilar"):
+            if choice in ("d", "dissimilar"):
                 label = "dissimilar"
                 break
-            elif choice in ("?", "skip", ""):
+            if choice in ("?", "skip", ""):
                 label = None
                 break
-            elif choice in ("q", "quit"):
+            if choice in ("q", "quit"):
                 print(f"\n{GREEN}Saved and exiting. Labelled so far: {similar_done + dissim_done}{RESET}")
                 return
-            else:
-                print(f"  {YELLOW}Enter s, d, ?, or q{RESET}")
+            print(f"  {YELLOW}Enter s, d, ?, or q{RESET}")
 
         if label is None:
             continue
@@ -347,7 +344,7 @@ def show_progress() -> None:
     for p in existing:
         s = str(p.get("anchor_season", "?"))
         seasons[s] = seasons.get(s, 0) + 1
-    print(f"\n  By anchor season:")
+    print("\n  By anchor season:")
     for s, count in sorted(seasons.items()):
         print(f"    {s}: {count} pairs")
 

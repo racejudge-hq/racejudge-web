@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -140,7 +140,7 @@ async def predict_penalty(incident: IncidentInput) -> dict[str, Any]:
         result = model.predict(record)
     except Exception as exc:
         log.error("Prediction error: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
 
     return {
         "predicted_class": result["predicted_class"],

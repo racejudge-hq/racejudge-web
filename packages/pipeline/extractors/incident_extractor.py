@@ -19,7 +19,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ class ExtractionResult:
     raw_text:            str = ""
 
     def to_dict(self) -> dict:
-        d = {
+        return {
             "doc_id":              self.doc_id,
             "driver_name":         self.driver_name,
             "car_number":          self.car_number,
@@ -69,7 +68,6 @@ class ExtractionResult:
             "drivers":             self.drivers,
             "extractor_version":   self.extractor_version,
         }
-        return d
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +181,8 @@ class IncidentExtractor:
     def __init__(self, enable_layoutlm: bool = True):
         self._layoutlm = None
         self._enable_layoutlm = enable_layoutlm
-        from packages.pipeline.resolvers.driver_resolver import DriverResolver
         from packages.pipeline.resolvers.article_resolver import ArticleResolver
+        from packages.pipeline.resolvers.driver_resolver import DriverResolver
         self._driver_resolver  = DriverResolver()
         self._article_resolver = ArticleResolver()
 
@@ -238,14 +236,20 @@ class IncidentExtractor:
     # ------------------------------------------------------------------
 
     def _layer2(self, pdf_path: str | Path) -> dict:
-        from packages.pipeline.parsers.tesseract_fallback import ocr_pdf
         from packages.pipeline.parsers.decision_parser import (
-            extract_car_number, extract_driver_name, extract_infraction_type,
-            extract_lap_number, extract_outcome, extract_penalty_points,
-            extract_session_type, extract_turn_number,
+            extract_car_number,
+            extract_driver_name,
+            extract_infraction_type,
+            extract_lap_number,
+            extract_outcome,
+            extract_penalty_points,
+            extract_session_type,
+            extract_turn_number,
         )
+        from packages.pipeline.parsers.tesseract_fallback import ocr_pdf
         from packages.pipeline.parsers.text_cleaner import (
-            clean_decision_text, extract_article_citations,
+            clean_decision_text,
+            extract_article_citations,
         )
 
         try:

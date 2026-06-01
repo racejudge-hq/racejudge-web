@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -63,7 +60,7 @@ def test_submit_annotation_full():
 def test_submit_annotation_creates_file(tmp_annotations):
     client.post("/v1/annotations", json={"doc_id": "doc-001"})
     assert tmp_annotations.exists()
-    lines = [l for l in tmp_annotations.read_text().splitlines() if l.strip()]
+    lines = [line for line in tmp_annotations.read_text().splitlines() if line.strip()]
     assert len(lines) == 1
     record = json.loads(lines[0])
     assert record["doc_id"] == "doc-001"

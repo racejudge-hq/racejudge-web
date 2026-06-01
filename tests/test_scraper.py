@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -15,7 +12,6 @@ from packages.pipeline.scrapers.fia_scraper import (
     _slugify,
     sha256_of_bytes,
 )
-
 
 # ---------------------------------------------------------------------------
 # sha256_of_bytes
