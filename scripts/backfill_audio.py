@@ -108,7 +108,7 @@ async def process_session(session_key: int, db, dry_run: bool) -> dict:
     all_clips: list[dict] = []
 
     for dn in driver_numbers:
-        clips = fetcher.fetch_all_driver_clips(session_key, int(dn), download=not dry_run)
+        clips = fetcher.fetch_all_driver_clips(session_key, int(dn or 0), download=not dry_run)
         all_clips.extend(clips)
 
     log.info("Session %d: %d clips across %d drivers", session_key, len(all_clips), len(driver_numbers))

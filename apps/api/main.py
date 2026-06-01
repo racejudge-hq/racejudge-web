@@ -11,7 +11,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.core.config import settings
-from apps.api.routers import annotations, decisions, health, incidents, predict, search, telemetry
+from apps.api.routers import annotations as annotations_router
+from apps.api.routers import decisions, health, incidents, predict, search, telemetry
 
 
 @asynccontextmanager
@@ -47,6 +48,6 @@ app.include_router(health.router)
 app.include_router(decisions.router,   prefix="/v1")
 app.include_router(search.router,      prefix="/v1")
 app.include_router(incidents.router,   prefix="/v1")
-app.include_router(annotations.router, prefix="/v1")
+app.include_router(annotations_router.router, prefix="/v1")
 app.include_router(telemetry.router,   prefix="/v1")
 app.include_router(predict.router,     prefix="/v1")

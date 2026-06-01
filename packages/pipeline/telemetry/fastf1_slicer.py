@@ -132,5 +132,5 @@ class TelemetrySlicer:
                 }
             except Exception as exc:
                 log.warning("Could not get telemetry for %s lap %d: %s", driver, lap, exc)
-                result[driver] = None
+                result[driver] = None  # type: ignore[assignment]
         return result

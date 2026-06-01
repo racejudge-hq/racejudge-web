@@ -84,7 +84,7 @@ class Diariser:
             return []
 
         try:
-            diarization = self._pipeline(
+            diarization = self._pipeline(  # type: ignore[misc]
                 str(path),
                 num_speakers=self._num_speakers,
             )

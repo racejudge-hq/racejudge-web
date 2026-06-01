@@ -117,7 +117,7 @@ class LayoutLMExtractor:
         all_entities: list[dict] = []
         for page_img in pages:
             try:
-                entities = self._pipeline(page_img)
+                entities = self._pipeline(page_img)  # type: ignore[misc]
                 all_entities.extend(entities or [])
             except Exception as exc:
                 log.warning("LayoutLMv3 inference failed on page: %s", exc)

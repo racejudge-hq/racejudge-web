@@ -285,7 +285,7 @@ def annotate() -> None:
                 label = "dissimilar"
                 break
             if choice in ("?", "skip", ""):
-                label = None
+                label = "skip"
                 break
             if choice in ("q", "quit"):
                 print(f"\n{GREEN}Saved and exiting. Labelled so far: {similar_done + dissim_done}{RESET}")

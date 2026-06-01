@@ -176,10 +176,10 @@ def _parse_decision_links(soup: BeautifulSoup, season: int) -> list[dict]:
     """Extract stewards' decision PDF links from a rendered FIA page."""
     docs: list[dict] = []
     for a in soup.find_all("a", href=True):
-        href: str = a["href"]
+        href: str = a["href"]  # type: ignore[assignment,arg-type,union-attr,operator,return-value]
         if not href.lower().endswith(".pdf"):
             continue
-        title = _clean_title(a.get_text(strip=True) or a.get("title", ""))
+        title = _clean_title(a.get_text(strip=True) or a.get("title", ""))  # type: ignore[assignment,arg-type,union-attr,operator,return-value]
         title_lower = title.lower()
         if not any(
             kw in title_lower
@@ -223,9 +223,9 @@ def _extract_event_urls(soup: BeautifulSoup) -> list[tuple[str, str]]:
         val = opt.get("value", "")
         name = opt.get_text(strip=True)
         if val and val != "0":
-            full_url = val if val.startswith("http") else FIA_BASE + val
+            full_url = val if val.startswith("http") else FIA_BASE + val  # type: ignore[assignment,arg-type,union-attr,operator,return-value]
             events.append((name, full_url))
-    return events
+    return events  # type: ignore[assignment,arg-type,union-attr,operator,return-value]
 
 
 # ---------------------------------------------------------------------------

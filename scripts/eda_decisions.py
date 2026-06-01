@@ -46,7 +46,7 @@ def run_eda(records: list[dict]) -> dict:
     # Season distribution
     seasons = Counter(r.get("season") for r in records)
     print("\nBy season:")
-    for season in sorted(seasons):
+    for season in sorted(k for k in seasons if k is not None):
         print(f"  {season}: {seasons[season]:4d}")
 
     # OCR rate

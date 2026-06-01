@@ -25,7 +25,7 @@ jobs:
         run: ruff check packages/ apps/ scripts/ tests/
 
       - name: Mypy type-check
-        run: mypy packages/ apps/ scripts/ --ignore-missing-imports
+        run: mypy --explicit-package-bases packages/ apps/ scripts/ --ignore-missing-imports
 
       - name: Run tests
         run: pytest tests/ --cov=packages --cov-report=term-missing -q
@@ -43,11 +43,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        run: npm ci
 
       - name: Type-check
         run: npx tsc --noEmit
