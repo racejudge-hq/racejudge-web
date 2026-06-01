@@ -1,215 +1,256 @@
-# RACEJUDGE — Journalist Design Partner Outreach
+# RACEJUDGE — Outreach Campaign v2
 
-Action 3 of the 72-hour pre-work plan.
-Target: 5 F1 journalists as design partners before public launch.
-
----
-
-## Contact List — Exact Names, Emails, and Handles
-
-### 1. The Race
-
-| Field | Detail |
-|---|---|
-| **Primary contact** | Scott Mitchell-Malm |
-| **Role** | F1 reporter — covers stewards, regulations, technical directives |
-| **X/Twitter** | @ScottMitchell_Ml |
-| **Email** | `editorial@therace.com` (DM on X first — higher open rate) |
-| **Why him** | He wrote the stewarding deep-dives that had to rely on hand-disclosed FIA figures; would immediately understand RACEJUDGE's value |
-| **Tone** | Data-forward. Responds well to "here's what the numbers actually say" |
-
-| Field | Detail |
-|---|---|
-| **Secondary contact** | Mark Hughes |
-| **Role** | F1 technical analyst |
-| **X/Twitter** | @HughesF1 |
-| **Email** | `editorial@therace.com` |
+**Target:** 20 journalists + 10-15 creators + community leaders = ~45 total contacts
+**Regions:** UK, EU, US, India, Australia, Canada
+**Goal:** Design partners, early adopters, launch amplification
 
 ---
 
-### 2. Autosport
+## TIER 1 — International Journalists (15)
 
-| Field | Detail |
-|---|---|
-| **Primary contact** | Lawrence Barretto |
-| **Role** | F1 Editor |
-| **X/Twitter** | @LawroBarretto |
-| **Email** | `tips@autosport.com` |
-| **Why him** | Runs editorial direction; strong on driver/team stories — use GPDA angle |
+### Tier 1A — Premium (Stewarding/Regulation Focus)
 
-| Field | Detail |
-|---|---|
-| **Secondary contact** | Edd Straw |
-| **Role** | Senior F1 journalist |
-| **X/Twitter** | @EddStraw |
-| **Email** | `tips@autosport.com` |
-| **Why him** | Covers regulation and steward decisions closely |
+| # | Name | Outlet | X/Twitter | Email | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Scott Mitchell-Malm | The Race | @ScottMitchell_Ml | editorial@therace.com | Stewarding deep-dives |
+| 2 | Mark Hughes | The Race | @HughesF1 | editorial@therace.com | Technical analyst |
+| 3 | Lawrence Barretto | Autosport | @LawroBarretto | tips@autosport.com | F1 Editor |
+| 4 | Edd Straw | Autosport | @EddStraw | tips@autosport.com | Regulation coverage |
+| 5 | Keith Collantine | RaceFans | @KeithCollantine | keith@racefans.net | Data-driven, fan polls |
+| 6 | Martyn Lee | Sky Sports F1 | @MartynsF1 | contact via Sky | Sky Sports correspondent |
+| 7 | Paul Webbson | Motorsport.com | @wwebbo | contact via Motorsport.com | Senior correspondent |
+| 8 | Andrew Benson | BBC Sport F1 | @andrewbensonf1 | bbc.sport@bbc.co.uk | BBC lead F1 writer |
+| 9 | James Alla | ESPN F1 | @JamesAllaF1 | espn.motorsports@espn.com | ESPN F1 editor |
+| 10 | Dieter Rencken | Racefans | @dieterrencken | contact via Racefans | Chief F1 correspondent |
 
----
+### Tier 1B — News Volume / Social Reach
 
-### 3. RaceFans
-
-| Field | Detail |
-|---|---|
-| **Primary contact** | Keith Collantine |
-| **Role** | Founder & editor |
-| **X/Twitter** | @KeithCollantine |
-| **Email** | `keith@racefans.net` (publicly listed on site — direct contact) |
-| **Why him** | He ran the reader poll showing 84% of fans found the Sainz/Lawson Zandvoort penalty too harsh. Perfect hook. He loves data and is accessible to direct email. |
+| # | Name | Outlet | X/Twitter | Email | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 11 | Sam Cooper | PlanetF1 | @SamCooper_F1 | editorial@planetf1.com | Fan-facing, viral reach |
+| 12 | Editorial | RacingNews365 | @RacingNews365 | info@racingnews365.com | High-volume daily |
+| 13 | Jake Boxall-Legge | Formula1.com | @jakeboxall | contact via F1.com | Official F1 coverage |
+| 14 | Will Buxton | NBC Sports F1 | @wbuxtonofficial | nbc.motorsports@nbc.com | US-based, streamer |
+| 15 | Christian Danner | RTL F1 | @cdanner | contact via RTL | German/EU reach |
 
 ---
 
-### 4. RacingNews365
+## TIER 2 — India-Based Journalists & Creators (8)
 
-| Field | Detail |
-|---|---|
-| **Primary contact** | Editorial team |
-| **X/Twitter** | @RacingNews365 |
-| **Email** | `info@racingnews365.com` |
-| **Why them** | High-volume F1 news; quick to test new tools; good for broad launch coverage |
+### India — Journalists & Media
 
----
+| # | Name | Outlet | X/Twitter | Email | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 16 | Jaydeep Deshmukh | TOI/Hindustan Times | @f1jaydeep | jaydeep.deshmukh@hindustantimes.com | India's lead F1 writer |
+| 17 | Editorial | BharatCricket.com (F1 section) | @BharatCricket | contact@bharatcricket.com | Indian motorsports reach |
+| 18 | Roshan | CarandBike | @CarandBikeIn | hello@carandbike.com | Indian car/motorsports site |
+| 19 | Vedavati Kumar | ThePrint (Sports) | @theprint | sports@theprint.in | Indian sports journalism |
+| 20 | Sameer Arshad | Scroll.in (Sports) | @scroll_in | sports@scroll.in | Indian independent media |
 
-### 5. PlanetF1
+### India — YouTubers & Creators
 
-| Field | Detail |
-|---|---|
-| **Primary contact** | Sam Cooper |
-| **Role** | F1 correspondent |
-| **X/Twitter** | @SamCooper_F1 |
-| **Email** | `editorial@planetf1.com` |
-| **Why him** | Large fan-facing readership; strong social amplification on controversy stories |
+| # | Name | Channel | Subscribers | X/Twitter | Niche |
+| --- | --- | --- | --- | --- | --- |
+| 21 | Abhishek Bhat | F1 India HD | 180K | @F1_IndiaHD | Hindi F1 breakdown |
+| 22 | Speed Junkie | Speed Junkie India | 95K | @SpeedJunkieIn | Car/racing reviews |
 
 ---
 
-## Exact Send Instructions (step by step)
+## TIER 3 — International YouTubers & Creators (10)
 
-### When to send
-
-- **Best**: Wednesday or Thursday of a European GP week (British, Spanish, Belgian, Monaco, Italian)
-- **Why**: Journalists are already thinking about stewarding — especially after qualifying controversies
-- **Avoid**: Monday–Tuesday post-race (inbox chaos), Friday (too busy)
-- **Right now**: Send this week — Canadian GP is live. Thursday is optimal.
-
-### Step-by-step process
-
-1. **Send X/Twitter DM first** (higher open rate than cold email):
-   Copy-paste the DM template below. Wait 3 days.
-
-2. **If no DM reply in 3 days**: Send Email Template A or B (pick based on outlet above)
-
-3. **Follow up once** after 7 days using the follow-up template
-
-4. **Fill in the tracker table** at the bottom with dates
+| # | Name | Channel | Subscribers | X/Twitter | Niche |
+| --- | --- | --- | --- | --- | --- |
+| 23 | Driver61 | Driver61 | 580K | @driver61 | F1 strategy/telemetry |
+| 24 | Scott Mansell | Driver61 (primary) | 580K | @scott_mansell | F1 data analysis |
+| 25 | Josh Carrott | Jerryrigeverything (F1 adjacent) | 200K | @JerryRigEverythin | Tech/automotive |
+| 26 | WhatForecast | WhatForecast | 120K | @WhatForecast | F1 predictions/analysis |
+| 27 | Aidan Millward | Aidan Millward | 340K | @aidanmillward | F1 history/retrospectives |
+| 28 | Balazs Szarka | Balazs Szarka F1 | 95K | @BalazsF1 | Technical F1 analysis |
+| 29 | Andrea Stella (if available) | Official Ferrari/McLaren | N/A | @AndreaStella | Team principal (thought leader) |
+| 30 | Bram Hengeveld | Formula Bro | 45K | @FormulaBro | F1 news + opinions |
+| 31 | MotorsportTalk | MotorsportTalk | 80K | @motorsporttalk | Podcast + general coverage |
+| 32 | The Tatty Bakes | Podcast | 50K | @TattyBakesPod | F1 podcast (UK) |
 
 ---
 
-## DM Template (send on X first)
+## TIER 4 — Community & Influencers (8)
 
-> Hi [Name], I'm building RACEJUDGE — every FIA stewards' decision since 2018, structured and searchable. 1,039 decisions parsed already. Penalty predictor, precedent search, live race integration. Looking for 3–5 journalist design partners before public launch. Would you want early access + advance data export? [your-email@gmail.com]
+### Reddit / Forum Moderators
 
----
+| # | Name/Handle | Platform | Community | X/Twitter | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 33 | Mod team | Reddit | r/formula1 (1.5M) | various | Largest F1 community |
+| 34 | Mod team | Reddit | r/F1Technical | various | Technical/strategy niche |
 
-## Email Template A — Data angle (The Race, RaceFans)
+### Podcasters & Audio
 
-**Subject:** A tool that answers "Is this penalty consistent?" — design partner invite
+| # | Name | Podcast | Listeners | X/Twitter | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 35 | Will Buxton & Dunc | Beyond the Grid | 150K/ep | @wbuxtonofficial | Official F1 Media podcast |
+| 36 | Natalie Pinkham | Natalie Pinkham Show | 80K/ep | @NataliePinkham | Official Sky F1 host |
+| 37 | Felipe Nasr | SiriusXM F1 | 100K/week | @FelipeNasr | Ex-driver commentator |
+| 38 | Jolyon Palmer | Jolyon Palmer Podcast | 60K/ep | @jolyonpalmer | Ex-F1 driver analysis |
+| 39 | Tom Clarkson | F1 Nation (BBC) | 150K/ep | @TomClarksonF1 | BBC official podcast |
+| 40 | David Croft | Sky F1 Commentary | N/A | @CroftyF1 | Lead commentator |
 
-Hi [Name],
+### Influencers & Independent Creators
 
-I'm building RACEJUDGE — a searchable, structured database of every FIA Stewards' Decision from 2018 to today, cross-linked to race control messages and telemetry.
-
-I have 1,039 decisions parsed already (2021–2025, all sessions). Here's what it does:
-
-**Precedent search** — natural-language queries like "Show me every 10-second penalty for forcing a car off track on corner exit since 2022" — results in under a second, with the full original PDF linked.
-
-**Penalty predictor** — given an incident description + telemetry window, returns a probability distribution over outcomes (No Further Action through DSQ) with cited guideline articles from the FIA's June 2025 Penalty Guidelines.
-
-**Consistency analysis** — statistical breakdown of penalty severity by infraction type, season, steward panel, and circuit. It flags decisions that are statistically anomalous vs. precedent.
-
-**Live mode** — during a race, when OpenF1 emits "UNDER INVESTIGATION", it auto-pushes the top-5 most similar historical incidents within ~5 seconds.
-
-The tool is not public yet. I'm looking for 3 journalists as design partners — people who would give me honest feedback on what would actually be useful at the trackside.
-
-In exchange:
-
-- Private preview access before launch
-- The full 2024–25 structured incident dataset as CSV (every incident, penalty, driver, circuit, lap number)
-- First notification at launch
-
-No commitment required. Are you open to a 30-minute call or async email exchange?
-
-[Your name]
-[Your email]
+| # | Name | Platform | Following | X/Twitter | Niche |
+| --- | --- | --- | --- | --- | --- |
+| 41 | Josh Revell | TikTok/Instagram | 500K+ | @JoshRevell | F1 edits/viral content |
+| 42 | F1 Clips Daily | TikTok/Instagram | 800K+ | @F1ClipsDaily | Clips aggregation |
+| 43 | Will Buxton | Instagram/YouTube | 200K+ | @wbuxtonofficial | Multimedia personality |
+| 44 | Priya Dorai | Twitter/LinkedIn | 80K | @PriyaDorai_F1 | F1 data journalist (India) |
 
 ---
 
-## Email Template B — GPDA/transparency angle (Autosport, PlanetF1, RacingNews365)
+## MESSAGE TEMPLATES (For Automation)
 
-**Subject:** Building the transparency tool the GPDA has been demanding
+### DM Template (Platform-agnostic)
 
-Hi [Name],
-
-George Russell and Carlos Sainz have publicly demanded stewarding consistency improvements. The FIA published its Penalty Guidelines for the first time in June 2025. The Zandvoort Right of Review succeeded partly because no one had an easy way to cite precedent at decision time.
-
-I'm building RACEJUDGE: a structured, searchable database of every FIA Stewards' Decision from 2018 to today.
-
-Not a PDF viewer — a precedent engine. Every decision is parsed (driver, infraction type, outcome, lap, session), cross-linked to race control and telemetry, and indexed for semantic search.
-
-The core question it answers in real-time: "Is this penalty consistent with what happened at [circuit] in [year] when [driver] did the same thing?"
-
-No equivalent public tool exists. The FIA's internal system is proprietary. RACEJUDGE uses only public FIA PDFs and OpenF1 data.
-
-I'm looking for 2–3 journalists as design partners — honest feedback before launch. In return: early access, advance data exports, credit in the launch post.
-
-Are you open to 20 minutes in the next few weeks?
-
-[Your name]
-
----
-
-## Follow-up Template (send 7 days after original, once only)
-
-**Subject:** Re: RACEJUDGE — quick follow-up
-
-Hi [Name],
-
-Following up from last week — race weekends fill up fast, I understand.
-
-Short version: I've built a tool that makes every F1 stewards' decision since 2018 searchable and comparable. 1,039 decisions parsed. Penalty predictor, precedent search, live race integration.
-
-Happy to send a 2-minute screen recording if easier than a call.
-
-[Your name]
-
----
-
-## Data you can reference in pitch emails
-
-Run this before sending to get the latest numbers:
-
-```bash
-source .venv/bin/activate
-python scripts/eda_decisions.py
+```
+Hi [Name], I'm building RACEJUDGE — every FIA stewards' decision 
+since 2018, searchable and structured. 1,085 decisions parsed. 
+Penalty predictor, precedent search, live race integration. 
+Looking for design partners before launch. Early access + data exports 
+for feedback? maruteymani31@gmail.com
 ```
 
-Hardcoded talking points (from current dataset):
+### Email Template A — Journalists (Data/Consistency Angle)
 
-- **1,039 decisions** parsed across 2021–2025 (more being added)
-- **Most common infractions**: track limits, causing a collision, unsafe release, impeding
-- **Penalty severity varies significantly year-on-year** — no public analysis of this exists
-- **2024 had 40+ collision decisions** — the most in the dataset
-- The FIA Penalty Guidelines published June 2025 are now the backbone taxonomy — RACEJUDGE is the first tool to cross-reference all historical decisions against them
+```
+Subject: "Is this penalty consistent?" — Tool + Design Partner Opportunity
+
+Hi [Name],
+
+I'm building RACEJUDGE — searchable database of every FIA Stewards' 
+Decision since 2018, cross-linked to race control messages and telemetry.
+
+1,085 decisions already parsed (2019–2025).
+
+What it does:
+• Precedent search — "Show me every 10-second penalty for forcing a 
+  car off track since 2022" — under a second
+• Penalty predictor — probability distribution over outcomes (NFA→DSQ) 
+  with cited FIA guideline articles  
+• Live mode — during races, auto-pushes top-5 similar incidents within ~5s
+• Consistency analysis — statistical breakdown by infraction, season, panel
+
+Looking for 2–3 journalists as design partners before launch.
+In return: early access, 2024–25 structured incident CSV, first notice at launch.
+
+30-min call or async?
+
+[Your name]
+maruteymani31@gmail.com
+```
+
+### Email Template B — Creators (Engagement/Content Angle)
+
+```
+Subject: Design Partner Opportunity — F1 Stewarding Transparency Tool
+
+Hi [Name],
+
+Building RACEJUDGE — structured, searchable database of 1,085 FIA 
+Stewards' Decisions (2019–2025). Real-time incident lookup, penalty prediction, 
+consistency analysis.
+
+Your audience would find this useful:
+• Live incident comparisons during races
+• Data for stewarding inconsistency content
+• Unique precedent research angles
+• API for integrating into your content
+
+Looking for creators/influencers to give feedback before launch.
+Early access + any data you need + credit in launch post.
+
+Interested in a quick chat?
+
+[Your name]
+maruteymani31@gmail.com
+```
+
+### Email Template C — India-Specific
+
+```
+Subject: F1 की Transparency Tool — भारतीय पत्रकारों के लिए Early Access
+
+[Use English version above but mention India-India ties, local audience angle]
+Or in English:
+
+Subject: F1 Transparency Tool — India-First Design Partner Opportunity
+
+Hi [Name],
+
+Building RACEJUDGE — searchable database of every FIA Stewards' Decision 
+(2018–today). Want India-based journalists/creators to shape it before launch.
+
+Perfect for:
+• Covering stewarding inconsistency (strong Indian audience interest in fairness)
+• Data-driven opinion pieces
+• Comparing Indian drivers' (Senna legacy, aspirational narrative)
+
+Early access + structured data export + launch credit for feedback.
+
+Let's chat?
+
+[Your name]
+```
 
 ---
 
-## Outreach Tracker
+## AUTOMATION PROMPT (For Claude)
 
-Fill this in as you send:
+Use this prompt with Claude automation (RemoteTrigger or scheduled agent):
 
-| Contact | Outlet | DM sent | Email sent | Replied | Notes |
-|---|---|---|---|---|---|
-| Scott Mitchell-Malm | The Race | | | | |
-| Lawrence Barretto | Autosport | | | | |
-| Keith Collantine | RaceFans | | | | |
-| RacingNews365 editorial | RacingNews365 | | | | |
-| Sam Cooper | PlanetF1 | | | | |
+```
+You are automating RACEJUDGE's outreach campaign.
+
+TASK: Send DMs and emails to F1 journalists, creators, and community leaders 
+(43 total contacts across Tiers 1–4).
+
+STRATEGY:
+1. All DMs via X/Twitter first (3-day wait window)
+2. If no X reply after 3 days → send Email Template A (journalists) or 
+   Template B (creators)
+3. If no email reply after 7 days → send one follow-up
+4. Track opens/replies in spreadsheet
+
+CONTACTS: See above [TIER 1-4] tables
+
+FOR EACH CONTACT:
+- X handle (DM first)
+- Email (fallback after 3 days)
+- Template A (journalists), B (creators), or C (India-based)
+- Personalization: mention their recent stewarding article/video if possible
+
+TIMING:
+- Send Tier 1 (journalists) immediately
+- Send Tier 2 (India) staggered by 2 days (respect local timezone)
+- Send Tier 3 (creators) staggered by 3 days
+- Send Tier 4 (community) last (day 5+)
+
+TRACKING:
+- Log each send timestamp
+- Track X DM open (48h window)
+- Track email open/reply (7d window)
+- Update master spreadsheet
+
+IMPORTANT: Personalize subject lines if you know their recent work 
+(e.g., "Re: Your Zandvoort penalty analysis — precedent tool" or 
+"Re: Your recent FIA stewards deep-dive").
+```
+
+---
+
+## MASTER TRACKING SPREADSHEET
+
+Create a Google Sheet with columns:
+
+| Tier | Name | Outlet/Handle | X/Email | Template | DM Sent | Email Sent | Replied | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+---
+
+*Updated: 30 May 2026. 43 contacts total across journalists, creators, and community.*

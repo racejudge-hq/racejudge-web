@@ -61,9 +61,8 @@ SAMPLE_RECORDS = [
 @pytest.fixture
 def client(monkeypatch):
     from apps.api.routers import decisions as dec_module
-    monkeypatch.setattr(dec_module, "_load_decisions", lambda: SAMPLE_RECORDS)
-    # Clear lru_cache so monkeypatch takes effect
-    dec_module._load_decisions.cache_clear = lambda: None
+    # The new router uses _load_decisions_jsonl (renamed from _load_decisions)
+    monkeypatch.setattr(dec_module, "_load_decisions_jsonl", lambda: SAMPLE_RECORDS)
 
     from apps.api.main import app
     return TestClient(app)

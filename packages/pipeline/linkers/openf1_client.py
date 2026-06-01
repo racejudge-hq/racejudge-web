@@ -116,6 +116,14 @@ class OpenF1Client:
     def drivers(self, *, session_key: int) -> list[dict]:
         return self._get("drivers", session_key=session_key)
 
+    def weather(self, *, session_key: int) -> list[dict]:
+        """OpenF1 /weather — 1-min interval weather data per session."""
+        return self._get("weather", session_key=session_key)
+
+    def meetings(self, *, year: int) -> list[dict]:
+        """OpenF1 /meetings — all meeting (event) records for a season."""
+        return self._get("meetings", year=year)
+
     def driver_number_for_name(self, session_key: int, name_fragment: str) -> int | None:
         """Find a driver's number by partial name match (case-insensitive)."""
         drivers = self.drivers(session_key=session_key)

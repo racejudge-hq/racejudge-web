@@ -1,23 +1,28 @@
 """
-RACEJUDGE FastAPI application — Phase 1 skeleton.
-
-Endpoints live here initially; routers are split into sub-modules as they grow.
+RACEJUDGE FastAPI application — Phase 1-3.
 """
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.core.config import settings
-from apps.api.routers import annotations, decisions, health, predict, search, telemetry
+from apps.api.routers import annotations, decisions, health, incidents, predict, search, telemetry
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Phase 1: nothing to set up yet (DB pool added in Phase 1 week 2)
+    # Warm up DB engine if DATABASE_URL is set
+    if os.environ.get("DATABASE_URL"):
+        try:
+            from packages.db.database import _get_engine
+            _get_engine()
+        except Exception:
+            pass
     yield
 
 
@@ -39,8 +44,9 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(decisions.router, prefix="/v1")
-app.include_router(search.router, prefix="/v1")
+app.include_router(decisions.router,   prefix="/v1")
+app.include_router(search.router,      prefix="/v1")
+app.include_router(incidents.router,   prefix="/v1")
 app.include_router(annotations.router, prefix="/v1")
-app.include_router(telemetry.router, prefix="/v1")
-app.include_router(predict.router, prefix="/v1")
+app.include_router(telemetry.router,   prefix="/v1")
+app.include_router(predict.router,     prefix="/v1")
