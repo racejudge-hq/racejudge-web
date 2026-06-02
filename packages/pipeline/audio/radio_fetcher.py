@@ -246,7 +246,7 @@ try:
         )
 
 except ImportError:
-    def fetch_radio_clips_task(session_key, driver_number, incident_time,
+    def fetch_radio_clips_task(session_key, driver_number, incident_time,  # type: ignore[misc,no-redef]
                                window_seconds=60, max_clips=3):
         fetcher = RadioFetcher()
         return fetcher.fetch_incident_clips(
