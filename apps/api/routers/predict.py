@@ -152,3 +152,45 @@ async def predict_penalty(incident: IncidentInput) -> dict[str, Any]:
             "It does not represent an official FIA determination."
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# RAG explain endpoint
+# ---------------------------------------------------------------------------
+
+class ExplainRequest(BaseModel):
+    incident_description: str = Field(min_length=3)
+    predicted_class: str
+    confidence: float
+    precedents: list[dict] = []
+    article_text: str | None = None
+
+
+class ExplainResponse(BaseModel):
+    explanation: str
+
+
+@router.post("/predict/explain", response_model=ExplainResponse)
+async def explain_prediction(body: ExplainRequest) -> dict[str, Any]:
+    """
+    Generate a RAG-based natural language explanation for a predicted penalty.
+    Uses Anthropic API (claude-haiku) with top precedents as context.
+    Falls back to a template when ANTHROPIC_API_KEY is unset.
+    """
+    try:
+        from packages.ml.rag_explainer import explain_prediction as _explain
+        text = await _explain(
+            incident_description=body.incident_description,
+            predicted_class=body.predicted_class,
+            confidence=body.confidence,
+            precedents=body.precedents,
+            article_text=body.article_text,
+        )
+    except Exception as exc:
+        log.error("RAG explainer error: %s", exc)
+        text = (
+            f"Based on the incident description and historical precedents, "
+            f"a {body.predicted_class} outcome appears most likely "
+            f"({body.confidence:.0%} confidence)."
+        )
+    return {"explanation": text}

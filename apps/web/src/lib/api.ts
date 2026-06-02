@@ -75,6 +75,56 @@ export async function searchDecisions(
 }
 
 // ---------------------------------------------------------------------------
+// Precedents
+// ---------------------------------------------------------------------------
+
+export interface PrecedentResult {
+  incident_id: string;
+  doc_id: string;
+  title: string;
+  season: number;
+  published_at: string | null;
+  pdf_url: string | null;
+  drivers: { code?: string; full_name?: string }[];
+  infraction_category: string | null;
+  penalty_type: string | null;
+  penalty_seconds: number | null;
+  penalty_points: number;
+  article_cited: string[] | null;
+  lap: number | null;
+  corner: string | null;
+  reasoning_snippet: string;
+  similarity_score: number;
+}
+
+export interface PrecedentSearchResponse {
+  results: PrecedentResult[];
+  total: number;
+  mode: string;
+  query: string;
+}
+
+export async function searchPrecedents(
+  query: string,
+  opts?: { season?: number; penaltyType?: string; driver?: string; limit?: number },
+): Promise<PrecedentSearchResponse> {
+  const res = await fetch(`${API_BASE}/v1/precedents/search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({
+      query,
+      season:       opts?.season ?? null,
+      penalty_type: opts?.penaltyType ?? null,
+      driver:       opts?.driver ?? null,
+      limit:        opts?.limit ?? 20,
+    }),
+  });
+  if (!res.ok) throw new Error(`POST /v1/precedents/search failed: ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
 // Annotations
 // ---------------------------------------------------------------------------
 
