@@ -33,16 +33,16 @@ try:
 except ImportError:
     HAS_PREFECT = False
 
-    def flow(fn=None, **kwargs):
+    def flow(fn=None, **kwargs):  # type: ignore[misc,no-redef]
         return fn if fn else lambda f: f
 
-    def task(fn=None, **kwargs):
+    def task(fn=None, **kwargs):  # type: ignore[misc,no-redef]
         return fn if fn else lambda f: f
 
-    def get_run_logger():
+    def get_run_logger():  # type: ignore[misc,no-redef]
         return logging.getLogger("prefect.stub")
 
-    def task_input_hash(*args, **kwargs):
+    def task_input_hash(*args, **kwargs):  # type: ignore[misc,no-redef]
         return None
 
 

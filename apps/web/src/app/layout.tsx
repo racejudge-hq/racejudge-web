@@ -33,7 +33,8 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const hasClerk = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+  const hasClerk = /^pk_(test|live)_\w{20,}$/.test(clerkKey);
 
   if (hasClerk) {
     const { ClerkProvider } = await import("@clerk/nextjs");

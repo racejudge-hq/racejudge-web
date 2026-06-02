@@ -29,11 +29,11 @@ try:
 except ImportError:
     _PREFECT = False
     # Stubs so the module is importable during tests
-    def flow(fn=None, **_):
+    def flow(fn=None, **_):  # type: ignore[misc,no-redef]
         return fn if fn else lambda f: f
-    def task(fn=None, **_):
+    def task(fn=None, **_):  # type: ignore[misc,no-redef]
         return fn if fn else lambda f: f
-    def get_run_logger():
+    def get_run_logger():  # type: ignore[misc,no-redef]
         return logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[3]
