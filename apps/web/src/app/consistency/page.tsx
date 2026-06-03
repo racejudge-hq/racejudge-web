@@ -43,9 +43,9 @@ function HeatCell({ value, max }: { value: number; max: number }) {
     intensity > 0.75 ? "bg-red-900"
     : intensity > 0.5 ? "bg-red-950"
     : intensity > 0.25 ? "bg-orange-950"
-    : "bg-gray-900";
+    : "bg-gray-50 dark:bg-gray-900";
   return (
-    <td className={`text-center text-xs font-mono py-2 px-3 ${bg} text-gray-300`}>
+    <td className={`text-center text-xs font-mono py-2 px-3 ${bg} text-gray-700 dark:text-gray-300`}>
       {value}%
     </td>
   );
@@ -59,14 +59,14 @@ export default async function ConsistencyPage() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-10 space-y-6">
-      <Link href="/" className="text-sm text-gray-500 hover:text-white">
+      <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">
         ← Home
       </Link>
 
       <header className="space-y-1">
         <h1 className="text-2xl font-bold">
           RACE<span className="rj-brand-red">JUDGE</span>{" "}
-          <span className="font-normal text-gray-400">Consistency</span>
+          <span className="font-normal text-gray-600 dark:text-gray-400">Consistency</span>
         </h1>
         <p className="text-sm text-gray-500">
           Penalty outcome distribution by infraction type across seasons
@@ -94,11 +94,11 @@ export default async function ConsistencyPage() {
         const rows = data.filter((r) => r.season === season);
         return (
           <section key={season} className="space-y-2">
-            <h2 className="text-sm font-semibold text-gray-400">{season}</h2>
+            <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400">{season}</h2>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm border border-gray-800 rounded-lg overflow-hidden">
+              <table className="w-full text-sm border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
                 <thead>
-                  <tr className="border-b border-gray-800 bg-gray-950">
+                  <tr className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
                     <th className="text-left text-xs text-gray-500 px-3 py-2 font-normal">Infraction</th>
                     <th className="text-center text-xs text-gray-500 px-3 py-2 font-normal">N</th>
                     <th className="text-center text-xs text-gray-500 px-3 py-2 font-normal">NFA</th>
@@ -109,13 +109,13 @@ export default async function ConsistencyPage() {
                     <th className="text-center text-xs text-gray-500 px-3 py-2 font-normal">Avg pts</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-900">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-900">
                   {infractions.map((infraction) => {
                     const row = rows.find((r) => r.infraction_category === infraction);
                     if (!row) return null;
                     return (
-                      <tr key={infraction} className="hover:bg-gray-950 transition-colors">
-                        <td className="px-3 py-2 text-xs text-gray-300">
+                      <tr key={infraction} className="hover:bg-white dark:hover:bg-gray-950 transition-colors">
+                        <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300">
                           {infraction.replace(/_/g, " ")}
                         </td>
                         <td className="text-center text-xs text-gray-500 px-3 py-2 font-mono">
@@ -126,7 +126,7 @@ export default async function ConsistencyPage() {
                         <HeatCell value={row.time_penalty_pct} max={100} />
                         <HeatCell value={row.grid_dt_pct}      max={100} />
                         <HeatCell value={row.dsq_pct}          max={100} />
-                        <td className="text-center text-xs font-mono px-3 py-2 text-gray-400">
+                        <td className="text-center text-xs font-mono px-3 py-2 text-gray-600 dark:text-gray-400">
                           {row.avg_penalty_points.toFixed(1)}
                         </td>
                       </tr>
@@ -139,7 +139,7 @@ export default async function ConsistencyPage() {
         );
       })}
 
-      <p className="text-xs text-gray-700 pt-2">
+      <p className="text-xs text-gray-500 dark:text-gray-700 pt-2">
         Heat intensity reflects proportion of that outcome within each infraction type.
         Data covers 2018–2025 FIA stewards&apos; decisions.
       </p>

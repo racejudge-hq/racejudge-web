@@ -35,7 +35,7 @@ const PENALTY_BAR_COLORS: Record<string, string> = {
 };
 
 const PENALTY_TEXT_COLORS: Record<string, string> = {
-  NFA:  "text-gray-400",
+  NFA:  "text-gray-600 dark:text-gray-400",
   REP:  "text-yellow-400",
   "5s": "text-orange-400",
   "10s":"text-orange-500",
@@ -64,16 +64,16 @@ function ProbabilityBar({ label, prob, predicted }: { label: string; prob: numbe
   const barColor = predicted ? (PENALTY_BAR_COLORS[label] ?? "bg-gray-500") : "bg-gray-700";
   return (
     <div className="flex items-center gap-3">
-      <span className={`text-xs font-mono w-8 shrink-0 ${predicted ? "text-white font-bold" : "text-gray-500"}`}>
+      <span className={`text-xs font-mono w-8 shrink-0 ${predicted ? "text-gray-900 dark:text-white font-bold" : "text-gray-500"}`}>
         {label}
       </span>
-      <div className="flex-1 h-2 bg-gray-900 rounded-full overflow-hidden">
+      <div className="flex-1 h-2 bg-gray-50 dark:bg-gray-900 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className={`text-xs font-mono w-10 text-right ${predicted ? "text-white" : "text-gray-600"}`}>
+      <span className={`text-xs font-mono w-10 text-right ${predicted ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-600"}`}>
         {pct}%
       </span>
     </div>
@@ -198,14 +198,14 @@ export default function PredictPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-10 space-y-8">
-      <Link href="/" className="text-sm text-gray-500 hover:text-white">
+      <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">
         ← Home
       </Link>
 
       <header className="space-y-1">
         <h1 className="text-2xl font-bold">
           RACE<span className="rj-brand-red">JUDGE</span>{" "}
-          <span className="font-normal text-gray-400">Predictor</span>
+          <span className="font-normal text-gray-600 dark:text-gray-400">Predictor</span>
         </h1>
         <p className="text-sm text-gray-500">
           XGBoost + LLM ensemble — 7-class penalty prediction
@@ -216,27 +216,27 @@ export default function PredictPage() {
         {/* Free-text description */}
         <div className="space-y-1.5">
           <label className="text-xs text-gray-500 uppercase tracking-wider">
-            Incident description <span className="normal-case text-gray-700">(improves precedent matching)</span>
+            Incident description <span className="normal-case text-gray-500 dark:text-gray-700">(improves precedent matching)</span>
           </label>
           <textarea
             rows={2}
             value={form.incident_description}
             onChange={(e) => setField("incident_description", e.target.value)}
             placeholder="e.g. VER overtook HAM at Turn 1 by going outside track limits, gaining significant advantage…"
-            className="w-full px-3 py-2 bg-gray-900 border border-gray-800 rounded text-sm focus:outline-none focus:border-gray-600 resize-none"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-sm focus:outline-none focus:border-gray-300 dark:focus:border-gray-600 resize-none"
           />
         </div>
 
         {/* Grid of structured fields */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label htmlFor="infraction_type" className="text-xs text-gray-600">Infraction type</label>
+            <label htmlFor="infraction_type" className="text-xs text-gray-400 dark:text-gray-600">Infraction type</label>
             <select
               id="infraction_type"
               aria-label="Infraction type"
               value={form.infraction_type}
               onChange={(e) => setField("infraction_type", e.target.value)}
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             >
               <option value="">— select —</option>
               {INFRACTION_OPTIONS.map((o) => (
@@ -246,13 +246,13 @@ export default function PredictPage() {
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="session_type" className="text-xs text-gray-600">Session</label>
+            <label htmlFor="session_type" className="text-xs text-gray-400 dark:text-gray-600">Session</label>
             <select
               id="session_type"
               aria-label="Session type"
               value={form.session_type}
               onChange={(e) => setField("session_type", e.target.value)}
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             >
               {SESSION_OPTIONS.map((o) => (
                 <option key={o} value={o}>{o}</option>
@@ -261,24 +261,24 @@ export default function PredictPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-gray-600">Lap number</label>
+            <label className="text-xs text-gray-400 dark:text-gray-600">Lap number</label>
             <input
               type="number" min={1} max={80}
               value={form.lap_number}
               onChange={(e) => setField("lap_number", e.target.value)}
               placeholder="e.g. 3"
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             />
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="season" className="text-xs text-gray-600">Season</label>
+            <label htmlFor="season" className="text-xs text-gray-400 dark:text-gray-600">Season</label>
             <select
               id="season"
               aria-label="Season"
               value={form.season}
               onChange={(e) => setField("season", e.target.value)}
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             >
               {[2025,2024,2023,2022,2021,2020,2019,2018].map((y) => (
                 <option key={y} value={y}>{y}</option>
@@ -287,45 +287,45 @@ export default function PredictPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-gray-600">Speed delta (km/h)</label>
+            <label className="text-xs text-gray-400 dark:text-gray-600">Speed delta (km/h)</label>
             <input
               type="number" step="0.1"
               value={form.speed_diff_kph}
               onChange={(e) => setField("speed_diff_kph", e.target.value)}
               placeholder="0.0"
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-gray-600">Penalty points YTD</label>
+            <label className="text-xs text-gray-400 dark:text-gray-600">Penalty points YTD</label>
             <input
               type="number" min={0} max={12}
               value={form.penalty_points_ytd}
               onChange={(e) => setField("penalty_points_ytd", e.target.value)}
               placeholder="0"
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-gray-600">Article cited</label>
+            <label className="text-xs text-gray-400 dark:text-gray-600">Article cited</label>
             <input
               value={form.article_cited}
               onChange={(e) => setField("article_cited", e.target.value)}
               placeholder="e.g. 38.1"
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             />
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="weather" className="text-xs text-gray-600">Weather</label>
+            <label htmlFor="weather" className="text-xs text-gray-400 dark:text-gray-600">Weather</label>
             <select
               id="weather"
               aria-label="Weather condition"
               value={form.weather}
               onChange={(e) => setField("weather", e.target.value)}
-              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+              className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
             >
               <option value="">Unknown</option>
               <option value="dry">Dry</option>
@@ -373,17 +373,17 @@ export default function PredictPage() {
       )}
 
       {prediction && (
-        <section className="space-y-6 border-t border-gray-800 pt-6">
+        <section className="space-y-6 border-t border-gray-200 dark:border-gray-800 pt-6">
           {/* Headline result */}
           <div className="flex items-end gap-6">
             <div>
-              <div className="text-xs text-gray-600 mb-1">Predicted outcome</div>
-              <div className={`text-5xl font-mono font-bold ${PENALTY_TEXT_COLORS[prediction.predicted_class] ?? "text-white"}`}>
+              <div className="text-xs text-gray-400 dark:text-gray-600 mb-1">Predicted outcome</div>
+              <div className={`text-5xl font-mono font-bold ${PENALTY_TEXT_COLORS[prediction.predicted_class] ?? "text-gray-900 dark:text-white"}`}>
                 {prediction.predicted_class}
               </div>
             </div>
             <div>
-              <div className="text-xs text-gray-600 mb-1">Confidence</div>
+              <div className="text-xs text-gray-400 dark:text-gray-600 mb-1">Confidence</div>
               <div className="text-3xl font-bold">
                 {Math.round(prediction.confidence * 100)}%
               </div>
@@ -392,7 +392,7 @@ export default function PredictPage() {
 
           {/* Probability bars */}
           <div className="space-y-2.5">
-            <p className="text-xs text-gray-600 uppercase tracking-wider">
+            <p className="text-xs text-gray-400 dark:text-gray-600 uppercase tracking-wider">
               Full distribution
             </p>
             {PENALTY_CLASSES.map((cls) => (
@@ -407,11 +407,11 @@ export default function PredictPage() {
 
           {/* RAG explanation */}
           {explanation && (
-            <div className="border border-gray-800 rounded-lg p-4 space-y-1.5">
+            <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-1.5">
               <p className="text-xs text-gray-500 uppercase tracking-wider">
                 Stewards reasoning
               </p>
-              <p className="text-sm text-gray-300 leading-relaxed">{explanation}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{explanation}</p>
             </div>
           )}
 
@@ -422,13 +422,13 @@ export default function PredictPage() {
                 Similar precedents
               </p>
               {precedents.map((p) => (
-                <div key={p.incident_id} className="border border-gray-800 rounded p-3 space-y-1">
+                <div key={p.incident_id} className="border border-gray-200 dark:border-gray-800 rounded p-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium leading-snug line-clamp-1">{p.title}</span>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-gray-600">{p.season}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-600">{p.season}</span>
                       {p.penalty_type && (
-                        <span className="text-xs font-mono border border-gray-700 rounded px-1.5 py-0.5">
+                        <span className="text-xs font-mono border border-gray-300 dark:border-gray-700 rounded px-1.5 py-0.5">
                           {p.penalty_type}
                         </span>
                       )}
@@ -437,21 +437,21 @@ export default function PredictPage() {
                   {p.reasoning_snippet && (
                     <p className="text-xs text-gray-500 line-clamp-2">{p.reasoning_snippet}</p>
                   )}
-                  <p className="text-xs text-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-700">
                     similarity: {(p.similarity_score * 100).toFixed(1)}%
                   </p>
                 </div>
               ))}
               <Link
                 href={`/precedents`}
-                className="text-xs text-gray-500 hover:text-white transition-colors"
+                className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 Search all precedents →
               </Link>
             </div>
           )}
 
-          <p className="text-xs text-gray-700 border-t border-gray-900 pt-4">
+          <p className="text-xs text-gray-500 dark:text-gray-700 border-t border-gray-100 dark:border-gray-900 pt-4">
             {prediction.disclaimer}
           </p>
         </section>

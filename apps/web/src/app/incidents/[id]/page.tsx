@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const PENALTY_COLORS: Record<string, string> = {
-  NFA:  "text-gray-400 border-gray-700",
+  NFA:  "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700",
   REP:  "text-yellow-400 border-yellow-800",
   "5s": "text-orange-400 border-orange-800",
   "10s":"text-orange-500 border-orange-700",
@@ -79,7 +79,7 @@ async function fetchSimilar(id: string) {
 
 function PenaltyBadge({ type }: { type: string | null }) {
   if (!type) return null;
-  const cls = PENALTY_COLORS[type] ?? "text-gray-400 border-gray-700";
+  const cls = PENALTY_COLORS[type] ?? "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700";
   return (
     <span className={`inline-block text-sm font-mono font-bold border rounded px-3 py-1 ${cls}`}>
       {type}
@@ -107,7 +107,7 @@ export default async function IncidentDetailPage({
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-8">
-      <Link href="/precedents" className="text-sm text-gray-500 hover:text-white">
+      <Link href="/precedents" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">
         ← Precedents
       </Link>
 
@@ -115,7 +115,7 @@ export default async function IncidentDetailPage({
       <header className="space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-xs text-gray-600 uppercase tracking-wider font-mono">
+            <p className="text-xs text-gray-400 dark:text-gray-600 uppercase tracking-wider font-mono">
               {incident.infraction_category?.replace(/_/g, " ") ?? "Incident"}
             </p>
             <h1 className="text-xl font-bold leading-tight">
@@ -158,8 +158,8 @@ export default async function IncidentDetailPage({
               <h2 className="text-xs text-gray-500 uppercase tracking-wider">
                 Stewards reasoning
               </h2>
-              <div className="border border-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+              <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                   {incident.reasoning_text}
                 </p>
               </div>
@@ -176,9 +176,9 @@ export default async function IncidentDetailPage({
                 {incident.race_control_messages.map((msg) => (
                   <div
                     key={msg.message_id}
-                    className="border border-gray-800 rounded p-3 flex items-start gap-3"
+                    className="border border-gray-200 dark:border-gray-800 rounded p-3 flex items-start gap-3"
                   >
-                    <span className="text-xs text-gray-600 font-mono shrink-0 pt-0.5">
+                    <span className="text-xs text-gray-400 dark:text-gray-600 font-mono shrink-0 pt-0.5">
                       {new Date(msg.date).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -191,14 +191,14 @@ export default async function IncidentDetailPage({
                           msg.flag === "RED" ? "text-red-500"
                           : msg.flag === "YELLOW" ? "text-yellow-400"
                           : msg.flag === "GREEN" ? "text-green-500"
-                          : "text-gray-400"
+                          : "text-gray-600 dark:text-gray-400"
                         }`}>
                           {msg.flag} FLAG
                         </span>
                       )}
-                      <p className="text-sm text-gray-300">{msg.message}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{msg.message}</p>
                       {msg.category && (
-                        <p className="text-xs text-gray-600">{msg.category}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-600">{msg.category}</p>
                       )}
                     </div>
                   </div>
@@ -217,23 +217,23 @@ export default async function IncidentDetailPage({
                 {incident.radio_clips.map((clip) => (
                   <div
                     key={clip.clip_id}
-                    className="border border-gray-800 rounded p-3 space-y-1"
+                    className="border border-gray-200 dark:border-gray-800 rounded p-3 space-y-1"
                   >
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <span className="font-mono">
                         Driver #{clip.driver_number}
                       </span>
                       {clip.speaker_label && (
-                        <span className="text-gray-700">{clip.speaker_label}</span>
+                        <span className="text-gray-500 dark:text-gray-700">{clip.speaker_label}</span>
                       )}
                       <span>{new Date(clip.date).toLocaleTimeString()}</span>
                     </div>
                     {clip.transcript ? (
-                      <p className="text-sm text-gray-300 italic">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 italic">
                         &ldquo;{clip.transcript}&rdquo;
                       </p>
                     ) : (
-                      <p className="text-xs text-gray-700">No transcript available</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-700">No transcript available</p>
                     )}
                   </div>
                 ))}
@@ -247,11 +247,11 @@ export default async function IncidentDetailPage({
               <h2 className="text-xs text-gray-500 uppercase tracking-wider">
                 Weather context
               </h2>
-              <div className="border border-gray-800 rounded p-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="border border-gray-200 dark:border-gray-800 rounded p-3 grid grid-cols-2 gap-2 text-xs">
                 {Object.entries(incident.weather_context).map(([k, v]) => (
                   <div key={k} className="flex justify-between">
-                    <span className="text-gray-600">{k.replace(/_/g, " ")}</span>
-                    <span className="text-gray-300 font-mono">{String(v)}</span>
+                    <span className="text-gray-400 dark:text-gray-600">{k.replace(/_/g, " ")}</span>
+                    <span className="text-gray-700 dark:text-gray-300 font-mono">{String(v)}</span>
                   </div>
                 ))}
               </div>
@@ -262,7 +262,7 @@ export default async function IncidentDetailPage({
           <div className="pt-2">
             <Link
               href={`/decisions/${incident.doc_id}`}
-              className="text-xs text-gray-500 hover:text-white transition-colors"
+              className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               View full decision document →
             </Link>
@@ -276,7 +276,7 @@ export default async function IncidentDetailPage({
           </h2>
 
           {similar.length === 0 ? (
-            <p className="text-xs text-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-700">
               Precedent links are computed nightly. Check back after the embedding
               pipeline has run.
             </p>
@@ -293,26 +293,26 @@ export default async function IncidentDetailPage({
                 <Link
                   key={p.incident_id}
                   href={`/incidents/${p.incident_id}`}
-                  className="block border border-gray-800 rounded p-3 space-y-1 hover:border-gray-600 transition-colors"
+                  className="block border border-gray-200 dark:border-gray-800 rounded p-3 space-y-1 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
                 >
                   <p className="text-xs font-medium line-clamp-2 leading-snug">
                     {p.title}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">{p.season}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-600">{p.season}</span>
                     <div className="flex items-center gap-2">
                       {p.penalty_type && (
                         <span className="text-xs font-mono text-gray-500">
                           {p.penalty_type}
                         </span>
                       )}
-                      <span className="text-xs text-gray-700 font-mono">
+                      <span className="text-xs text-gray-500 dark:text-gray-700 font-mono">
                         {(p.similarity_score * 100).toFixed(0)}%
                       </span>
                     </div>
                   </div>
                   {p.reasoning_snippet && (
-                    <p className="text-xs text-gray-600 line-clamp-2">
+                    <p className="text-xs text-gray-400 dark:text-gray-600 line-clamp-2">
                       {p.reasoning_snippet}
                     </p>
                   )}
@@ -321,7 +321,7 @@ export default async function IncidentDetailPage({
 
               <Link
                 href={`/precedents`}
-                className="text-xs text-gray-600 hover:text-white transition-colors"
+                className="text-xs text-gray-400 dark:text-gray-600 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 Search all precedents →
               </Link>
@@ -329,13 +329,13 @@ export default async function IncidentDetailPage({
           )}
 
           {/* Predict this incident */}
-          <div className="pt-2 border-t border-gray-900">
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-900">
             <Link
               href="/predict"
-              className="block border border-gray-800 rounded p-3 text-xs text-gray-500 hover:border-gray-600 hover:text-white transition-colors"
+              className="block border border-gray-200 dark:border-gray-800 rounded p-3 text-xs text-gray-500 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <span className="font-medium">Predict similar incident →</span>
-              <p className="text-gray-700 mt-0.5">
+              <p className="text-gray-500 dark:text-gray-700 mt-0.5">
                 Use the predictor to estimate penalty for a new incident
               </p>
             </Link>

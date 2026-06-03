@@ -33,7 +33,7 @@ interface SearchResponse {
 }
 
 const PENALTY_COLORS: Record<string, string> = {
-  NFA: "text-gray-500 border-gray-700",
+  NFA: "text-gray-500 border-gray-300 dark:border-gray-700",
   REP: "text-yellow-500 border-yellow-800",
   "5s": "text-orange-400 border-orange-800",
   "10s": "text-orange-500 border-orange-700",
@@ -44,7 +44,7 @@ const PENALTY_COLORS: Record<string, string> = {
 
 function PenaltyBadge({ type }: { type: string | null }) {
   if (!type) return null;
-  const cls = PENALTY_COLORS[type] ?? "text-gray-400 border-gray-700";
+  const cls = PENALTY_COLORS[type] ?? "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700";
   return (
     <span className={`text-xs font-mono px-2 py-0.5 border rounded ${cls}`}>
       {type}
@@ -56,13 +56,13 @@ function ScoreBar({ score }: { score: number }) {
   const pct = Math.round(score * 100);
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="w-16 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
         <div
           className="h-full bg-red-600 rounded-full"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs text-gray-600 font-mono">{(score * 100).toFixed(1)}%</span>
+      <span className="text-xs text-gray-400 dark:text-gray-600 font-mono">{(score * 100).toFixed(1)}%</span>
     </div>
   );
 }
@@ -125,14 +125,14 @@ export default function PrecedentsPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
-      <Link href="/" className="text-sm text-gray-500 hover:text-white">
+      <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">
         ← Home
       </Link>
 
       <header className="space-y-1">
         <h1 className="text-2xl font-bold">
           RACE<span className="rj-brand-red">JUDGE</span>{" "}
-          <span className="font-normal text-gray-400">Precedents</span>
+          <span className="font-normal text-gray-600 dark:text-gray-400">Precedents</span>
         </h1>
         <p className="text-sm text-gray-500">
           Hybrid semantic + BM25 search over 1,000+ stewards&apos; incidents
@@ -147,7 +147,7 @@ export default function PrecedentsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="e.g. driver pushed off track at high-speed corner on lap 1…"
-            className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-sm focus:outline-none focus:border-gray-400"
+            className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-sm focus:outline-none focus:border-gray-400"
           />
           <button
             type="submit"
@@ -164,7 +164,7 @@ export default function PrecedentsPage() {
             value={season}
             onChange={(e) => setSeason(e.target.value)}
             aria-label="Season"
-            className="px-3 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+            className="px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
           >
             <option value="">All seasons</option>
             {SEASONS.map((y) => (
@@ -176,7 +176,7 @@ export default function PrecedentsPage() {
             value={penaltyType}
             onChange={(e) => setPenaltyType(e.target.value)}
             aria-label="Penalty type"
-            className="px-3 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+            className="px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
           >
             <option value="">All penalties</option>
             {PENALTY_TYPES.map((p) => (
@@ -189,7 +189,7 @@ export default function PrecedentsPage() {
             onChange={(e) => setDriver(e.target.value.toUpperCase())}
             placeholder="Driver code (VER)"
             maxLength={3}
-            className="w-32 px-3 py-1.5 bg-gray-900 border border-gray-800 rounded text-xs"
+            className="w-32 px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-xs"
           />
         </div>
       </form>
@@ -197,13 +197,13 @@ export default function PrecedentsPage() {
       {/* Quick query chips */}
       {results === null && (
         <div className="space-y-2">
-          <p className="text-xs text-gray-600 uppercase tracking-wider">Quick searches</p>
+          <p className="text-xs text-gray-400 dark:text-gray-600 uppercase tracking-wider">Quick searches</p>
           <div className="flex flex-wrap gap-2">
             {QUICK_QUERIES.map((q) => (
               <button
                 key={q}
                 onClick={() => { setQuery(q); search(q); }}
-                className="text-xs px-3 py-1.5 border border-gray-800 rounded hover:border-gray-600 text-gray-400 hover:text-white transition-colors text-left"
+                className="text-xs px-3 py-1.5 border border-gray-200 dark:border-gray-800 rounded hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-left"
               >
                 {q}
               </button>
@@ -224,7 +224,7 @@ export default function PrecedentsPage() {
             <p className="text-gray-500 text-sm">No precedents found.</p>
           ) : (
             <>
-              <div className="flex items-center justify-between text-xs text-gray-600">
+              <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-600">
                 <span>{results.length} precedents</span>
                 <span className="font-mono uppercase">{mode}</span>
               </div>
@@ -234,20 +234,20 @@ export default function PrecedentsPage() {
                 return (
                   <div
                     key={r.incident_id}
-                    className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors space-y-2"
+                    className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 hover:border-gray-300 dark:hover:border-gray-700 transition-colors space-y-2"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5 min-w-0">
                         <p className="text-sm font-medium leading-snug truncate">{r.title}</p>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-gray-600">{r.season}</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-600">{r.season}</span>
                           {driverCodes.length > 0 && (
                             <span className="text-xs text-gray-500 font-mono">
                               {driverCodes.join(" · ")}
                             </span>
                           )}
                           {r.infraction_category && (
-                            <span className="text-xs text-gray-600">
+                            <span className="text-xs text-gray-400 dark:text-gray-600">
                               {r.infraction_category.replace(/_/g, " ")}
                             </span>
                           )}
@@ -265,7 +265,7 @@ export default function PrecedentsPage() {
                       </p>
                     )}
 
-                    <div className="flex items-center gap-3 text-xs text-gray-700 pt-0.5">
+                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-700 pt-0.5">
                       {r.article_cited && r.article_cited.length > 0 && (
                         <span>Art. {r.article_cited.join(", ")}</span>
                       )}
@@ -279,7 +279,7 @@ export default function PrecedentsPage() {
                           href={r.pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="ml-auto hover:text-white transition-colors"
+                          className="ml-auto hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
                           PDF ↗
                         </a>

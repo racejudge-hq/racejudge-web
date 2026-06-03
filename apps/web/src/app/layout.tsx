@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,17 +11,20 @@ export const metadata: Metadata = {
 };
 
 const Nav = () => (
-  <nav className="border-b border-gray-900 px-4 py-3 flex items-center gap-5 text-xs text-gray-600 flex-wrap">
-    <Link href="/" className="font-bold text-white text-sm tracking-tight shrink-0">
+  <nav className="border-b border-gray-200 dark:border-gray-900 px-4 py-3 flex items-center gap-5 text-xs text-gray-500 dark:text-gray-600 flex-wrap">
+    <Link href="/" className="font-bold text-gray-900 dark:text-white text-sm tracking-tight shrink-0">
       RACE<span className="rj-brand-red">JUDGE</span>
     </Link>
-    <Link href="/decisions"   className="hover:text-white transition-colors">Decisions</Link>
-    <Link href="/precedents"  className="hover:text-white transition-colors">Precedents</Link>
-    <Link href="/predict"     className="hover:text-white transition-colors">Predict</Link>
-    <Link href="/consistency" className="hover:text-white transition-colors">Consistency</Link>
-    <Link href="/guidelines"  className="hover:text-white transition-colors">Guidelines</Link>
-    <Link href="/live"        className="hover:text-white transition-colors">Live</Link>
-    <Link href="/annotate"    className="hover:text-white transition-colors ml-auto">Annotate</Link>
+    <Link href="/decisions"   className="hover:text-gray-900 dark:hover:text-white transition-colors">Decisions</Link>
+    <Link href="/precedents"  className="hover:text-gray-900 dark:hover:text-white transition-colors">Precedents</Link>
+    <Link href="/predict"     className="hover:text-gray-900 dark:hover:text-white transition-colors">Predict</Link>
+    <Link href="/consistency" className="hover:text-gray-900 dark:hover:text-white transition-colors">Consistency</Link>
+    <Link href="/guidelines"  className="hover:text-gray-900 dark:hover:text-white transition-colors">Guidelines</Link>
+    <Link href="/live"        className="hover:text-gray-900 dark:hover:text-white transition-colors">Live</Link>
+    <div className="ml-auto flex items-center gap-3">
+      <Link href="/annotate" className="hover:text-gray-900 dark:hover:text-white transition-colors">Annotate</Link>
+      <ThemeToggle />
+    </div>
   </nav>
 );
 
@@ -35,10 +40,12 @@ export default async function RootLayout({
     const { ClerkProvider } = await import("@clerk/nextjs");
     return (
       <ClerkProvider>
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
           <body>
-            <Nav />
-            {children}
+            <ThemeProvider>
+              <Nav />
+              {children}
+            </ThemeProvider>
           </body>
         </html>
       </ClerkProvider>
@@ -46,10 +53,12 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <Nav />
-        {children}
+        <ThemeProvider>
+          <Nav />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -10,7 +10,7 @@ export default async function AnnotatePage() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-10 space-y-8">
-      <Link href="/" className="text-sm text-gray-500 hover:text-white">
+      <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">
         ← Home
       </Link>
 
@@ -18,26 +18,26 @@ export default async function AnnotatePage() {
         <h1 className="text-2xl font-bold">
           RACE<span className="rj-brand-red">JUDGE</span> Annotation
         </h1>
-        <p className="text-gray-400 text-sm">
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
           Label incident pairs for BGE-M3 fine-tuning — target: 500 pairs
         </p>
       </header>
 
       {/* Progress */}
-      <section className="border border-gray-800 rounded-lg p-5 space-y-3">
+      <section className="border border-gray-200 dark:border-gray-800 rounded-lg p-5 space-y-3">
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-medium">Triplet pairs labelled</span>
           <span className="font-mono text-lg">
             {triplets} / {target}
           </span>
         </div>
-        <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+        <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
           <div
             className="h-full bg-white rounded-full transition-all"
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
-        <p className="text-xs text-gray-600">{progress.toFixed(1)}% of target</p>
+        <p className="text-xs text-gray-400 dark:text-gray-600">{progress.toFixed(1)}% of target</p>
       </section>
 
       {/* Stats by annotator */}
@@ -51,8 +51,8 @@ export default async function AnnotatePage() {
               .sort((a, b) => b[1] - a[1])
               .map(([annotator, count]) => (
                 <div key={annotator} className="flex justify-between text-sm">
-                  <span className="text-gray-400 font-mono">{annotator}</span>
-                  <span className="text-gray-600">{count} labels</span>
+                  <span className="text-gray-600 dark:text-gray-400 font-mono">{annotator}</span>
+                  <span className="text-gray-400 dark:text-gray-600">{count} labels</span>
                 </div>
               ))}
           </div>
@@ -64,27 +64,27 @@ export default async function AnnotatePage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
           How to Annotate
         </h2>
-        <div className="space-y-2 text-sm text-gray-400">
+        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            A <strong className="text-white">triplet</strong> is (anchor, positive, negative):
+            A <strong className="text-gray-900 dark:text-white">triplet</strong> is (anchor, positive, negative):
           </p>
           <ul className="list-disc list-inside space-y-1 text-gray-500 ml-2">
             <li>
-              <strong className="text-gray-300">Positive</strong>: a decision that should be
+              <strong className="text-gray-700 dark:text-gray-300">Positive</strong>: a decision that should be
               treated as a precedent for the anchor (similar infraction type, similar context)
             </li>
             <li>
-              <strong className="text-gray-300">Negative</strong>: a decision that looks
+              <strong className="text-gray-700 dark:text-gray-300">Negative</strong>: a decision that looks
               superficially similar but led to a different outcome (optional)
             </li>
           </ul>
           <p className="text-gray-500 text-xs mt-3">
             Use the API directly:{" "}
-            <code className="bg-gray-900 px-1 rounded">
+            <code className="bg-gray-50 dark:bg-gray-900 px-1 rounded">
               POST /v1/annotations
             </code>{" "}
             with{" "}
-            <code className="bg-gray-900 px-1 rounded">
+            <code className="bg-gray-50 dark:bg-gray-900 px-1 rounded">
               doc_id, positive_doc_id, annotator
             </code>
           </p>
@@ -96,7 +96,7 @@ export default async function AnnotatePage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
           Quick API Reference
         </h2>
-        <pre className="bg-gray-900 rounded p-4 text-xs text-gray-400 overflow-x-auto">{`# Submit a triplet label
+        <pre className="bg-gray-50 dark:bg-gray-900 rounded p-4 text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">{`# Submit a triplet label
 curl -X POST /v1/annotations \\
   -H "Content-Type: application/json" \\
   -d '{

@@ -33,7 +33,7 @@ const FLAG_COLORS: Record<string, string> = {
   YELLOW: "text-yellow-400",
   GREEN:  "text-green-500",
   BLUE:   "text-blue-400",
-  BLACK:  "text-gray-300",
+  BLACK:  "text-gray-700 dark:text-gray-300",
 };
 
 function MessageRow({ msg }: { msg: LiveMessage }) {
@@ -41,7 +41,7 @@ function MessageRow({ msg }: { msg: LiveMessage }) {
 
   if (msg.type === "ping") {
     return (
-      <div className="flex items-center gap-3 py-1 text-xs text-gray-800 border-b border-gray-900">
+      <div className="flex items-center gap-3 py-1 text-xs text-gray-600 dark:text-gray-800 border-b border-gray-100 dark:border-gray-900">
         <span className="font-mono w-20 shrink-0">{time}</span>
         <span>— keepalive —</span>
       </div>
@@ -50,7 +50,7 @@ function MessageRow({ msg }: { msg: LiveMessage }) {
 
   if (msg.type === "warning" || msg.type === "error") {
     return (
-      <div className="flex items-center gap-3 py-2 text-xs text-yellow-600 border-b border-gray-900">
+      <div className="flex items-center gap-3 py-2 text-xs text-yellow-600 border-b border-gray-100 dark:border-gray-900">
         <span className="font-mono w-20 shrink-0">{time}</span>
         <span>{msg.detail ?? msg.message}</span>
       </div>
@@ -58,14 +58,14 @@ function MessageRow({ msg }: { msg: LiveMessage }) {
   }
 
   const drivers = (msg.drivers ?? []).map((d) => d.code).join(" · ");
-  const flagColor = msg.flag ? (FLAG_COLORS[msg.flag] ?? "text-gray-400") : "text-gray-400";
+  const flagColor = msg.flag ? (FLAG_COLORS[msg.flag] ?? "text-gray-600 dark:text-gray-400") : "text-gray-600 dark:text-gray-400";
 
   return (
-    <div className="flex items-start gap-3 py-2 border-b border-gray-900 hover:bg-gray-950 transition-colors">
-      <span className="font-mono text-xs text-gray-600 w-20 shrink-0 pt-0.5">{time}</span>
+    <div className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-gray-900 hover:bg-white dark:hover:bg-gray-950 transition-colors">
+      <span className="font-mono text-xs text-gray-400 dark:text-gray-600 w-20 shrink-0 pt-0.5">{time}</span>
       <div className="min-w-0 space-y-0.5">
-        {drivers && <span className="text-xs font-mono text-gray-400">{drivers}</span>}
-        <p className="text-sm text-gray-200">
+        {drivers && <span className="text-xs font-mono text-gray-600 dark:text-gray-400">{drivers}</span>}
+        <p className="text-sm text-gray-700 dark:text-gray-200">
           {msg.message ?? msg.infraction ?? msg.type}
         </p>
         {msg.flag && (
@@ -191,7 +191,7 @@ export default function LivePage() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
-      <Link href="/" className="text-sm text-gray-500 hover:text-white">
+      <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">
         ← Home
       </Link>
 
@@ -199,7 +199,7 @@ export default function LivePage() {
         <div>
           <h1 className="text-2xl font-bold">
             RACE<span className="rj-brand-red">JUDGE</span>{" "}
-            <span className="font-normal text-gray-400">Live</span>
+            <span className="font-normal text-gray-600 dark:text-gray-400">Live</span>
           </h1>
           <p className="text-sm text-gray-500">
             Real-time incident stream — WebSocket with SSE fallback
@@ -231,7 +231,7 @@ export default function LivePage() {
           aria-label="Session"
           value={sessionKey}
           onChange={(e) => setSessionKey(e.target.value)}
-          className="flex-1 px-3 py-2 bg-gray-900 border border-gray-800 rounded text-sm"
+          className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded text-sm"
         >
           <option value="">All sessions</option>
           {sessions.map((s) => (
@@ -244,7 +244,7 @@ export default function LivePage() {
           <button
             type="button"
             onClick={disconnect}
-            className="px-4 py-2 border border-gray-700 rounded text-sm hover:border-red-700 text-red-400 transition-colors"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded text-sm hover:border-red-700 text-red-400 transition-colors"
           >
             Disconnect
           </button>
@@ -268,9 +268,9 @@ export default function LivePage() {
             { label: "Incidents",      value: incidents.length },
             { label: "Session",        value: sessionKey || "All" },
           ].map(({ label, value }) => (
-            <div key={label} className="border border-gray-800 rounded p-3">
+            <div key={label} className="border border-gray-200 dark:border-gray-800 rounded p-3">
               <div className="text-lg font-mono font-bold">{value}</div>
-              <div className="text-xs text-gray-600">{label}</div>
+              <div className="text-xs text-gray-400 dark:text-gray-600">{label}</div>
             </div>
           ))}
         </div>
@@ -278,23 +278,23 @@ export default function LivePage() {
 
       {/* Feed */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+        <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-600 mb-2">
           <span>Live feed</span>
           {messages.length > 0 && (
-            <button type="button" onClick={() => setMessages([])} className="hover:text-white transition-colors">
+            <button type="button" onClick={() => setMessages([])} className="hover:text-gray-900 dark:hover:text-white transition-colors">
               Clear
             </button>
           )}
         </div>
-        <div className="border border-gray-800 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
           {messages.length === 0 ? (
-            <div className="p-8 text-center text-gray-600 text-sm">
+            <div className="p-8 text-center text-gray-400 dark:text-gray-600 text-sm">
               {connected
                 ? "Waiting for messages…"
                 : "Connect to a session to see live incident data."}
             </div>
           ) : (
-            <div className="max-h-[500px] overflow-y-auto divide-y divide-gray-900 px-4">
+            <div className="max-h-[500px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-900 px-4">
               {messages.map((m, i) => (
                 <MessageRow key={i} msg={m} />
               ))}
@@ -304,7 +304,7 @@ export default function LivePage() {
         </div>
       </div>
 
-      <p className="text-xs text-gray-700">
+      <p className="text-xs text-gray-500 dark:text-gray-700">
         Connects via WebSocket first. Falls back to Server-Sent Events automatically if WebSocket
         is blocked. Both modes degrade to OpenF1 polling when Redis is unavailable.
       </p>

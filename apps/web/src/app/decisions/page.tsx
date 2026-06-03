@@ -24,7 +24,7 @@ export default async function DecisionsPage({ searchParams }: Props) {
         <h1 className="text-3xl font-bold">
           RACE<span className="rj-brand-red">JUDGE</span>
         </h1>
-        <p className="text-gray-400 text-sm mt-1">
+        <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
           FIA stewards&apos; decisions — searchable and browsable
         </p>
       </header>
@@ -35,13 +35,13 @@ export default async function DecisionsPage({ searchParams }: Props) {
           name="q"
           defaultValue={params.q}
           placeholder="Search decisions…"
-          className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-sm focus:outline-none focus:border-gray-400"
+          className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-sm focus:outline-none focus:border-gray-400"
         />
         <select
           name="season"
           defaultValue={params.season ?? ""}
           aria-label="Filter by season"
-          className="px-3 py-2 bg-gray-900 border border-gray-700 rounded text-sm"
+          className="px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-sm"
         >
           <option value="">All seasons</option>
           {[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019].map((y) => (
@@ -61,7 +61,7 @@ export default async function DecisionsPage({ searchParams }: Props) {
         <p className="text-gray-500">No decisions found.</p>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-gray-600">{decisions.length} results</p>
+          <p className="text-xs text-gray-400 dark:text-gray-600">{decisions.length} results</p>
           {decisions.map((d) => (
             <DecisionCard key={d.doc_id} d={d} />
           ))}
@@ -73,7 +73,7 @@ export default async function DecisionsPage({ searchParams }: Props) {
         {page > 1 && (
           <a
             href={`?q=${params.q ?? ""}&season=${params.season ?? ""}&page=${page - 1}`}
-            className="text-gray-400 hover:text-white"
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
             ← Previous
           </a>
@@ -81,7 +81,7 @@ export default async function DecisionsPage({ searchParams }: Props) {
         {decisions.length === limit && (
           <a
             href={`?q=${params.q ?? ""}&season=${params.season ?? ""}&page=${page + 1}`}
-            className="text-gray-400 hover:text-white ml-auto"
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white ml-auto"
           >
             Next →
           </a>

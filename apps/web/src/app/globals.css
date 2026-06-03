@@ -1,18 +1,102 @@
 @import "tailwindcss";
 
+/* -------------------------------------------------------------------------
+   Dark/light mode via .dark class on <html> (next-themes class strategy).
+   Tailwind v4: declare the dark variant before any utility usage.
+------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* -------------------------------------------------------------------------
+   Color tokens — light (default) and dark
+------------------------------------------------------------------------- */
 :root {
-  --rj-red:    #e8002d;   /* FIA red */
-  --rj-black:  #0a0a0a;
-  --rj-white:  #fafafa;
-  --rj-grey:   #1a1a1a;
+  --rj-red:   #e8002d;
+
+  /* Surfaces */
+  --rj-bg:      255 255 255;   /* page background */
+  --rj-surface: 248 248 248;   /* card / panel */
+  --rj-raised:  240 242 245;   /* slightly elevated */
+
+  /* Text */
+  --rj-text-1:  17 17 17;      /* primary */
+  --rj-text-2:  55 65 81;      /* secondary */
+  --rj-text-3:  107 114 128;   /* muted */
+  --rj-text-4:  156 163 175;   /* faint */
+  --rj-text-5:  209 213 219;   /* ghost / barely visible */
+
+  /* Borders */
+  --rj-line:    229 231 235;   /* main border */
+  --rj-line-2:  209 213 219;   /* heavier border */
+  --rj-line-3:  243 244 246;   /* subtle divider */
 }
 
+.dark {
+  --rj-bg:      10 10 10;
+  --rj-surface: 17 17 17;
+  --rj-raised:  30 30 30;
+
+  --rj-text-1:  250 250 250;
+  --rj-text-2:  209 213 219;
+  --rj-text-3:  107 114 128;
+  --rj-text-4:  75 85 99;
+  --rj-text-5:  55 65 81;
+
+  --rj-line:    31 41 55;
+  --rj-line-2:  55 65 81;
+  --rj-line-3:  17 24 39;
+}
+
+/* -------------------------------------------------------------------------
+   Semantic utility classes
+   These are the canonical classes to use in components; they respond to
+   theme automatically. Tailwind arbitrary value syntax used so hover:/
+   focus:/dark: prefixes all work on them.
+------------------------------------------------------------------------- */
+
+/* Surfaces */
+@utility rj-bg      { background-color: rgb(var(--rj-bg)); }
+@utility rj-surface { background-color: rgb(var(--rj-surface)); }
+@utility rj-raised  { background-color: rgb(var(--rj-raised)); }
+
+/* Text */
+@utility rj-text    { color: rgb(var(--rj-text-1)); }
+@utility rj-text-2  { color: rgb(var(--rj-text-2)); }
+@utility rj-text-3  { color: rgb(var(--rj-text-3)); }
+@utility rj-text-4  { color: rgb(var(--rj-text-4)); }
+@utility rj-text-5  { color: rgb(var(--rj-text-5)); }
+
+/* Borders */
+@utility rj-border  { border-color: rgb(var(--rj-line)); }
+@utility rj-line-2  { border-color: rgb(var(--rj-line-2)); }
+@utility rj-line-3  { border-color: rgb(var(--rj-line-3)); }
+
+/* -------------------------------------------------------------------------
+   Base styles
+------------------------------------------------------------------------- */
+
 body {
-  background: var(--rj-black);
-  color: var(--rj-white);
+  background-color: rgb(var(--rj-bg));
+  color: rgb(var(--rj-text-1));
   font-family: ui-monospace, "JetBrains Mono", monospace;
 }
 
-.rj-brand-red {
-  color: var(--rj-red);
+/* Brand accent */
+.rj-brand-red { color: var(--rj-red); }
+
+/* -------------------------------------------------------------------------
+   Input / select theming — applied via global selector so forms in
+   server components pick it up without per-file class changes.
+------------------------------------------------------------------------- */
+input[type="text"],
+input[type="search"],
+input:not([type]),
+select,
+textarea {
+  background-color: rgb(var(--rj-surface));
+  color: rgb(var(--rj-text-1));
+  border-color: rgb(var(--rj-line-2));
+}
+
+input::placeholder {
+  color: rgb(var(--rj-text-3));
 }
