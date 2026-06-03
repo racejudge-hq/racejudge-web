@@ -32,7 +32,8 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["live"])
@@ -212,6 +213,79 @@ async def _serve_from_polling(
 # ---------------------------------------------------------------------------
 # HTTP endpoints
 # ---------------------------------------------------------------------------
+
+@router.get("/live/stream")
+async def live_sse(request: Request, session_key: int | None = None) -> StreamingResponse:
+    """
+    SSE fallback for environments that block WebSockets.
+
+    Streams the same incident alert events as WS /v1/live but over
+    Server-Sent Events (GET /v1/live/stream).
+
+    Event format:
+        data: {"type": "incident_alert", ...}\n\n
+        data: {"type": "ping", ...}\n\n
+
+    Connect from browser:
+        const es = new EventSource('/v1/live/stream?session_key=9158');
+        es.onmessage = (e) => console.log(JSON.parse(e.data));
+    """
+    async def _generator():
+        redis = await _get_redis()
+
+        # Hello event
+        yield f"data: {json.dumps({'type': 'connected', 'channel': LIVE_CHANNEL, 'session_key': session_key, 'timestamp': datetime.now(UTC).isoformat()})}\n\n"
+
+        if redis:
+            pubsub = redis.pubsub()
+            await pubsub.subscribe(LIVE_CHANNEL)
+            last_ping = asyncio.get_event_loop().time()
+            try:
+                async for message in pubsub.listen():
+                    if await request.is_disconnected():
+                        break
+                    if message["type"] != "message":
+                        continue
+                    try:
+                        data = json.loads(message["data"])
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                    if session_key and data.get("session_key") != session_key:
+                        continue
+                    yield f"data: {json.dumps(data)}\n\n"
+                    now = asyncio.get_event_loop().time()
+                    if now - last_ping > PING_INTERVAL:
+                        yield f"data: {json.dumps({'type': 'ping', 'timestamp': datetime.now(UTC).isoformat()})}\n\n"
+                        last_ping = now
+            except Exception as exc:
+                log.error("SSE Redis error: %s", exc)
+            finally:
+                await pubsub.unsubscribe(LIVE_CHANNEL)
+                await redis.aclose()
+        else:
+            # Polling fallback
+            yield f"data: {json.dumps({'type': 'warning', 'detail': 'Redis unavailable — polling OpenF1 API (5s interval)'})}\n\n"
+            seen: set[str] = set()
+            while not await request.is_disconnected():
+                if session_key:
+                    messages = await _poll_openf1(session_key)
+                    for msg in messages:
+                        key = f"{msg.get('timestamp')}-{msg.get('message', '')}"
+                        if key not in seen:
+                            seen.add(key)
+                            yield f"data: {json.dumps(msg)}\n\n"
+                yield f"data: {json.dumps({'type': 'ping', 'timestamp': datetime.now(UTC).isoformat()})}\n\n"
+                await asyncio.sleep(5)
+
+    return StreamingResponse(
+        _generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 
 @router.get("/live/sessions")
 async def get_live_sessions() -> list[dict[str, Any]]:

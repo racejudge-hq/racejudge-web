@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const WS_BASE  = API_BASE.replace(/^http/, "ws");
@@ -25,6 +25,8 @@ interface Session {
   circuit: string;
   country: string;
 }
+
+type Transport = "ws" | "sse" | "none";
 
 const FLAG_COLORS: Record<string, string> = {
   RED:    "text-red-500",
@@ -62,9 +64,7 @@ function MessageRow({ msg }: { msg: LiveMessage }) {
     <div className="flex items-start gap-3 py-2 border-b border-gray-900 hover:bg-gray-950 transition-colors">
       <span className="font-mono text-xs text-gray-600 w-20 shrink-0 pt-0.5">{time}</span>
       <div className="min-w-0 space-y-0.5">
-        {drivers && (
-          <span className="text-xs font-mono text-gray-400">{drivers}</span>
-        )}
+        {drivers && <span className="text-xs font-mono text-gray-400">{drivers}</span>}
         <p className="text-sm text-gray-200">
           {msg.message ?? msg.infraction ?? msg.type}
         </p>
@@ -77,12 +77,15 @@ function MessageRow({ msg }: { msg: LiveMessage }) {
 }
 
 export default function LivePage() {
-  const [sessions, setSessions]       = useState<Session[]>([]);
-  const [sessionKey, setSessionKey]   = useState<string>("");
-  const [messages, setMessages]       = useState<LiveMessage[]>([]);
-  const [connected, setConnected]     = useState(false);
-  const [connecting, setConnecting]   = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const [sessions, setSessions]     = useState<Session[]>([]);
+  const [sessionKey, setSessionKey] = useState<string>("");
+  const [messages, setMessages]     = useState<LiveMessage[]>([]);
+  const [connected, setConnected]   = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [transport, setTransport]   = useState<Transport>("none");
+
+  const wsRef  = useRef<WebSocket | null>(null);
+  const esRef  = useRef<EventSource | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,39 +99,91 @@ export default function LivePage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const connect = () => {
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
+  const pushMsg = useCallback((data: LiveMessage) => {
+    setMessages((prev) => [...prev.slice(-200), data]);
+  }, []);
+
+  const _connectSSE = useCallback((sk: string) => {
+    const url = sk
+      ? `${API_BASE}/v1/live/stream?session_key=${sk}`
+      : `${API_BASE}/v1/live/stream`;
+
+    const es = new EventSource(url);
+    esRef.current = es;
+
+    es.onopen = () => { setConnected(true); setConnecting(false); setTransport("sse"); };
+    es.onerror = () => { setConnected(false); setConnecting(false); setTransport("none"); };
+    es.onmessage = (evt) => {
+      try {
+        pushMsg(JSON.parse(evt.data) as LiveMessage);
+      } catch { /* ignore */ }
+    };
+  }, [pushMsg]);
+
+  const connect = useCallback(() => {
+    // Close any existing connection
+    wsRef.current?.close();
+    esRef.current?.close();
+    wsRef.current  = null;
+    esRef.current  = null;
+
     setMessages([]);
     setConnecting(true);
+    setTransport("none");
 
-    const url = sessionKey
+    const wsUrl = sessionKey
       ? `${WS_BASE}/v1/live?session_key=${sessionKey}`
       : `${WS_BASE}/v1/live`;
 
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
-    ws.onopen = () => { setConnected(true); setConnecting(false); };
-    ws.onclose = () => { setConnected(false); setConnecting(false); };
-    ws.onerror = () => { setConnected(false); setConnecting(false); };
-    ws.onmessage = (evt) => {
-      try {
-        const data = JSON.parse(evt.data) as LiveMessage;
-        setMessages((prev) => [...prev.slice(-200), data]);
-      } catch {
-        // ignore malformed messages
+    ws.onopen = () => {
+      setConnected(true);
+      setConnecting(false);
+      setTransport("ws");
+    };
+
+    ws.onerror = () => {
+      // WS failed — fall back to SSE automatically
+      ws.close();
+      wsRef.current = null;
+      pushMsg({
+        type: "warning",
+        detail: "WebSocket unavailable — falling back to SSE",
+        timestamp: new Date().toISOString(),
+      });
+      _connectSSE(sessionKey);
+    };
+
+    ws.onclose = () => {
+      if (transport === "ws") {
+        setConnected(false);
+        setConnecting(false);
+        setTransport("none");
       }
     };
-  };
 
-  const disconnect = () => {
+    ws.onmessage = (evt) => {
+      try {
+        pushMsg(JSON.parse(evt.data) as LiveMessage);
+      } catch { /* ignore */ }
+    };
+  }, [sessionKey, transport, pushMsg, _connectSSE]);
+
+  const disconnect = useCallback(() => {
     wsRef.current?.close();
-    wsRef.current = null;
-  };
+    esRef.current?.close();
+    wsRef.current  = null;
+    esRef.current  = null;
+    setConnected(false);
+    setTransport("none");
+  }, []);
 
-  useEffect(() => () => { wsRef.current?.close(); }, []);
+  useEffect(() => () => {
+    wsRef.current?.close();
+    esRef.current?.close();
+  }, []);
 
   const incidents = messages.filter(
     (m) => m.type === "incident_alert" || m.type === "race_control"
@@ -146,16 +201,26 @@ export default function LivePage() {
             RACE<span className="rj-brand-red">JUDGE</span>{" "}
             <span className="font-normal text-gray-400">Live</span>
           </h1>
-          <p className="text-sm text-gray-500">Real-time incident stream via WebSocket + Redis</p>
+          <p className="text-sm text-gray-500">
+            Real-time incident stream — WebSocket with SSE fallback
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span
             className={`w-2 h-2 rounded-full ${
-              connected ? "bg-green-500 animate-pulse" : connecting ? "bg-yellow-500" : "bg-gray-700"
+              connected
+                ? "bg-green-500 animate-pulse"
+                : connecting
+                ? "bg-yellow-500 animate-pulse"
+                : "bg-gray-700"
             }`}
           />
           <span className="text-xs text-gray-500">
-            {connected ? "connected" : connecting ? "connecting…" : "disconnected"}
+            {connected
+              ? `connected · ${transport.toUpperCase()}`
+              : connecting
+              ? "connecting…"
+              : "disconnected"}
           </span>
         </div>
       </header>
@@ -177,6 +242,7 @@ export default function LivePage() {
         </select>
         {connected ? (
           <button
+            type="button"
             onClick={disconnect}
             className="px-4 py-2 border border-gray-700 rounded text-sm hover:border-red-700 text-red-400 transition-colors"
           >
@@ -184,6 +250,7 @@ export default function LivePage() {
           </button>
         ) : (
           <button
+            type="button"
             onClick={connect}
             disabled={connecting}
             className="px-4 py-2 bg-white text-black rounded text-sm font-medium hover:bg-gray-200 disabled:opacity-40"
@@ -193,13 +260,13 @@ export default function LivePage() {
         )}
       </div>
 
-      {/* Stats row */}
+      {/* Stats */}
       {connected && (
         <div className="grid grid-cols-3 gap-3 text-center">
           {[
             { label: "Total messages", value: messages.length },
-            { label: "Incidents", value: incidents.length },
-            { label: "Session", value: sessionKey || "All" },
+            { label: "Incidents",      value: incidents.length },
+            { label: "Session",        value: sessionKey || "All" },
           ].map(({ label, value }) => (
             <div key={label} className="border border-gray-800 rounded p-3">
               <div className="text-lg font-mono font-bold">{value}</div>
@@ -209,20 +276,16 @@ export default function LivePage() {
         </div>
       )}
 
-      {/* Message feed */}
+      {/* Feed */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
           <span>Live feed</span>
           {messages.length > 0 && (
-            <button
-              onClick={() => setMessages([])}
-              className="hover:text-white transition-colors"
-            >
+            <button type="button" onClick={() => setMessages([])} className="hover:text-white transition-colors">
               Clear
             </button>
           )}
         </div>
-
         <div className="border border-gray-800 rounded-lg overflow-hidden">
           {messages.length === 0 ? (
             <div className="p-8 text-center text-gray-600 text-sm">
@@ -242,7 +305,8 @@ export default function LivePage() {
       </div>
 
       <p className="text-xs text-gray-700">
-        Incidents are pushed via Redis Pub/Sub from the ingest pipeline. Falls back to OpenF1 polling when Redis is unavailable.
+        Connects via WebSocket first. Falls back to Server-Sent Events automatically if WebSocket
+        is blocked. Both modes degrade to OpenF1 polling when Redis is unavailable.
       </p>
     </main>
   );
