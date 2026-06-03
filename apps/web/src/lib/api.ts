@@ -125,6 +125,62 @@ export async function searchPrecedents(
 }
 
 // ---------------------------------------------------------------------------
+// Incidents
+// ---------------------------------------------------------------------------
+
+export interface IncidentSummary {
+  incident_id: string;
+  doc_id: string;
+  drivers: { code?: string; full_name?: string; number?: number }[];
+  lap: number | null;
+  corner: string | null;
+  article_cited: string[];
+  infraction_category: string | null;
+  penalty_type: string | null;
+  penalty_seconds: number | null;
+  penalty_points: number;
+  contact: boolean | null;
+  reasoning_text: string;
+}
+
+export async function getIncident(id: string): Promise<IncidentSummary & {
+  race_control_messages: { message_id: string; date: string; category: string | null; message: string; flag: string | null }[];
+  radio_clips: { clip_id: string; driver_number: number; date: string; transcript: string | null; speaker_label: string | null }[];
+}> {
+  const res = await fetch(`${API_BASE}/v1/incidents/${id}`, {
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) throw new Error(`GET /v1/incidents/${id} failed: ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Guidelines
+// ---------------------------------------------------------------------------
+
+export interface GuidelineRow {
+  article_id: string;
+  document_name: string;
+  section: string | null;
+  article_number: string;
+  article_text: string;
+  recommended_penalty: string | null;
+  effective_date: string | null;
+}
+
+export async function getGuidelines(opts?: {
+  documentName?: string;
+  limit?: number;
+}): Promise<GuidelineRow[]> {
+  const url = new URL(`${API_BASE}/v1/guidelines`);
+  if (opts?.documentName) url.searchParams.set("document_name", opts.documentName);
+  if (opts?.limit) url.searchParams.set("limit", String(opts.limit));
+  const res = await fetch(url.toString(), { next: { revalidate: 3600 } });
+  if (!res.ok) throw new Error(`GET /v1/guidelines failed: ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
 // Annotations
 // ---------------------------------------------------------------------------
 

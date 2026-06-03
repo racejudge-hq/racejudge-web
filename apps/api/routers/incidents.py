@@ -257,6 +257,154 @@ async def get_incident(incident_id: str) -> dict:
     return result
 
 
+@router.get("/incidents/consistency")
+async def get_consistency_heatmap(
+    season: Annotated[int | None, Query(ge=2018, le=2030)] = None,
+) -> list[dict]:
+    """
+    Penalty outcome distribution by infraction_category × season.
+    Powers the /consistency heat-map page.
+    """
+    if not _DB_AVAILABLE:
+        raise HTTPException(status_code=503, detail="DATABASE_URL required")
+
+    from sqlalchemy import text
+
+    from packages.db.database import _get_session_factory
+
+    factory = _get_session_factory()
+    if factory is None:
+        raise HTTPException(status_code=503, detail="DB session unavailable")
+
+    season_clause = "AND d.season = :season" if season else ""
+    sql = text(f"""
+        SELECT
+            i.infraction_category,
+            d.season,
+            COUNT(*)                                                          AS total,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'NFA')  / COUNT(*), 1) AS nfa_pct,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'REP')  / COUNT(*), 1) AS rep_pct,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type IN ('5s','10s')) / COUNT(*), 1) AS time_penalty_pct,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type IN ('DT','GRID')) / COUNT(*), 1) AS grid_dt_pct,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'DSQ')  / COUNT(*), 1) AS dsq_pct,
+            ROUND(AVG(i.penalty_points)::numeric, 2)                         AS avg_penalty_points
+        FROM incidents i
+        JOIN decisions d ON i.doc_id = d.doc_id
+        WHERE i.infraction_category IS NOT NULL
+          AND i.penalty_type IS NOT NULL
+          {season_clause}
+        GROUP BY i.infraction_category, d.season
+        ORDER BY d.season DESC, total DESC
+    """)
+
+    params: dict = {}
+    if season:
+        params["season"] = season
+
+    async with factory() as db:
+        result = await db.execute(sql, params)
+        rows = result.mappings().all()
+
+    return [
+        {
+            "infraction_category": r["infraction_category"],
+            "season":              r["season"],
+            "total":               r["total"],
+            "nfa_pct":             float(r["nfa_pct"] or 0),
+            "rep_pct":             float(r["rep_pct"] or 0),
+            "time_penalty_pct":    float(r["time_penalty_pct"] or 0),
+            "grid_dt_pct":         float(r["grid_dt_pct"] or 0),
+            "dsq_pct":             float(r["dsq_pct"] or 0),
+            "avg_penalty_points":  float(r["avg_penalty_points"] or 0),
+        }
+        for r in rows
+    ]
+
+
+@router.get("/drivers/{driver_code}/stats")
+async def get_driver_stats(driver_code: str) -> dict:
+    """
+    Driver penalty cockpit — incident history, points breakdown, ban-risk score.
+    Powers the /drivers/[code] page.
+    """
+    if not _DB_AVAILABLE:
+        raise HTTPException(status_code=503, detail="DATABASE_URL required")
+
+    from sqlalchemy import text
+
+    from packages.db.database import _get_session_factory
+
+    code = driver_code.upper()
+    factory = _get_session_factory()
+    if factory is None:
+        raise HTTPException(status_code=503, detail="DB session unavailable")
+
+    sql_incidents = text("""
+        SELECT
+            i.incident_id,
+            d.title,
+            d.season,
+            d.published_at::text   AS published_at,
+            i.penalty_type,
+            i.penalty_points,
+            i.infraction_category,
+            i.article_cited,
+            LEFT(i.reasoning_text, 300) AS reasoning_snippet
+        FROM incidents i
+        JOIN decisions d ON i.doc_id = d.doc_id
+        WHERE i.drivers @> :driver_filter::jsonb
+        ORDER BY d.season DESC, d.published_at DESC
+        LIMIT 200
+    """)
+
+    async with factory() as db:
+        result = await db.execute(
+            sql_incidents, {"driver_filter": f'[{{"code":"{code}"}}]'}
+        )
+        rows = result.mappings().all()
+
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No incidents found for driver {code!r}")
+
+    incidents_list = [dict(r) for r in rows]
+
+    # Aggregate stats
+    total_pts = sum(r["penalty_points"] or 0 for r in incidents_list)
+    current_year = 2025
+    season_pts = sum(
+        r["penalty_points"] or 0
+        for r in incidents_list
+        if r["season"] == current_year
+    )
+
+    by_penalty: dict[str, int] = {}
+    for r in incidents_list:
+        pt = r["penalty_type"] or "NFA"
+        by_penalty[pt] = by_penalty.get(pt, 0) + 1
+
+    # Simple ban-risk heuristic: based on season points so far
+    ban_risk: str
+    if season_pts >= 10:
+        ban_risk = "high"
+    elif season_pts >= 7:
+        ban_risk = "medium"
+    elif season_pts >= 4:
+        ban_risk = "low"
+    else:
+        ban_risk = "none"
+
+    return {
+        "code":                   code,
+        "full_name":              code,   # resolver will fill this once driver table is seeded
+        "total_incidents":        len(incidents_list),
+        "total_penalty_points":   total_pts,
+        "current_season_points":  season_pts,
+        "ban_risk":               ban_risk,
+        "by_penalty":             by_penalty,
+        "incidents":              incidents_list,
+    }
+
+
 @router.post("/incidents/extract", response_model=ExtractResponse, status_code=201)
 async def extract_incident(body: ExtractRequest) -> dict:
     """

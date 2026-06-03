@@ -13,7 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from apps.api.core.config import settings
 from apps.api.routers import (
     annotations as annotations_router,
+)
+from apps.api.routers import (
     decisions,
+    guidelines,
     health,
     incidents,
     live,
@@ -61,4 +64,5 @@ app.include_router(annotations_router.router, prefix="/v1")
 app.include_router(telemetry.router,   prefix="/v1")
 app.include_router(predict.router,     prefix="/v1")
 app.include_router(precedents.router,  prefix="/v1")
+app.include_router(guidelines.router,  prefix="/v1")
 app.include_router(live.router,        prefix="/v1")
