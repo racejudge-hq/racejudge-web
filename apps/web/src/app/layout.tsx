@@ -21,8 +21,10 @@ const Nav = () => (
     <Link href="/consistency" className="hover:text-gray-900 dark:hover:text-white transition-colors">Consistency</Link>
     <Link href="/guidelines"  className="hover:text-gray-900 dark:hover:text-white transition-colors">Guidelines</Link>
     <Link href="/live"        className="hover:text-gray-900 dark:hover:text-white transition-colors">Live</Link>
+    <Link href="/review"      className="hover:text-gray-900 dark:hover:text-white transition-colors">Review</Link>
     <div className="ml-auto flex items-center gap-3">
-      <Link href="/annotate" className="hover:text-gray-900 dark:hover:text-white transition-colors">Annotate</Link>
+      <Link href="/annotate"  className="hover:text-gray-900 dark:hover:text-white transition-colors">Annotate</Link>
+      <Link href="/api"       className="hover:text-gray-900 dark:hover:text-white transition-colors">API</Link>
       <ThemeToggle />
     </div>
   </nav>

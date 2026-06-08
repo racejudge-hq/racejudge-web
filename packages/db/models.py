@@ -259,3 +259,66 @@ class PredictionLog(Base):
     model_version:  Mapped[str]      = mapped_column(Text, nullable=False)
     latency_ms:     Mapped[int | None] = mapped_column(Integer)
     created_at:     Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 — billing / API keys
+# ---------------------------------------------------------------------------
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    key_id:         Mapped[str]           = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id:        Mapped[str]           = mapped_column(Text, nullable=False)
+    key_hash:       Mapped[str]           = mapped_column(Text, nullable=False, unique=True)
+    key_prefix:     Mapped[str]           = mapped_column(Text, nullable=False)
+    name:           Mapped[str | None]    = mapped_column(Text)
+    tier:           Mapped[str]           = mapped_column(Text, nullable=False, default="free")
+    is_active:      Mapped[bool]          = mapped_column(Boolean, nullable=False, default=True)
+    requests_today: Mapped[int]           = mapped_column(Integer, nullable=False, default=0)
+    requests_total: Mapped[int]           = mapped_column(Integer, nullable=False, default=0)
+    last_used_at:   Mapped[datetime | None] = mapped_column()
+    revoked_at:     Mapped[datetime | None] = mapped_column()
+    created_at:     Mapped[datetime]      = mapped_column(server_default=func.now())
+
+    usage_logs: Mapped[list[UsageLog]] = relationship("UsageLog", back_populates="api_key")
+
+    __table_args__ = (
+        CheckConstraint("tier IN ('free','pro','team')", name="ck_api_keys_tier"),
+    )
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    subscription_id:        Mapped[str]           = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id:                Mapped[str]           = mapped_column(Text, nullable=False, unique=True)
+    stripe_customer_id:     Mapped[str | None]    = mapped_column(Text, unique=True)
+    stripe_subscription_id: Mapped[str | None]    = mapped_column(Text, unique=True)
+    tier:                   Mapped[str]           = mapped_column(Text, nullable=False, default="free")
+    status:                 Mapped[str]           = mapped_column(Text, nullable=False, default="active")
+    current_period_end:     Mapped[datetime | None] = mapped_column()
+    cancel_at_period_end:   Mapped[bool]          = mapped_column(Boolean, nullable=False, default=False)
+    created_at:             Mapped[datetime]      = mapped_column(server_default=func.now())
+    updated_at:             Mapped[datetime]      = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("tier IN ('free','pro','team')",                           name="ck_subscriptions_tier"),
+        CheckConstraint("status IN ('active','canceled','past_due','trialing')",   name="ck_subscriptions_status"),
+    )
+
+
+class UsageLog(Base):
+    __tablename__ = "usage_logs"
+
+    log_id:      Mapped[str]           = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    key_id:      Mapped[str | None]    = mapped_column(ForeignKey("api_keys.key_id", ondelete="SET NULL"))
+    user_id:     Mapped[str | None]    = mapped_column(Text)
+    endpoint:    Mapped[str]           = mapped_column(Text, nullable=False)
+    method:      Mapped[str]           = mapped_column(Text, nullable=False, default="GET")
+    status_code: Mapped[int | None]    = mapped_column(SmallInteger)
+    latency_ms:  Mapped[int | None]    = mapped_column(Integer)
+    ip_address:  Mapped[str | None]    = mapped_column(Text)
+    created_at:  Mapped[datetime]      = mapped_column(server_default=func.now())
+
+    api_key: Mapped[ApiKey | None] = relationship("ApiKey", back_populates="usage_logs")

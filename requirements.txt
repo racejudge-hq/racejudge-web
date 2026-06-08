@@ -77,3 +77,10 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 pydantic>=2.7.0
 httpx>=0.27.0                    # required by FastAPI TestClient + live polling
+
+
+# ============================================================
+# Phase 7 (active)
+# ============================================================
+stripe>=10.0.0                   # Stripe billing + webhook verification
+psycopg2-binary>=2.9.9           # sync psycopg2 for pipeline scripts
