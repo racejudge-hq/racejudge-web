@@ -228,7 +228,9 @@ export default function ApiPage() {
         <h2 className="font-semibold text-sm text-gray-900 dark:text-white">Create a new API key</h2>
         <div className="flex gap-2">
           <input
+            id="api-key-name"
             type="text"
+            aria-label="Key name (optional)"
             placeholder="Key name (optional)"
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
@@ -254,7 +256,9 @@ export default function ApiPage() {
       <section className="space-y-3">
         <h2 className="font-semibold text-sm text-gray-900 dark:text-white">Active keys</h2>
         {loading ? (
-          <p className="text-sm text-gray-400 dark:text-gray-600">Loading…</p>
+          <p role="status" aria-live="polite" className="text-sm text-gray-400 dark:text-gray-600">
+            Loading…
+          </p>
         ) : keys.length === 0 ? (
           <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-8 text-center text-sm text-gray-400 dark:text-gray-600">
             No API keys yet. Create your first key above.

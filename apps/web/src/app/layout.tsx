@@ -1,34 +1,41 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Nav } from "@/components/Nav";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://racejudge.com";
+const OG_IMAGE  = `${SITE_URL}/og.png`;
+
 export const metadata: Metadata = {
-  title: "RACEJUDGE — The Stewards' Precedent Engine",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "RACEJUDGE — The Stewards' Precedent Engine",
+    template: "%s | RACEJUDGE",
+  },
   description:
     "Every F1 stewards' decision, searchable, comparable, and explainable. Precedent search, penalty prediction, and consistency analysis.",
+  openGraph: {
+    type:        "website",
+    siteName:    "RACEJUDGE",
+    title:       "RACEJUDGE — The Stewards' Precedent Engine",
+    description: "Every F1 stewards' decision, searchable, comparable, and explainable.",
+    url:         SITE_URL,
+    images: [
+      {
+        url:    OG_IMAGE,
+        width:  1200,
+        height: 630,
+        alt:    "RACEJUDGE — F1 stewards' precedent engine",
+      },
+    ],
+  },
+  twitter: {
+    card:        "summary_large_image",
+    title:       "RACEJUDGE — The Stewards' Precedent Engine",
+    description: "Every F1 stewards' decision, searchable, comparable, and explainable.",
+    images:      [OG_IMAGE],
+  },
 };
-
-const Nav = () => (
-  <nav className="border-b border-gray-200 dark:border-gray-900 px-4 py-3 flex items-center gap-5 text-xs text-gray-500 dark:text-gray-600 flex-wrap">
-    <Link href="/" className="font-bold text-gray-900 dark:text-white text-sm tracking-tight shrink-0">
-      RACE<span className="rj-brand-red">JUDGE</span>
-    </Link>
-    <Link href="/decisions"   className="hover:text-gray-900 dark:hover:text-white transition-colors">Decisions</Link>
-    <Link href="/precedents"  className="hover:text-gray-900 dark:hover:text-white transition-colors">Precedents</Link>
-    <Link href="/predict"     className="hover:text-gray-900 dark:hover:text-white transition-colors">Predict</Link>
-    <Link href="/consistency" className="hover:text-gray-900 dark:hover:text-white transition-colors">Consistency</Link>
-    <Link href="/guidelines"  className="hover:text-gray-900 dark:hover:text-white transition-colors">Guidelines</Link>
-    <Link href="/live"        className="hover:text-gray-900 dark:hover:text-white transition-colors">Live</Link>
-    <Link href="/review"      className="hover:text-gray-900 dark:hover:text-white transition-colors">Review</Link>
-    <div className="ml-auto flex items-center gap-3">
-      <Link href="/annotate"  className="hover:text-gray-900 dark:hover:text-white transition-colors">Annotate</Link>
-      <Link href="/api"       className="hover:text-gray-900 dark:hover:text-white transition-colors">API</Link>
-      <ThemeToggle />
-    </div>
-  </nav>
-);
 
 export default async function RootLayout({
   children,
@@ -38,30 +45,29 @@ export default async function RootLayout({
   const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
   const hasClerk = /^pk_(test|live)_\w{20,}$/.test(clerkKey);
 
-  if (hasClerk) {
-    const { ClerkProvider } = await import("@clerk/nextjs");
-    return (
-      <ClerkProvider>
-        <html lang="en" suppressHydrationWarning>
-          <body>
-            <ThemeProvider>
-              <Nav />
-              {children}
-            </ThemeProvider>
-          </body>
-        </html>
-      </ClerkProvider>
-    );
-  }
-
-  return (
+  const body = (
     <html lang="en" suppressHydrationWarning>
       <body>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-red-600 focus:text-white focus:rounded"
+        >
+          Skip to content
+        </a>
         <ThemeProvider>
           <Nav />
-          {children}
+          <main id="main-content" tabIndex={-1}>
+            {children}
+          </main>
         </ThemeProvider>
       </body>
     </html>
   );
+
+  if (hasClerk) {
+    const { ClerkProvider } = await import("@clerk/nextjs");
+    return <ClerkProvider>{body}</ClerkProvider>;
+  }
+
+  return body;
 }

@@ -18,18 +18,24 @@ interface ReviewResult {
 
 function Field({
   label,
+  htmlFor,
   required,
   children,
 }: {
   label: string;
+  htmlFor?: string;
   required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+      <label
+        htmlFor={htmlFor}
+        className="block text-xs font-medium text-gray-700 dark:text-gray-300"
+      >
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
+        {required && <span className="sr-only">(required)</span>}
       </label>
       {children}
     </div>
@@ -118,8 +124,9 @@ export default function ReviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Form */}
         <section className="space-y-5">
-          <Field label="Incident ID" required>
+          <Field label="Incident ID" htmlFor="rr-incident-id" required>
             <input
+              id="rr-incident-id"
               type="text"
               value={incidentId}
               onChange={(e) => setIncidentId(e.target.value)}
@@ -136,8 +143,9 @@ export default function ReviewPage() {
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Driver code" required>
+            <Field label="Driver code" htmlFor="rr-driver-code" required>
               <input
+                id="rr-driver-code"
                 type="text"
                 value={driverCode}
                 onChange={(e) => setDriverCode(e.target.value.toUpperCase().slice(0, 3))}
@@ -146,8 +154,9 @@ export default function ReviewPage() {
                 className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 uppercase font-mono"
               />
             </Field>
-            <Field label="Team name" required>
+            <Field label="Team name" htmlFor="rr-team-name" required>
               <input
+                id="rr-team-name"
                 type="text"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
@@ -157,8 +166,9 @@ export default function ReviewPage() {
             </Field>
           </div>
 
-          <Field label="New significant evidence" required>
+          <Field label="New significant evidence" htmlFor="rr-new-evidence" required>
             <textarea
+              id="rr-new-evidence"
               value={newEvidence}
               onChange={(e) => setNewEvidence(e.target.value)}
               placeholder="Describe the new evidence that was not available to the Stewards at the time of the original decision (e.g. onboard camera footage showing X, telemetry data proving Y, witness statement from Z…)"
@@ -170,8 +180,9 @@ export default function ReviewPage() {
             </p>
           </Field>
 
-          <Field label="Additional notes (optional)">
+          <Field label="Additional notes (optional)" htmlFor="rr-notes">
             <textarea
+              id="rr-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any additional context, procedural notes, or supporting arguments to include at the end of the document."
@@ -240,7 +251,9 @@ export default function ReviewPage() {
           <div className="border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden min-h-[500px]">
             {loading ? (
               <div className="h-full flex items-center justify-center p-12 text-sm text-gray-400 dark:text-gray-600">
-                <span className="animate-pulse">Fetching incident, searching precedents, drafting…</span>
+                <span role="status" aria-live="polite" className="animate-pulse">
+                  Fetching incident, searching precedents, drafting…
+                </span>
               </div>
             ) : result ? (
               <pre className="p-5 text-xs font-mono leading-relaxed text-gray-800 dark:text-gray-200 overflow-auto max-h-[700px] whitespace-pre-wrap">

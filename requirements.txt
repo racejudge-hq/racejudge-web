@@ -84,3 +84,9 @@ httpx>=0.27.0                    # required by FastAPI TestClient + live polling
 # ============================================================
 stripe>=10.0.0                   # Stripe billing + webhook verification
 psycopg2-binary>=2.9.9           # sync psycopg2 for pipeline scripts
+
+
+# ============================================================
+# Phase 8 (active)
+# ============================================================
+sentry-sdk[fastapi]>=2.0.0       # error monitoring + performance tracing
