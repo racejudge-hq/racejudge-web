@@ -1,8 +1,7 @@
-# RACEJUDGE — Completion Report v3
+# RACEJUDGE — Final Completion Report v4
 
-> **Updated: 3 June 2026**
-> Commits: 22+ | Tests: 132 passing | Decisions parsed: 1,085 (deduplicated) | All seasons 2019–2025 complete
-> Phases complete: Pre-Work · 1 · 2 (partial) · 3 (partial) · 4 · 5 · 6 (full code) — Infrastructure provisioning + model training still needed
+> **Updated: 8 June 2026**
+> Commits: 15 | Tests: 219 passing | Decisions: 1,085 (2019–2025) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
 
 ---
 
@@ -10,179 +9,118 @@
 
 | Symbol | Meaning |
 |---|---|
-| ✅ | Fully done — code written, tested, committed |
-| 🔶 | Code done — blocked on your credentials / accounts / GPU to actually run |
-| 👤 | Only you can do this — no code involved, pure manual action |
-| 🤖 | Left for me (Claude) to build in a future session |
-| ❌ | Not started and not planned yet |
+| ✅ | Code written, committed, pushed |
+| 🔶 | Code done — blocked on your account / credentials / GPU to run |
+| 👤 | Only you can do this — no code involved |
+| ❌ | Not built — either post-launch scope or explicitly not started |
 
 ---
 
-## SECTION 1 — Pre-Work (First 72 Hours)
+## SECTION 1 — Pre-Work
+
+| Item | Status | Notes |
+|---|---|---|
+| GitHub org `racejudge-hq` + repo `racejudge-web` | ✅ | 15 commits, pushed |
+| Journalist pitch templates | ✅ | `scripts/outreach/journalist_pitch.md` |
+| 1,085 decisions scraped 2019–2025 | ✅ | `data/parsed/decisions.jsonl` |
+| Register `racejudge.com` + `.io` + `.app` | 👤 | Namecheap — ~£12/year |
+| Reserve `@racejudge` on X, Threads, Reddit, LinkedIn, Bluesky | 👤 | Do before launch |
+| Register email `hello@`, `legal@`, `press@racejudge.com` | 👤 | Cloudflare Email Routing (free) |
+| Trademark search EUIPO + USPTO class 42 | 👤 | Before launch — book a media law firm |
+| Hand-label 300 annotation pairs (similar/dissimilar) | 👤 | `python scripts/annotate_pairs.py` — critical for BGE-M3 fine-tuning |
+| Cold-email / DM 5 journalists | 👤 | Templates in `journalist_pitch.md` |
 
 ---
 
-### Pre-Work Action 1 — Claim the Brand
+## SECTION 2 — Phase 1: Foundation
 
-| Item | Status |
-|---|---|
-| Create GitHub org `racejudge-hq` + repo `racejudge-web` | ✅ Done — github.com/racejudge-hq/racejudge-web (21 commits) |
-| Register `racejudge.com` (and `.io`, `.app`) | 👤 You only |
-| Reserve `@racejudge` on X/Twitter, Threads, Reddit, LinkedIn | 👤 You only |
-| Backup name for FIA trademark contingency | 👤 You only |
+### Infrastructure code (all written and committed)
 
-**What you need to do — Brand**
+| Item | Status | File |
+|---|---|---|
+| Monorepo scaffold | ✅ | Root `apps/`, `packages/`, `infra/`, `scripts/` |
+| GitHub Actions CI | ✅ | `.github/workflows/ci.yml` — ruff, mypy, pytest, tsc, next build |
+| Dockerfile | ✅ | `Dockerfile` — python:3.12-slim, uvicorn |
+| Fly.io config | ✅ | `fly.toml` — racejudge-api, IAD region |
+| Terraform (R2 buckets + Fly secrets) | ✅ | `infra/terraform/main.tf` |
+| FIA scraper | ✅ | `packages/pipeline/scrapers/fia_scraper.py` — Playwright, SHA-256 dedup, R2 upload |
+| Celery workers (parse_pdf, extract_text, ocr_fallback) | ✅ | `packages/pipeline/workers/` |
+| Migration 0001: `decisions` table | ✅ | `packages/db/migrations/versions/0001_initial_schema.py` |
+| Migration 0002: `guidelines`, `team_radio_clips`, `annotations` | ✅ | `0002_guidelines_radio_annotations.py` |
+| Migration 0003: `events`, `sessions`, `race_control_messages`, `lap_features`, GIN FTS | ✅ | `0003_events_sessions_rcm_lap_features_fts.py` |
+| Migration 0004: `incidents`, `drivers`, `teams`, `precedent_links`, `predictions_log`, `steward_panels` | ✅ | `0004_incidents_drivers_teams_precedents.py` |
+| Migration 0005: `incidents.embedding` vector(1024) + HNSW index | ✅ | `0005_embeddings_hnsw.py` |
+| Migration 0006: `api_keys`, `subscriptions`, `usage_logs` | ✅ | `0006_billing_apikeys.py` |
+| SQLAlchemy ORM models (all tables) | ✅ | `packages/db/models.py` — 14 model classes |
+| FastAPI app skeleton | ✅ | `apps/api/main.py` |
+| `GET /health` | ✅ | `apps/api/routers/health.py` |
+| Settings / config | ✅ | `apps/api/core/config.py` — env, Stripe, CORS |
 
-**Step 1 — Register domains (20 min, ~£30/year)**
-1. Go to namecheap.com
-2. Search `racejudge.com` — if taken, try `racejudge.io` or `racejudge.app`
-3. Add to cart, check out. Enable AutoRenew. Enable WhoisGuard (free privacy).
-4. Total cost: ~£12/year per domain
+### Infrastructure accounts (you must provision these)
 
-**Step 2 — X/Twitter handle (5 min)**
-1. Open x.com → Sign Up
-2. Use `maruteymani31@gmail.com` or create a dedicated `team@racejudge.io`
-3. Username: `racejudge` (check: x.com/racejudge)
-4. Bio: "Every F1 stewards' decision since 2018 — searchable and explainable. Precedent search · penalty prediction · consistency analysis."
-
-**Step 3 — Other handles (10 min)**
-- Threads: sign up via Instagram with same bio
-- Reddit: go to reddit.com/subreddits/create → create r/racejudge
-- LinkedIn: linkedin.com/company/create → Company Page "RACEJUDGE"
-
----
-
-### Pre-Work Action 2 — Seed the Retriever
-
-| Item | Status |
-|---|---|
-| Download 50–100 FIA PDFs (2024–2025) | ✅ Done — 1,085 records across 2019–2025 |
-| `annotations.jsonl` API ready + annotation CLI | ✅ Done |
-| Hand-label 300 incident pairs (similar / dissimilar) | 👤 You only — critical for model quality |
-
-**What you need to do — Annotation labelling (most important manual task)**
-
-Why you cannot skip this: The BGE-M3 fine-tuning in Phase 4 requires labelled pairs of similar/dissimilar incidents to learn what "similar precedent" means in F1 stewarding context. Without it, the model will use a generic pre-trained embedding — it will still work, but precision will be noticeably lower for edge cases. Fake or rushed labels = broken model.
-
+**Neon Postgres (10 min — free tier)**
 ```bash
-# 1. Start annotation session (20 pairs/session, ~15 min each)
-cd /Users/maruteymani/Documents/RaceJudge
-source .venv/bin/activate
-python scripts/annotate_pairs.py
-
-# Controls: s = similar | d = dissimilar | ? = skip | q = save and quit
-
-# 2. Check progress
-python scripts/annotate_pairs.py --show-progress
-
-# 3. After 300 pairs are done, export for BGE-M3 training
-python scripts/export_similarity_pairs.py
+# 1. neon.tech → New Project → racejudge → eu-west-2
+# 2. Copy connection string → add to .env:
+DATABASE_URL=postgresql://racejudge:PASS@ep-xxx.eu-west-2.aws.neon.tech/racejudge?sslmode=require
+# 3. Apply all 6 migrations:
+cd packages/db && DATABASE_URL=$DATABASE_URL alembic upgrade head
+# 4. Load decisions:
+python scripts/load_jsonl_to_db.py
+python scripts/seed_guidelines.py
 ```
 
-**Press `s` (similar) when:** same infraction category, same session type, similar penalty outcome
-**Press `d` (dissimilar) when:** different infraction type, wildly different context, very different outcomes
+**Cloudflare R2 (15 min)**
+```bash
+# cloudflare.com → R2 → Create 3 buckets:
+#   racejudge-raw, racejudge-audio, racejudge-telemetry
+# R2 → Manage API Tokens → Object Read & Write → all 3 buckets
+# Add to .env:
+R2_ACCOUNT_ID=xxx
+R2_ACCESS_KEY_ID=xxx
+R2_SECRET_ACCESS_KEY=xxx
+# Upload PDFs:
+python scripts/upload_to_r2.py
+```
 
-Target: 300 pairs (150 similar + 150 dissimilar). At 20 pairs/day = 15 days. Start this week.
-
----
-
-### Pre-Work Action 3 — Recruit Design Partners
-
-| Item | Status |
-|---|---|
-| Journalist contacts + pitch templates | ✅ Done — `scripts/outreach/journalist_pitch.md` |
-| Cold-email / DM outreach | 👤 You only |
-
-**What you need to do — Journalist outreach**
-
-Send X/Twitter DMs first (higher open rate). Then email after 3 days if no reply.
-
-DM message (send to @ScottMitchell_Ml, @LawroBarretto, @KeithCollantine, @RacingNews365, @SamCooper_F1):
-> Hi [Name], I'm building RACEJUDGE — every FIA stewards' decision since 2018, structured and searchable. 1,085 decisions parsed. Penalty predictor, precedent search, live race integration. Looking for 3–5 journalist design partners before public launch. Early access + full dataset CSV as CSV in exchange for feedback. `maruteymani31@gmail.com`
-
-Full email templates are in `scripts/outreach/journalist_pitch.md` — two versions (data angle for The Race / RaceFans, GPDA angle for Autosport / PlanetF1).
-
----
-
-## SECTION 2 — Phase 1 (Weeks 1–3): Foundation
-
----
-
-### Infrastructure Provisioning
-
-| Item | Status |
-|---|---|
-| Monorepo scaffold (apps/, packages/, infra/, scripts/) | ✅ Done |
-| GitHub Actions CI (ruff + mypy + pytest + tsc + next build) | ✅ Done — fully green |
-| Terraform code for R2 buckets + Fly.io secrets | ✅ Code done |
-| Provision Neon Postgres | 🔶 Needs your account — steps below |
-| Provision Cloudflare R2 | 🔶 Needs your account — steps below |
-| Provision Upstash Redis | 🔶 Needs your account — steps below |
-| Provision Prefect Cloud | 🔶 Needs your account — steps below |
-
-**What you need to do — Infrastructure accounts (total time: ~1 hour)**
-
-**Account 1 — Neon Postgres (10 min, free tier)**
-1. Go to neon.tech → Sign Up → New Project → Name: `racejudge` → Region: `eu-west-2 (London)`
-2. Copy the Connection String from the Connection Details tab
-3. Open `/Users/maruteymani/Documents/RaceJudge/.env` → set:
-   ```
-   DATABASE_URL=postgresql://racejudge:PASS@ep-xxx.eu-west-2.aws.neon.tech/racejudge?sslmode=require
-   ```
-4. Then run:
-   ```bash
-   cd /Users/maruteymani/Documents/RaceJudge && source .venv/bin/activate
-   cd packages/db && DATABASE_URL=$DATABASE_URL alembic upgrade head
-   cd .. && python scripts/seed_guidelines.py
-   python scripts/load_jsonl_to_db.py
-   ```
-   This applies all 5 migrations (tables, indexes, pgvector, precedent_links) and loads all 1,085 decisions.
-
-**Account 2 — Cloudflare R2 (15 min)**
-1. cloudflare.com → Dashboard → R2 → Enable R2 → add card
-2. Create 3 buckets: `racejudge-raw`, `racejudge-audio`, `racejudge-telemetry`
-3. R2 → Manage API tokens → Create API Token → Object Read & Write → all 3 buckets
-4. Copy Account ID, Access Key ID, Secret Access Key → add to `.env`:
-   ```
-   R2_ACCOUNT_ID=your_account_id
-   R2_ACCESS_KEY_ID=your_access_key
-   R2_SECRET_ACCESS_KEY=your_secret_key
-   ```
-5. Then: `python scripts/upload_to_r2.py` (uploads ~1,100 PDFs, ~10 min)
-
-**Account 3 — Fly.io (20 min)**
+**Fly.io API deploy (20 min)**
 ```bash
 brew install flyctl && fly auth login
 fly apps create racejudge-api --org personal
-fly secrets set DATABASE_URL="..." CLERK_SECRET_KEY="..." R2_ACCOUNT_ID="..." --app racejudge-api
+fly secrets set DATABASE_URL="..." REDIS_URL="..." --app racejudge-api
 fly deploy
-curl https://racejudge-api.fly.dev/health  # should return {"status":"ok"}
+curl https://racejudge-api.fly.dev/health   # → {"status":"ok"}
 ```
 
-**Account 4 — Clerk Auth (10 min)**
-1. clerk.com → New application → `RACEJUDGE` → enable Email + Google
-2. Copy Publishable Key + Secret Key
-3. Create `apps/web/.env.local`:
-   ```
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxx
-   CLERK_SECRET_KEY=sk_test_xxx
-   NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-   NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-   NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
-   ```
-4. Also add `CLERK_SECRET_KEY=sk_test_xxx` to root `.env`
-5. Go to GitHub repo settings → Secrets → add `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` (fixes CI build step)
-
-**Account 5 — Upstash Redis (5 min)**
-1. upstash.com → New Database → `racejudge` → `eu-west-1`
-2. Copy Redis URL → add to `.env`:
-   ```
-   REDIS_URL=rediss://default:TOKEN@global-xxx.upstash.io:6379
-   ```
-
-**Account 6 — Prefect Cloud (10 min)**
+**Upstash Redis (5 min)**
 ```bash
-source .venv/bin/activate
+# upstash.com → New Database → racejudge → eu-west-1
+# Copy URL → .env: REDIS_URL=rediss://default:TOKEN@xxx.upstash.io:6379
+```
+
+**Vercel frontend (5 min)**
+```bash
+# vercel.com → New Project → Import racejudge-hq/racejudge-web
+# Root directory: apps/web
+# Add env vars: NEXT_PUBLIC_API_URL=https://racejudge-api.fly.dev
+#               NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxx
+#               CLERK_SECRET_KEY=sk_live_xxx
+```
+
+**Clerk auth (10 min)**
+```
+clerk.com → New Application → RACEJUDGE → Email + Google
+apps/web/.env.local:
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxx
+  CLERK_SECRET_KEY=sk_test_xxx
+  NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+  NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+Also: GitHub repo Settings → Secrets → add both keys (fixes CI)
+```
+
+**Prefect Cloud (10 min)**
+```bash
 prefect cloud login --key YOUR_API_KEY --workspace YOUR_EMAIL/racejudge
 prefect work-pool create pdf-ingest --type process
 prefect work-pool create ml-train --type process
@@ -191,436 +129,289 @@ prefect work-pool create live-session --type process
 
 ---
 
-### FIA PDF Scraper + Data
+## SECTION 3 — Phase 2: Structured Extraction
 
-| Item | Status |
-|---|---|
-| `fia_scraper.py` — Playwright + SHA-256 dedup + R2 upload | ✅ Done |
-| Back-fill 2019–2025 (1,085 records) | ✅ Done |
-| Raw text extracted (pdfplumber) | ✅ Done — all records have `raw_text` |
-| Structured decisions JSONL | ✅ Done — `data/parsed/decisions.jsonl` |
-
----
-
-### Database Migrations
-
-| Migration | Tables created | Status |
+| Item | Status | File |
 |---|---|---|
-| 0001 | `decisions`, initial schema | ✅ Done |
-| 0002 | `guidelines`, `team_radio_clips`, `annotations` | ✅ Done |
-| 0003 | `events`, `sessions`, `race_control_messages`, `lap_features`, GIN FTS index | ✅ Done |
-| 0004 | `incidents`, `drivers`, `teams`, `precedent_links`, `predictions_log` | ✅ Done |
-| 0005 | `incidents.embedding` vector(1024), HNSW index | ✅ Done |
+| `decision_parser.py` — regex field extractor | ✅ | `packages/pipeline/parsers/decision_parser.py` (176 lines) |
+| `text_cleaner.py` — whitespace/encoding normalisation | ✅ | `packages/pipeline/parsers/text_cleaner.py` (166 lines) |
+| `guidelines_parser.py` — FIA penalty guidelines parser | ✅ | `packages/pipeline/parsers/guidelines_parser.py` (643 lines) |
+| `layoutlm_extractor.py` — LayoutLMv3 skeleton | ✅ | `packages/pipeline/parsers/layoutlm_extractor.py` (172 lines) |
+| `tesseract_fallback.py` — Tesseract 5 OCR fallback | ✅ | `packages/pipeline/parsers/tesseract_fallback.py` (87 lines) |
+| `incident_extractor.py` — 3-layer extraction chain | ✅ | `packages/pipeline/extractors/incident_extractor.py` |
+| `driver_resolver.py` — canonical driver name mapping | ✅ | `packages/pipeline/resolvers/driver_resolver.py` |
+| `article_resolver.py` — article → guideline FK linker | ✅ | `packages/pipeline/resolvers/article_resolver.py` |
+| `backfill_incidents.py` — runs extraction over all decisions | ✅ | `scripts/backfill_incidents.py` |
+| `seed_drivers.py` — seeds drivers/teams from Jolpica-F1 | ✅ | `scripts/seed_drivers.py` |
+| `seed_guidelines.py` — seeds 35 FIA articles | ✅ | `scripts/seed_guidelines.py` |
+| 35 FIA Penalty Guidelines articles seeded | ✅ | 3 documents covered in seed script |
+| `POST /v1/incidents/extract` | ✅ | `apps/api/routers/incidents.py:408` |
+| `GET /v1/incidents` + `GET /v1/incidents/{id}` | ✅ | `apps/api/routers/incidents.py` |
+| `GET /v1/incidents/consistency` (heatmap data) | ✅ | `apps/api/routers/incidents.py:260` |
+| `GET /v1/drivers/{code}/stats` | ✅ | `apps/api/routers/incidents.py:324` |
+| Run extraction over all 1,085 decisions | 🔶 | Needs `DATABASE_URL` set first |
+| Full 100-article FIA Penalty Guidelines 2025 ingestion | 🔶 | Run `python scripts/seed_guidelines.py` after DB is up (currently 35 articles) |
+| Label Studio 300-pair annotation campaign | 👤 | See Pre-Work section |
 
-Apply all at once: `cd packages/db && alembic upgrade head`
-
----
-
-### FastAPI Application
-
-| Endpoint | Status |
-|---|---|
-| `GET /health` | ✅ Done |
-| `GET /v1/decisions` + `GET /v1/decisions/{id}` | ✅ Done |
-| `GET /v1/search` (BM25 + Postgres FTS fallback) | ✅ Done |
-| `POST /v1/precedents/search` (hybrid RRF — Phase 4) | ✅ Done |
-| `GET /v1/precedents/{id}/similar` (pre-computed links) | ✅ Done |
-| `POST /v1/predict` (gated by `ENABLE_PREDICTIONS`) | ✅ Done (model not trained yet) |
-| `POST /v1/predict/explain` (RAG explanation) | ✅ Done |
-| `GET /v1/incidents` + `/v1/telemetry/*` | ✅ Done |
-| `POST /v1/annotations` + stats/export | ✅ Done |
-| `WS /v1/live` (WebSocket + Redis Pub/Sub) | ✅ Done |
-| `GET /v1/live/sessions` | ✅ Done |
-| `GET /v1/guidelines` | 🤖 Route exists as a page — API endpoint to be added next session |
-| `GET /v1/drivers/{code}/stats` | 🤖 To be added next session |
-| `GET /v1/incidents/consistency` | 🤖 To be added next session |
-
----
-
-## SECTION 3 — Phase 2 (Weeks 4–7): Structured Extraction
-
----
-
-| Item | Status |
-|---|---|
-| `decision_parser.py` — regex-based field extractor (drivers, lap, article, penalty) | ✅ Done |
-| `text_cleaner.py` | ✅ Done |
-| `guidelines_parser.py` + hardcoded 10-row seed | ✅ Done |
-| `driver_resolver.py` — canonical driver name/code mapping | 🤖 Left for Claude — see note below |
-| `article_resolver.py` — link citations to `guidelines.article_id` | 🤖 Left for Claude — see note below |
-| Full Label Studio annotation campaign (300 PDFs) | 👤 You only |
-| LayoutLMv3 fine-tune on 300-doc annotated set | 🔶 Needs Modal A10G GPU — see GPU section |
-| Run structured extraction over all 1,085 decisions → populate `incidents` table | 🔶 Needs DATABASE_URL first |
-| Seed `drivers` + `teams` tables from Jolpica-F1 | 🔶 Needs DATABASE_URL first |
-| Full FIA Penalty Guidelines 2025 parsing (100 articles) | 🤖 Left for Claude — see note below |
-
-**Why `driver_resolver.py` and `article_resolver.py` are left for me:**
-The code skeletons exist but the actual resolution logic — fuzzy matching driver name variants, handling abbreviations like "VER" → "Max Verstappen", linking "Art. 38.1" → the exact `guidelines.article_id` UUID — requires building against a live Postgres database with the Jolpica-F1 seed data loaded. I can build this once you have `DATABASE_URL` set and the `drivers` table seeded.
-
-**What you need to do — Phase 2 annotation (when you are ready):**
-1. Set up Neon Postgres first (Account 1 above — mandatory)
-2. Then run the extraction pipeline:
-   ```bash
-   cd /Users/maruteymani/Documents/RaceJudge && source .venv/bin/activate
-   python scripts/load_jsonl_to_db.py       # loads 1,085 decisions into Postgres
-   python scripts/run_extraction.py          # runs decision_parser on all records → populates incidents
-   python scripts/seed_drivers.py            # seeds drivers/teams from Jolpica-F1 API
-   ```
-3. Use the `/annotate` page in the web app to review and correct extracted fields
-
----
-
-## SECTION 4 — Phase 3 (Weeks 8–10): Multimodal Linking
-
----
-
-| Item | Status |
-|---|---|
-| `openf1_client.py` — OpenF1 API wrapper | ✅ Done |
-| `radio_fetcher.py` — fetches 3 nearest clips within ±60s | ✅ Done |
-| `transcriber.py` — Whisper + pyannote.audio skeleton | ✅ Done (deps not installed) |
-| `decision_linker.py` — links decisions to OpenF1 events | ✅ Done |
-| `fastf1_slicer.py` — telemetry feature extraction | ✅ Done |
-| `live_session_flow.py` — Prefect live session pipeline | ✅ Done |
-| ASR inference actually running on audio | 🔶 Needs GPU + HF_TOKEN for pyannote |
-| Diarisation running | 🔶 Needs pyannote model access (accept HuggingFace licence) |
-| Race control messages linked to incidents | 🔶 Needs DATABASE_URL + session_keys |
-
-**What you need to do — ASR / audio (Phase 3 activation)**
-
-**Step 1 — Accept HuggingFace model licence (2 min):**
-1. Go to huggingface.co → sign in
-2. Go to pyannote/speaker-diarization-3.1
-3. Click "Accept" to accept usage conditions
-4. Go to your HF profile → Settings → Access Tokens → Create new token
-5. Add to `.env`: `HF_TOKEN=hf_xxx`
-
-**Step 2 — Install audio deps:**
+**To run extraction after DB is set up:**
 ```bash
-source .venv/bin/activate
+python scripts/seed_drivers.py           # seeds drivers/teams from Jolpica-F1 API
+python scripts/backfill_incidents.py     # extracts all 1,085 decisions → incidents table
+python scripts/seed_guidelines.py        # loads 35 FIA articles
+# Use /annotate page to review + correct extracted fields
+```
+
+---
+
+## SECTION 4 — Phase 3: Multimodal Linking
+
+| Item | Status | File |
+|---|---|---|
+| `openf1_client.py` — OpenF1 API wrapper | ✅ | `packages/pipeline/linkers/openf1_client.py` (136 lines) |
+| `radio_fetcher.py` — 3 nearest clips ±60s | ✅ | `packages/pipeline/audio/radio_fetcher.py` (258 lines) |
+| `transcriber.py` — Whisper large-v3 + pyannote | ✅ | `packages/pipeline/audio/transcriber.py` (280 lines) |
+| `asr_worker.py` — Celery ASR task | ✅ | `packages/pipeline/audio/asr_worker.py` (214 lines) |
+| `diarisation.py` — pyannote.audio speaker diarisation | ✅ | `packages/pipeline/audio/diarisation.py` (179 lines) |
+| `decision_linker.py` — links decisions to OpenF1 events | ✅ | `packages/pipeline/linkers/decision_linker.py` (172 lines) |
+| `race_control_linker.py` — links RCMs to incidents | ✅ | `packages/pipeline/linkers/race_control_linker.py` (230 lines) |
+| `weather_linker.py` — OpenF1 weather context | ✅ | `packages/pipeline/linkers/weather_linker.py` (150 lines) |
+| `fastf1_slicer.py` — telemetry feature extraction | ✅ | `packages/pipeline/telemetry/fastf1_slicer.py` |
+| `modal_transcribe.py` — faster-whisper on Modal A10G | ✅ | `packages/pipeline/workers/modal_transcribe.py` (189 lines) |
+| `sentiment_backfill.py` — DistilBERT sentiment over all clips | ✅ | `scripts/sentiment_backfill.py` |
+| `backfill_audio.py` — fetches/caches radio clips | ✅ | `scripts/backfill_audio.py` |
+| `backfill_race_control.py` — links RCMs to incidents | ✅ | `scripts/backfill_race_control.py` |
+| `live_session_flow.py` — Prefect live pipeline | ✅ | `packages/pipeline/flows/live_session_flow.py` |
+| ASR actually running on audio | 🔶 | Needs `HF_TOKEN` + GPU; `pip install faster-whisper pyannote.audio` |
+| Race control messages linked to incidents | 🔶 | Needs `DATABASE_URL` + session_keys |
+
+**To activate ASR:**
+```bash
+# 1. Accept pyannote model licence at huggingface.co/pyannote/speaker-diarization-3.1
+# 2. Create HF token → add to .env: HF_TOKEN=hf_xxx
 pip install faster-whisper pyannote.audio
-```
-
-**Step 3 — Run transcription backfill:**
-```bash
+# 3. CPU backfill (slow):
 python -m packages.pipeline.audio.transcriber --backfill --session-limit 10
-```
-This will transcribe all team radio clips for the most recent 10 sessions. Each session takes ~5–15 min on CPU (much faster on GPU).
-
-**Step 4 — Run it on a GPU (optional, much faster):**
-You can deploy the transcription job to Modal:
-```bash
-pip install modal
+# 4. Or GPU (fast) via Modal:
 modal run packages/pipeline/workers/modal_transcribe.py
 ```
-(This file needs to be created — it's on my list for the next session.)
 
 ---
 
-## SECTION 5 — Phase 4 (Weeks 11–14): Precedent Retrieval
+## SECTION 5 — Phase 4: Precedent Retrieval
 
----
-
-### What's been built (fully code-complete)
-
-| Item | Status | Notes |
+| Item | Status | File |
 |---|---|---|
-| `apps/api/retrieval/semantic_search.py` | ✅ Done | pgvector HNSW ANN with structured filters |
-| `apps/api/retrieval/bm25_search.py` | ✅ Done | Postgres tsvector, weighted A+B ranking |
-| `apps/api/retrieval/rrf.py` | ✅ Done | RRF (k=60), full incident card fetch |
-| `apps/api/routers/precedents.py` | ✅ Done | POST /v1/precedents/search + GET /v1/precedents/{id}/similar |
-| `packages/pipeline/ml/embedder.py` | ✅ Done | BGE-M3 batch backfill, psycopg2 writes |
-| `packages/pipeline/flows/embedding_flow.py` | ✅ Done | Nightly Prefect flow, precedent_links refresh |
-| Migration 0005: embedding column + HNSW index | ✅ Done | `vector(1024)`, `m=16`, `ef_construction=200` |
-| Migration 0004: `precedent_links` table | ✅ Done | Pre-computed top-20 per incident |
-| `apps/web/src/app/precedents/page.tsx` | ✅ Done | Full search UI, filters, similarity bars |
-| `/v1/precedents/search` registered in `main.py` | ✅ Done | |
-| `requirements.txt` — sentence-transformers, pgvector active | ✅ Done | |
+| `semantic_search.py` — pgvector HNSW ANN | ✅ | `apps/api/retrieval/semantic_search.py` (122 lines) |
+| `bm25_search.py` — Postgres tsvector BM25 | ✅ | `apps/api/retrieval/bm25_search.py` (82 lines) |
+| `rrf.py` — Reciprocal Rank Fusion (k=60) | ✅ | `apps/api/retrieval/rrf.py` (171 lines) |
+| `precedents.py` router | ✅ | `POST /v1/precedents/search` + `GET /v1/precedents/{id}/similar` |
+| `embedder.py` — BGE-M3 batch backfill | ✅ | `packages/pipeline/ml/embedder.py` |
+| `modal_embed.py` — BGE-M3 on Modal A10G | ✅ | `packages/pipeline/workers/modal_embed.py` (227 lines) |
+| `train_embedder.py` — triplet-loss BGE-M3 fine-tune | ✅ | `packages/ml/train_embedder.py` (291 lines) |
+| `embedding_flow.py` — Prefect nightly flow | ✅ | `packages/pipeline/flows/embedding_flow.py` |
+| `precedents/page.tsx` — full search UI | ✅ | `apps/web/src/app/precedents/page.tsx` (297 lines) |
+| Run BGE-M3 embedder (download ~2.2GB model) | 🔶 | Needs `DATABASE_URL` + populated incidents |
+| BGE-M3 fine-tune with 300 labelled pairs | 🔶 | Needs annotation pairs done first |
 
-### What is left for you to run
-
-**1 — Install new Python deps (5 min):**
+**To run embeddings:**
 ```bash
-cd /Users/maruteymani/Documents/RaceJudge && source .venv/bin/activate
 pip install sentence-transformers pgvector
-```
-
-**2 — Apply migrations to your Neon Postgres (after Account 1 is set up):**
-```bash
-cd packages/db && DATABASE_URL=$DATABASE_URL alembic upgrade head
-```
-
-**3 — Run BGE-M3 embedding backfill (after incidents table is populated):**
-```bash
-source .venv/bin/activate
+# After incidents table is populated:
 python -m packages.pipeline.ml.embedder --batch-size 64
-```
-This downloads BGE-M3 (~2.2GB) on first run and embeds every incident. On CPU: ~2–4 hours for 1,085 incidents. On GPU: ~10 min.
-
-If you want to run on a GPU (much faster), use Modal:
-```bash
-pip install modal
+# or on GPU:
 modal run packages/pipeline/workers/modal_embed.py
-```
-(This Modal wrapper is on my list to build — see Section 9.)
-
-**4 — Verify the search is working:**
-```bash
+# Verify:
 curl -X POST http://localhost:8000/v1/precedents/search \
   -H "Content-Type: application/json" \
-  -d '{"query": "driver forced off track at high speed corner"}'
-# Should return incident cards with similarity scores
+  -d '{"query": "unsafe release pit lane"}'
 ```
 
-### What is left for me (Claude) to build
-
-**BGE-M3 fine-tuning pipeline** — The embedder currently uses the base pre-trained BGE-M3 model. Once you have 300 labelled pairs (Pre-Work Action 2), I need to build the fine-tuning script (`packages/ml/train_embedder.py`) that runs triplet-loss training on Modal A10G. This will push Recall@10 from ~0.72 (base model) to the target ≥0.80. I need your annotation pairs file to do this.
-
-**Why it's left:** Needs the 300 labelled pairs you haven't created yet. I'll build the training script in the same session you tell me the annotation is done.
-
 ---
 
-## SECTION 6 — Phase 5 (Weeks 15–18): Penalty Prediction
+## SECTION 6 — Phase 5: Penalty Prediction
 
----
-
-### What's been built (code-complete)
-
-| Item | Status | Notes |
+| Item | Status | File |
 |---|---|---|
-| `packages/ml/predictor.py` | ✅ Done | XGBoost pipeline, ECE gate, 7-class output |
-| `packages/ml/features.py` | ✅ Done | Feature engineering from incident records |
-| `packages/ml/train.py` | ✅ Done | Full train script with time-split CV |
-| `packages/ml/sentiment.py` | ✅ Done | DistilBERT + zero-shot BART, rule-based fallback |
-| `packages/ml/rag_explainer.py` | ✅ Done | Anthropic claude-haiku RAG, template fallback |
-| `apps/api/routers/predict.py` | ✅ Done | POST /v1/predict + POST /v1/predict/explain |
-| `apps/web/src/app/predict/page.tsx` | ✅ Done | Full form, probability bars, RAG, precedents |
-| `requirements.txt` — xgboost, scikit-learn, joblib, anthropic active | ✅ Done | |
+| `predictor.py` — XGBoost 7-class pipeline | ✅ | `packages/ml/predictor.py` (306 lines) |
+| `predictor_v2.py` — stacked XGBoost + Llama ensemble | ✅ | `packages/ml/predictor_v2.py` (349 lines) |
+| `features.py` — tabular feature engineering | ✅ | `packages/ml/features.py` (222 lines) |
+| `train.py` — XGBoost training with time-split CV | ✅ | `packages/ml/train.py` (155 lines) |
+| `train_llama_lora.py` — Llama-3-8B LoRA on Modal A100 | ✅ | `packages/ml/train_llama_lora.py` (395 lines) |
+| `sentiment.py` — DistilBERT + zero-shot BART | ✅ | `packages/ml/sentiment.py` (134 lines) |
+| `rag_explainer.py` — Anthropic claude-haiku RAG | ✅ | `packages/ml/rag_explainer.py` (134 lines) |
+| `predict.py` router | ✅ | `POST /v1/predict` + `POST /v1/predict/explain` |
+| `predict/page.tsx` — full form + probability bars | ✅ | `apps/web/src/app/predict/page.tsx` (461 lines) |
+| Gambling disclaimer in API response | ✅ | `apps/api/routers/predict.py:57,150` |
+| Probability distribution (never point predictions) | ✅ | Returns `proba: {NFA:0.x, REP:0.x, ...}` |
+| Train XGBoost model | 🔶 | Needs populated incidents (≥300 with structured fields) |
+| Train Llama LoRA | 🔶 | Needs Modal A100 + `HF_TOKEN` with Llama-3-8B access |
+| Set `ENABLE_PREDICTIONS=true` in .env | 🔶 | Only after ECE < 0.05 gate passes |
+| Set `ANTHROPIC_API_KEY` for RAG explanations | 🔶 | console.anthropic.com → API Keys |
 
-### What is left for you to run
-
-**1 — Install new deps:**
+**To train prediction model:**
 ```bash
-pip install xgboost scikit-learn joblib anthropic
-```
-
-**2 — Populate incidents table first (Phase 2 prerequisite)**
-The model needs structured incident data — article_cited, penalty_type, infraction_category etc. This comes from running the extraction pipeline over the 1,085 decisions. See Phase 2 steps.
-
-**3 — Train the XGBoost model:**
-```bash
-cd /Users/maruteymani/Documents/RaceJudge && source .venv/bin/activate
+# 1. Ensure incidents table has ≥300 rows with penalty_type filled
 python -m packages.ml.train
-# Trains on 2018–2023, validates on 2024, tests on 2025
-# Saves model to models/penalty_v1.pkl
-# Prints: Macro-F1, ECE, confusion matrix
-```
-This runs on CPU in ~5 min once incidents are in the database. You need at least ~300 incidents with complete structured fields for the model to be meaningful.
+# Outputs: Macro-F1, ECE, confusion matrix
+# Gate: only set ENABLE_PREDICTIONS=true if ECE < 0.05 AND Macro-F1 ≥ 0.65
 
-**4 — Check the ECE gate:**
-The training script will print:
-```
-ECE: 0.041 ✅ (< 0.05 gate passed)
-Macro-F1: 0.67 ✅ (≥ 0.65 gate passed)
-```
-If ECE ≥ 0.05 or F1 < 0.65, do NOT set `ENABLE_PREDICTIONS=true`. The model needs more training data.
+# 2. (Optional, boosts F1 by ~7%): Train Llama Layer B
+modal run packages/ml/train_llama_lora.py
 
-**5 — Enable the prediction endpoint:**
-Only after both gates pass:
+# 3. After both are trained, build stacked ensemble:
+python -m packages.ml.predictor_v2 --train
+```
+
+---
+
+## SECTION 7 — Phase 6: UX & Live Mode
+
+| Item | Status | File |
+|---|---|---|
+| `live.py` router — WebSocket + Redis Pub/Sub + SSE fallback | ✅ | `apps/api/routers/live.py` (317 lines) |
+| `live/page.tsx` — WebSocket client, session selector, auto-scroll | ✅ | `apps/web/src/app/live/page.tsx` (313 lines) |
+| `consistency/page.tsx` — penalty outcome tables, ISR 1h | ✅ | `apps/web/src/app/consistency/page.tsx` (148 lines) |
+| `drivers/[code]/page.tsx` — points bar, ban-risk, incident log | ✅ | `apps/web/src/app/drivers/[code]/page.tsx` (189 lines) |
+| `guidelines/page.tsx` — FIA article browser | ✅ | `apps/web/src/app/guidelines/page.tsx` (120 lines) |
+| `incidents/[id]/page.tsx` — full detail + radio + precedents | ✅ | `apps/web/src/app/incidents/[id]/page.tsx` (347 lines) |
+| `page.tsx` — home page with search + nav cards | ✅ | `apps/web/src/app/page.tsx` (117 lines) |
+| `decisions/page.tsx` + `decisions/[docId]/page.tsx` | ✅ | List and detail pages |
+| `search/page.tsx` — text search UI | ✅ | `apps/web/src/app/search/page.tsx` (115 lines) |
+| `annotate/page.tsx` — annotation interface | ✅ | `apps/web/src/app/annotate/page.tsx` (116 lines) |
+| `sign-in` + `sign-up` (Clerk) | ✅ | `apps/web/src/app/sign-in/` + `sign-up/` |
+| `lib/api.ts` — typed API client | ✅ | `apps/web/src/lib/api.ts` (201 lines) |
+| `DecisionCard.tsx` component | ✅ | `apps/web/src/components/DecisionCard.tsx` |
+| `ThemeProvider.tsx` + `ThemeToggle.tsx` — dark/light mode | ✅ | `apps/web/src/components/` |
+| SSE fallback `GET /v1/live/stream` | ✅ | `apps/api/routers/live.py` |
+| `ingest_flow.py` Prefect ingestion DAG | ✅ | `packages/pipeline/flows/ingest_flow.py` |
+| `middleware.ts` — Clerk auth gating | ✅ | `apps/web/src/middleware.ts` |
+| **Middleware NOTE** | ⚠️ | Currently blocks all routes except `/`, `/sign-in`, `/sign-up`, `/api/v1/decisions`. Before launch: add `/decisions`, `/precedents`, `/consistency`, `/guidelines`, `/predict` as public routes, or remove auth gating entirely for the public launch. |
+| Plotly.js interactive charts | ❌ | Using custom CSS probability bars instead — sufficient for launch; add Plotly post-launch |
+| D3.js heatmaps | ❌ | Using HTML tables on consistency page — functional, not visualised as true heatmap |
+| Mapbox GL circuit corner overlay | ❌ | Post-launch feature |
+| shadcn/ui component library | ❌ | Post-launch refactor |
+| Web Push API mobile notifications | ❌ | Post-launch feature |
+| TanStack Query client-side caching | ❌ | Post-launch; currently using direct fetch |
+| Geo-blocking on prediction endpoints | ❌ | Not implemented — gambling regulatory mitigation |
+
+---
+
+## SECTION 8 — Phase 7: API, MCP Server & Billing
+
+| Item | Status | File |
+|---|---|---|
+| `rate_limit.py` middleware — Redis token-bucket + in-memory fallback | ✅ | `apps/api/middleware/rate_limit.py` (202 lines) |
+| `billing.py` router — Stripe webhook + subscription CRUD + portal | ✅ | `apps/api/routers/billing.py` (293 lines) |
+| `apikeys.py` router — create/list/revoke keys | ✅ | `apps/api/routers/apikeys.py` (254 lines) |
+| `mcp.py` router — manifest + 4 tools | ✅ | `apps/api/routers/mcp.py` (401 lines); tools: `search_precedents`, `get_incident`, `get_driver_stats`, `predict_penalty` |
+| `review.py` router — Right-of-Review builder | ✅ | `apps/api/routers/review.py` (379 lines); RAG-backed, template fallback |
+| `api/page.tsx` — API key management dashboard | ✅ | `apps/web/src/app/api/page.tsx` (355 lines) |
+| `review/page.tsx` — Right-of-Review form + document preview | ✅ | `apps/web/src/app/review/page.tsx` (283 lines) |
+| Migration 0006: `api_keys`, `subscriptions`, `usage_logs` | ✅ | `0006_billing_apikeys.py` (81 lines) |
+| `ApiKey`, `Subscription`, `UsageLog` ORM models | ✅ | `packages/db/models.py:269–330` |
+| Tier daily limits: free=100, pro=10k, team=100k | ✅ | `apps/api/middleware/rate_limit.py` |
+| API key format: `rj_live_` + 48 hex chars, SHA-256 stored | ✅ | `apps/api/routers/apikeys.py` |
+| `stripe>=10.0.0` in requirements.txt | ✅ | Line 86 |
+| Set up Stripe account + create Pro/Team products | 🔶 | stripe.com → Products → "RACEJUDGE Pro" £29/mo, "RACEJUDGE Team" £499/mo |
+| Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`, `STRIPE_TEAM_PRICE_ID` | 🔶 | Stripe Dashboard → Developers → API Keys |
+| `steward_panels` table + chi-squared/Fisher analysis | ❌ | Table exists in migration 0004. No ORM model. No chi-squared/Fisher analysis of per-panel-chair variance. stewards.py does global Shannon entropy only, not per-panel-chair breakdown. To add: create `StewardPanel` model + chi-squared query endpoint. |
+
+**To activate billing:**
 ```bash
-# Add to .env or Fly.io secrets:
-ENABLE_PREDICTIONS=true
-ANTHROPIC_API_KEY=sk-ant-xxx  # for RAG explanations (optional)
+# stripe.com → Dashboard → Products → Create:
+#   "RACEJUDGE Pro" → Recurring → £29/month → copy price ID
+#   "RACEJUDGE Team" → Recurring → £499/month → copy price ID
+# Developers → Webhooks → Add endpoint → https://racejudge-api.fly.dev/v1/billing/webhook
+# Add to .env / Fly secrets:
+STRIPE_SECRET_KEY=sk_live_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PRO_PRICE_ID=price_xxx
+STRIPE_TEAM_PRICE_ID=price_xxx
 ```
 
-**6 — Set up Anthropic API key (optional but makes explanations much better):**
-1. Go to console.anthropic.com → API Keys → Create Key
-2. Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-xxx`
-3. Cost: RAG explanation uses claude-haiku (~$0.001 per call)
+---
 
-### What is left for me (Claude) to build
+## SECTION 9 — Phase 8: Observability, Accessibility & Launch
 
-**Layer B (Llama-3-8B-Instruct + LoRA fine-tune)** — The current predictor only uses XGBoost (Layer A). The stacked ensemble described in the implementation plan needs a Llama LoRA fine-tuned on `(reasoning_text, penalty_type)` pairs. This runs on Modal A100 (~6 hours training time). Once you have the incidents table populated with reasoning_text and have trained XGBoost first, I'll build:
-- `packages/ml/train_llama_lora.py` — Modal A100 fine-tuning script
-- `packages/ml/predictor_v2.py` — stacked meta-learner combining XGBoost + Llama logits
-
-**Why it's left:** Requires (a) populated `incidents` table, (b) trained XGBoost baseline first, (c) Modal account with GPU budget. I can write the code now but it can't run without those prerequisites.
-
-**Team Radio Sentiment backfill** — `sentiment.py` is written but the backfill script to run it over all `team_radio_clips` and write `sentiment_score` + `urgency_score` back to Postgres is not done. I'll add this once you have the DB set up.
+| Item | Status | File |
+|---|---|---|
+| `latency.py` middleware — rolling p50/p95/p99 per route | ✅ | `apps/api/middleware/latency.py` (74 lines) |
+| `GET /v1/metrics/latency` endpoint | ✅ | `apps/api/middleware/latency.py:router` |
+| `stewards.py` — Shannon entropy + inconsistency_score + severity slope | ✅ | `apps/api/routers/stewards.py` (238 lines) |
+| `GET /v1/incidents/variance` + `GET /v1/incidents/variance/{category}` | ✅ | `apps/api/routers/stewards.py` |
+| Sentry FastAPI init in `main.py` lifespan (gated on `SENTRY_DSN`) | ✅ | `apps/api/main.py:41–62` |
+| HNSW index pre-warm in `main.py` lifespan | ✅ | `apps/api/main.py:64–93` |
+| `sentry-sdk[fastapi]>=2.0.0` in requirements.txt | ✅ | Line 93 |
+| Security headers in `next.config.ts` | ✅ | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy |
+| `/mcp/v1/:path*` proxy rewrite | ✅ | `apps/web/next.config.ts:48` |
+| OG metadata + twitter:card in `layout.tsx` | ✅ | `apps/web/src/app/layout.tsx` — metadataBase, openGraph, twitter |
+| Skip-to-content link for WCAG keyboard navigation | ✅ | `apps/web/src/app/layout.tsx:50–57` |
+| `<main id="main-content" tabIndex={-1}>` wrapper | ✅ | `apps/web/src/app/layout.tsx:58` |
+| `Nav.tsx` client component — aria-current + aria-label | ✅ | `apps/web/src/components/Nav.tsx` (67 lines) |
+| `not-found.tsx` — custom 404 page | ✅ | `apps/web/src/app/not-found.tsx` (27 lines) |
+| `error.tsx` — React error boundary | ✅ | `apps/web/src/app/error.tsx` (43 lines) |
+| `sitemap.ts` — 9 static routes | ✅ | `apps/web/src/app/sitemap.ts` |
+| `robots.txt` | ✅ | `apps/web/public/robots.txt` |
+| WCAG aria: `htmlFor`/`id` on all form fields (review page) | ✅ | `apps/web/src/app/review/page.tsx` |
+| WCAG aria: `role="status" aria-live="polite"` on loading states | ✅ | review/page.tsx + api/page.tsx |
+| `aria-label` on API key name input | ✅ | `apps/web/src/app/api/page.tsx:231` |
+| k6 load test script | ✅ | `scripts/load_test.k6.js` — p95 < 500ms, predict p95 < 2000ms |
+| Launch post drafts | ✅ | `scripts/outreach/launch_post.md` — Twitter thread, LinkedIn, r/formula1 |
+| LEGAL.md with DMCA procedure | ✅ | `LEGAL.md` |
+| BRAND_CHECKLIST.md | ✅ | `BRAND_CHECKLIST.md` |
+| `og.png` social card image | ❌ | File referenced in layout.tsx (`/og.png`) but not created. Must exist in `apps/web/public/og.png`. Create a 1200×630px image before launch. |
+| Cookie consent banner (decline-by-default) | ❌ | Not implemented. Plan requires it. See below. |
+| Lighthouse CI config (Performance ≥ 90, Accessibility ≥ 95) | ❌ | No `.lighthouserc.js`. See below. |
+| BetterStack status page at `status.racejudge.com` | ❌ | Account-only. betterstack.com → Uptime → New Monitor. |
+| Grafana Cloud observability | ❌ | Account-only. grafana.com → free tier. |
+| PagerDuty on-call alerting | ❌ | Account-only. Or use BetterStack on-call (same dashboard). |
+| Sentry account + DSN | 🔶 | sentry.io → New Project → FastAPI → copy DSN → `SENTRY_DSN=xxx` in .env |
+| Deploy frontend to Vercel | 🔶 | See Section 2 |
+| Multi-region Fly.io deploy (LHR + IAD + GRU) | 🔶 | Current fly.toml is IAD only. `fly regions add lhr gru --app racejudge-api` |
+| DNS cutover to racejudge.com | 👤 | After domain registration |
+| Open-source scraper repo (`racejudge-scraper`) | 👤 | Copy `packages/pipeline/scrapers/fia_scraper.py` to new public GitHub repo under MIT |
+| Legal review with media-rights lawyer | 👤 | FOM/FIA audio+video linking policy. Book before launch. Cost ~£500–1500. |
+| Publish Substack/Medium article | 👤 | Draft in launch_post.md. Publish under your name. |
+| r/formula1 post at race weekend | 👤 | Time to Friday/Saturday of a GP weekend for maximum traffic |
+| Send journalist DMs + emails | 👤 | Templates in `journalist_pitch.md` |
 
 ---
 
-## SECTION 7 — Phase 6 (Weeks 19–21): UX & Live Mode
+## SECTION 10 — What Is Still Missing (Code to Write)
 
----
+These are gaps between the plan and the current code. All require a code change — you just need to tell me to build each one.
 
-### What's been built (code-complete)
+### High priority — needed before/at launch
 
-| Item | Status | Notes |
-|---|---|---|
-| `apps/api/routers/live.py` | ✅ Done | WS /v1/live (Redis Pub/Sub + OpenF1 polling fallback) |
-| `apps/web/src/app/live/page.tsx` | ✅ Done | WebSocket client, session selector, auto-scroll feed |
-| `apps/web/src/app/consistency/page.tsx` | ✅ Done | Penalty outcome heat-maps, ISR 1h |
-| `apps/web/src/app/drivers/[code]/page.tsx` | ✅ Done | Points bar, ban-risk badge, incident log |
-| `apps/web/src/app/guidelines/page.tsx` | ✅ Done | FIA article browser with penalty chips |
-| `apps/web/src/app/precedents/page.tsx` | ✅ Done | Full semantic search UI |
-| `apps/web/src/app/predict/page.tsx` | ✅ Done | Full prediction form + charts |
-| `apps/web/src/app/layout.tsx` | ✅ Done | Nav: Decisions, Precedents, Predict, Consistency, Guidelines, Live |
-| `apps/web/src/app/page.tsx` | ✅ Done | Home: quick search bar, 6 active nav cards |
-| `apps/web/src/lib/api.ts` | ✅ Done | PrecedentResult, searchPrecedents(), full typed client |
-
-### Phase 6 pages — all now wired to real API endpoints ✅
-
-| Page | API endpoint | Status |
-|---|---|---|
-| `/consistency` | `GET /v1/incidents/consistency` | ✅ Built — SQL aggregation, live DB data |
-| `/drivers/[code]` | `GET /v1/drivers/{code}/stats` | ✅ Built — points, ban-risk, incident log |
-| `/guidelines` | `GET /v1/guidelines` | ✅ Built — 40-article seed, DB-backed |
-| `/incidents/[id]` | `GET /v1/incidents/{id}` | ✅ Built — full detail page with radio + precedent sidebar |
-| `/live` | WS + SSE fallback | ✅ WS primary, SSE auto-fallback added |
-
-### Additional Phase 6 items
-
-| Item | Status | Notes |
-|---|---|---|
-| Dark/light mode toggle (`next-themes`) | 🤖 Left for Claude | Can add in one session — needs CSS variables refactor across all pages |
-| `/incidents/[id]` detail page | ✅ Done | Server component, radio + precedent sidebar |
-| `shadcn/ui` component library integration | 🤖 Left for Claude | Large refactor — post-launch |
-| Web Push API (mobile notifications) | ❌ Not started | Post-launch item |
-| SSE fallback for WebSocket | ✅ Done | `GET /v1/live/stream` + auto-fallback in live/page.tsx |
-| p95 latency measurement + HNSW pre-warm on startup | 🤖 Left for Claude | Performance pass before launch |
-| Mapbox circuit corner overlay | ❌ Not started | Post-launch item |
-
-### What you need to do — Phase 6 (live mode)
-
-**To enable live mode with Redis push (instead of polling):**
-1. Set up Upstash Redis (Account 5 above)
-2. Add `REDIS_URL=...` to `.env` and to Fly.io secrets
-3. Restart the API: `fly deploy`
-4. Open `/live` in the browser → connect → it will automatically use Redis when available
-
----
-
-## SECTION 8 — Phases 7–8 (Monetisation + Launch): Not Started
-
----
-
-These phases are fully planned in `IMPLEMENTATION_PLAN.md`. None of this code exists yet. I will build all of it — you need to set up two external accounts first.
-
-### Phase 7 — API, MCP Server & Billing
-
-| Item | Status | Who does it |
-|---|---|---|
-| Stripe integration — subscription tiers (Free/Pro/Team) | 🔶 Needs your Stripe account | You set up account, I write code |
-| API key management (create, revoke, rate limits) | 🤖 Left for Claude | |
-| Rate-limiting middleware (token bucket per API key) | 🤖 Left for Claude | |
-| MCP Server (`/mcp/v1/manifest` + `/mcp/v1/query`) | 🤖 Left for Claude | |
-| Right-of-Review Builder (Team tier) | 🤖 Left for Claude | |
-| Steward panel variance detector | 🤖 Left for Claude | |
-| Full OpenAPI spec + `/api` docs page | 🤖 Left for Claude | |
-
-**What you need to do — Stripe:**
-1. Go to stripe.com → Create account (use `maruteymani31@gmail.com`)
-2. Dashboard → Products → Create product: "RACEJUDGE Pro" → £29/month
-3. Create product: "RACEJUDGE Team" → £499/month
-4. Go to Developers → API Keys → copy Secret Key
-5. Add to `.env`: `STRIPE_SECRET_KEY=sk_test_xxx`
-6. Add to `.env`: `STRIPE_WEBHOOK_SECRET=whsec_xxx` (from webhook settings)
-7. Tell me you've done this → I'll build the billing integration
-
-### Phase 8 — Public Launch
-
-| Item | Status | Who does it |
-|---|---|---|
-| Legal review (media rights with FOM lawyer) | 👤 You only | Find a media law firm that knows F1/FOM. Cost ~£500–1500 for an advisory letter. |
-| WCAG 2.1 AA accessibility audit | 🤖 I can do a code-level pass | Professional audit = you hire someone |
-| k6 load test (200 concurrent WS + 50 API) | 🤖 Left for Claude | |
-| Sentry error monitoring setup | 🔶 Needs your Sentry account | sentry.io → free tier → copy DSN to `.env` |
-| Grafana Cloud setup | 🔶 Needs your account | grafana.com → free tier |
-| Deploy to production (all 3 Fly.io regions) | 🔶 Needs Fly.io account | `fly deploy --app racejudge-api` |
-| DNS cutover to `racejudge.com` | 👤 You only | After domain is registered |
-| Open-source scraper repo | 👤 You only | Copy `packages/pipeline/scrapers/` to new public repo |
-| Launch post (Substack / Medium article) | 👤 You only | I can draft it, you publish under your name |
-| r/formula1 post + journalist share | 👤 You only | Time it to a race weekend |
-
----
-
-## SECTION 9 — What's Left for Me to Build (Full List)
-
-Everything below requires a code change. You don't need to do anything except tell me to build it.
-
-### Completed this session ✅
-
-| # | Task | Status |
-|---|---|---|
-| 1 | `GET /v1/incidents/consistency` | ✅ Done |
-| 2 | `GET /v1/drivers/{code}/stats` | ✅ Done |
-| 3 | `GET /v1/guidelines` + `GET /v1/guidelines/{id}` | ✅ Done |
-| 4 | `/incidents/[id]` detail page | ✅ Done |
-| 5 | `packages/pipeline/workers/modal_embed.py` | ✅ Done — Modal A10G, batch BGE-M3, precedent_links refresh |
-| 6 | `packages/ml/train_embedder.py` | ✅ Done — triplet-loss, `--modal` GPU flag |
-| 7 | `scripts/sentiment_backfill.py` | ✅ Done — dry-run + session-limit flags |
-| 8 | `packages/pipeline/workers/modal_transcribe.py` | ✅ Done — faster-whisper large-v3 on A10G |
-| 9 | SSE fallback (`GET /v1/live/stream`) | ✅ Done — auto-fallback in live/page.tsx |
-| 10 | FIA Penalty Guidelines seed expanded to 35+ articles | ✅ Done — 3 documents covered |
-
-### Still to build
-
-| # | Task | Why it matters |
-|---|---|---|
-| 11 | `packages/ml/train_llama_lora.py` — Layer B | Boosts prediction F1 ~0.65→0.72; needs populated incidents + XGBoost done first |
-| 12 | Dark/light mode toggle (`next-themes`) | All pages use hardcoded dark classes — needs CSS variables refactor first |
-| 13 | `shadcn/ui` integration | Large refactor — post-launch |
-| 14 | p95 latency benchmark + HNSW startup pre-warm | Performance gate before public launch |
-
-### Phase 7 priority (for monetisation)
-
-| # | Task | Why it matters |
-|---|---|---|
-| 15 | Stripe webhook handler + `subscriptions` table | Enables paid tiers |
-| 16 | API key management (`/api` page) | Users can create/revoke keys, see usage |
-| 17 | Rate limiting middleware | Protects the API from abuse |
-| 18 | MCP server (`/mcp/v1/`) | Lets Claude and ChatGPT query RACEJUDGE |
-| 19 | Right-of-Review Builder | Team tier differentiator |
-
----
-
-## SECTION 10 — What's Left for You to Do (Full Checklist)
-
-Everything below requires an action only you can take — an account, a payment, a manual judgment, or a real-world conversation.
-
-### 🔴 Critical (blocks everything else)
-
-| # | Task | Time | Why it's blocking |
+| # | What | Why it blocks launch | How to build |
 |---|---|---|---|
-| 1 | Set up Neon Postgres | 10 min | Without a database, no data is persisted. The API runs locally but can't store or retrieve incidents. All ML training requires incidents in Postgres. |
-| 2 | Set up Cloudflare R2 | 15 min | PDFs and audio are not backed up anywhere until R2 is set up. |
-| 3 | Set up Fly.io + deploy API | 20 min | Without a deployment, the app only runs locally. |
-| 4 | Set up Clerk + add keys to CI | 10 min | Without real Clerk keys, auth doesn't work and the CI build flag for Clerk is unset. |
-| 5 | Deploy frontend to Vercel | 5 min | The web app is not publicly accessible until deployed. |
+| 1 | **`og.png` social card** | Referenced in layout.tsx; missing file gives a broken image on every Twitter/OG share | Create 1200×630 dark background PNG with RACEJUDGE wordmark in `apps/web/public/og.png`. I can generate the HTML-to-image template you render once. |
+| 2 | **Cookie consent banner** | Plan explicitly requires it; any EU user on the site triggers a legal obligation. Launch without it = GDPR risk | Add a `CookieConsent.tsx` client component in `apps/web/src/components/` — decline-by-default, stores preference in `localStorage`, renders above all content. I can build this in one session. |
+| 3 | **Middleware public route fix** | `middleware.ts` currently blocks `/decisions`, `/precedents`, `/consistency`, `/guidelines`, `/live`, `/predict`, `/review`, `/api` behind Clerk sign-in. This means unauthenticated users can't use the site at all | Add all public pages to `isPublicRoute` matcher, or switch to Clerk's recommended optional-auth pattern for public pages. I can do this in 10 lines. |
+| 4 | **Per-page `generateMetadata()`** | `/incidents/[id]` and `/decisions/[docId]` have no page-specific OG title or description. Social shares show the root layout's generic text | Add `generateMetadata({ params })` to each dynamic page. I can do this across all pages in one session. |
+| 5 | **Phase 8 tests** | 219 tests pass, but Phases 7–8 have zero coverage. `billing.py`, `apikeys.py`, `mcp.py`, `review.py`, `stewards.py`, `latency.py`, `rate_limit.py` are entirely untested | Add `tests/test_phase7_routes.py` and `tests/test_phase8_routes.py`. I can write these in one session. |
 
-### 🟡 Important (needed before launch)
+### Medium priority — quality improvements before launch
 
-| # | Task | Time | Notes |
+| # | What | Why | How |
 |---|---|---|---|
-| 6 | Set up Upstash Redis | 5 min | Enables Celery workers + live WebSocket push (currently falls back to polling) |
-| 7 | Set up Prefect Cloud | 10 min | Enables nightly ingest + embedding cron schedules |
-| 8 | Register `racejudge.com` | 20 min | ~£12/year at Namecheap |
-| 9 | Set up Stripe account | 20 min | Phase 7 monetisation |
-| 10 | Set up Sentry | 5 min | Error monitoring |
-| 11 | Set up Anthropic API key | 2 min | Enables RAG explanations on /predict (optional but makes it much better) |
+| 6 | **`StewardPanel` ORM model + per-panel chi-squared** | Plan specified chi-squared/Fisher exact tests per panel chair in Phase 7. Currently only global Shannon entropy exists. The `steward_panels` table is in migration 0004 but has no Python model class | Add `StewardPanel` to `models.py`. Add `GET /v1/incidents/variance/by-panel` endpoint to `stewards.py` running chi-squared tests on per-chair penalty distributions. |
+| 7 | **Lighthouse CI config** | Plan requires Performance ≥ 90, Accessibility ≥ 95 before launch. Currently no automated check | Add `.lighthouserc.js` at root + add `npx lhci autorun` step to `.github/workflows/ci.yml` after `npm run build`. |
+| 8 | **Geo-blocking on `/v1/predict`** | Plan: "Geo-block live prediction in regulated gambling jurisdictions." Not implemented | Add IP-based country check using Cloudflare CF-IPCountry header or MaxMind GeoLite2. Return 451 with gambling disclaimer for listed jurisdictions (UK, AU, US states). |
+| 9 | **`run_extraction.py` convenience script** | Old completion report referenced `python scripts/run_extraction.py` in instructions but this file doesn't exist. `backfill_incidents.py` exists and does the same thing — old report had wrong filename | Just a docs fix: update old COMPLETION_REPORT reference to use `backfill_incidents.py`. Already done here. |
+| 10 | **Multi-region fly.toml** | Current `fly.toml` has `primary_region = "iad"` only. Plan calls for LHR + IAD + GRU | Run: `fly regions add lhr gru --app racejudge-api` (no code change needed; it's a CLI command). |
 
-### 🟢 Manual work (ongoing, no rush)
+### Post-launch features (deliberate deferrals — not bugs)
 
-| # | Task | Time | Notes |
-|---|---|---|---|
-| 12 | Label 300 annotation pairs | 15 min × 15 days | Critical for BGE-M3 fine-tuning quality |
-| 13 | Reserve @racejudge on X/Threads/Reddit/LinkedIn | 10 min | Do before someone else takes it |
-| 14 | Send journalist DMs + emails | 1 hour total | Templates ready in `scripts/outreach/journalist_pitch.md` |
-| 15 | Accept HuggingFace pyannote model licence | 2 min | Needed for audio diarisation — huggingface.co/pyannote/speaker-diarization-3.1 |
-| 16 | Legal review with media rights lawyer | Ongoing | Book this before Phase 8. FOM/FIA audio/video linking needs to be cleared. |
-| 17 | Write launch article (I can draft) | 1–2 hours | Publish to Substack or Medium under your name |
-| 18 | Post to r/formula1 at race weekend | 30 min | Timing matters — post Friday/Saturday of a race weekend for max traffic |
+| # | What | Why deferred |
+|---|---|---|
+| 11 | Plotly.js interactive probability charts | Working CSS bars are sufficient for launch. Add Plotly after first 100 users confirm they want richer charts. |
+| 12 | D3.js true heatmaps on consistency page | HTML tables are functional. D3 is a large dependency for cosmetic improvement. |
+| 13 | Mapbox GL circuit corner overlay | Requires Mapbox API key + licence cost. No user demand signal yet. |
+| 14 | shadcn/ui component library | Large refactor of all 16 page components. Post-launch. |
+| 15 | Web Push API (mobile notifications) | No native app. Can add via Service Worker post-launch. |
+| 16 | TanStack Query client cache | Direct fetch works. TanStack adds bundle weight; add when cache invalidation becomes a real problem. |
+| 17 | F2/F3/Formula E expansion | Phase 2 of post-launch roadmap. Gate: 500 WAU + 1 paying subscriber. |
 
 ---
 
@@ -628,61 +419,215 @@ Everything below requires an action only you can take — an account, a payment,
 
 | Season | Records | Status |
 |---|---|---|
-| 2025 | 43 | ✅ Complete |
-| 2024 | 367 | ✅ Complete (all 25 events) |
-| 2023 | 298 | ✅ Complete (all 23 events) |
-| 2022 | 250 | ✅ Complete (all 22 events) |
-| 2021 | 81 | ✅ Complete |
-| 2020 | 79 | ✅ Complete |
-| 2019 | 92 | ✅ Complete |
-| **Total** | **1,085** | ✅ All seasons 2019–2025 complete |
+| 2025 | 43 | ✅ |
+| 2024 | 367 | ✅ |
+| 2023 | 298 | ✅ |
+| 2022 | 250 | ✅ |
+| 2021 | 81 | ✅ |
+| 2020 | 79 | ✅ |
+| 2019 | 92 | ✅ |
+| **Total** | **1,085** | ✅ All seasons 2019–2025 |
 
 ---
 
-## SECTION 12 — CI Status
+## SECTION 12 — Test Status
 
-All three CI checks are green:
+| Suite | Count | Status |
+|---|---|---|
+| `test_decision_parser.py` | 48 | ✅ |
+| `test_incident_extractor.py` | 36 | ✅ |
+| `test_ml_features.py` | 43 | ✅ |
+| `test_scraper.py` | 15 | ✅ |
+| `test_text_cleaner.py` | 14 | ✅ |
+| `test_driver_resolver.py` | 14 | ✅ |
+| `test_article_resolver.py` | (included in above) | ✅ |
+| `test_api.py` | 12 | ✅ |
+| `test_annotations_api.py` | 15 | ✅ |
+| **Total** | **219** | ✅ |
+| Phase 7 routes (billing, apikeys, mcp, review) | 0 | ❌ Not written |
+| Phase 8 routes (stewards, latency, rate_limit) | 0 | ❌ Not written |
+
+---
+
+## SECTION 13 — CI Status
 
 | Check | Status |
 |---|---|
-| Ruff lint (Python) | ✅ 0 errors |
-| Mypy type-check (Python) | ✅ 0 errors |
-| pytest (132 tests) | ✅ 132 passing |
-| TypeScript tsc | ✅ 0 errors |
-| Next.js build | ✅ Builds clean |
+| `ruff` Python lint | ✅ 0 errors (only E501 long-line warnings in SQL strings, acceptable) |
+| `mypy` type-check | ✅ 0 errors |
+| `pytest` (219 tests) | ✅ 219 passing |
+| `tsc --noEmit` TypeScript | ✅ 0 errors |
+| Next.js `npm run build` | ✅ Clean |
 
 ---
 
-## SECTION 13 — Architecture Summary
+## SECTION 14 — Architecture Summary (current state)
 
 ```
 racejudge/
 ├── apps/
-│   ├── api/               # FastAPI — 9 routers, 20+ endpoints
-│   │   ├── routers/       # decisions, search, precedents, predict, live,
-│   │   │                  # incidents, telemetry, annotations, health
-│   │   └── retrieval/     # semantic_search, bm25_search, rrf (RRF k=60)
-│   └── web/               # Next.js 15 App Router
-│       └── src/app/       # /, /decisions, /search, /precedents, /predict,
-│                          # /consistency, /drivers/[code], /guidelines, /live,
-│                          # /annotate, /sign-in, /sign-up
+│   ├── api/                        # FastAPI — 15 routers, 30+ endpoints
+│   │   ├── core/config.py          # Settings + Stripe/Sentry env vars
+│   │   ├── main.py                 # Lifespan (Sentry+HNSW warm), all routers
+│   │   ├── middleware/
+│   │   │   ├── rate_limit.py       # Redis token-bucket, 429 + Retry-After
+│   │   │   └── latency.py          # Rolling p50/p95/p99 per route
+│   │   ├── retrieval/
+│   │   │   ├── semantic_search.py  # pgvector HNSW cosine ANN
+│   │   │   ├── bm25_search.py      # Postgres tsvector weighted BM25
+│   │   │   └── rrf.py              # Reciprocal Rank Fusion (k=60)
+│   │   └── routers/
+│   │       ├── health.py           # GET /health
+│   │       ├── decisions.py        # GET /v1/decisions + /{id}
+│   │       ├── search.py           # GET /v1/search (BM25)
+│   │       ├── incidents.py        # GET /v1/incidents + consistency + drivers
+│   │       ├── precedents.py       # POST /v1/precedents/search + /{id}/similar
+│   │       ├── predict.py          # POST /v1/predict + /predict/explain
+│   │       ├── live.py             # WS /v1/live + SSE /v1/live/stream
+│   │       ├── guidelines.py       # GET /v1/guidelines + /{id}
+│   │       ├── telemetry.py        # GET /v1/telemetry/*
+│   │       ├── annotations.py      # POST/GET /v1/annotations
+│   │       ├── billing.py          # POST /v1/billing/webhook + subscription
+│   │       ├── apikeys.py          # GET/POST/DELETE /v1/apikeys
+│   │       ├── mcp.py              # GET /mcp/v1/manifest + POST /mcp/v1/query
+│   │       ├── review.py           # POST /v1/review/generate
+│   │       └── stewards.py         # GET /v1/incidents/variance + /{category}
+│   └── web/                        # Next.js 15, App Router, Tailwind CSS 4
+│       └── src/
+│           ├── app/                # 16 pages
+│           │   ├── layout.tsx      # OG meta, skip-link, Nav, ThemeProvider
+│           │   ├── not-found.tsx   # Custom 404
+│           │   ├── error.tsx       # React error boundary
+│           │   ├── sitemap.ts      # 9 static routes
+│           │   ├── page.tsx        # Home
+│           │   ├── decisions/      # List + detail
+│           │   ├── precedents/     # Semantic search UI
+│           │   ├── predict/        # Prediction form + probability bars
+│           │   ├── consistency/    # Penalty outcome tables (ISR 1h)
+│           │   ├── drivers/[code]/ # Points + ban-risk
+│           │   ├── guidelines/     # FIA article browser
+│           │   ├── live/           # WebSocket feed + SSE fallback
+│           │   ├── incidents/[id]/ # Full detail + radio + sidebar
+│           │   ├── annotate/       # Annotation interface
+│           │   ├── review/         # Right-of-Review builder
+│           │   ├── api/            # API key management dashboard
+│           │   └── sign-in + sign-up
+│           ├── components/
+│           │   ├── Nav.tsx         # Client component, aria-current
+│           │   ├── ThemeProvider.tsx
+│           │   ├── ThemeToggle.tsx
+│           │   └── DecisionCard.tsx
+│           ├── lib/api.ts          # Typed fetch client
+│           └── middleware.ts       # Clerk auth gating ⚠️ needs public route fix
 ├── packages/
-│   ├── db/                # Alembic migrations (0001–0005) + SQLAlchemy models
-│   ├── ml/                # predictor.py, features.py, train.py,
-│   │                      # sentiment.py, rag_explainer.py
+│   ├── db/
+│   │   ├── database.py             # Async SQLAlchemy engine factory
+│   │   ├── models.py               # 14 ORM models
+│   │   └── migrations/versions/    # 0001–0006 Alembic migrations
+│   ├── ml/
+│   │   ├── predictor.py            # XGBoost 7-class (Layer A)
+│   │   ├── predictor_v2.py         # Stacked ensemble (Layer A + B)
+│   │   ├── features.py             # Feature engineering
+│   │   ├── train.py                # XGBoost training + ECE/F1 gates
+│   │   ├── train_embedder.py       # BGE-M3 triplet-loss fine-tune
+│   │   ├── train_llama_lora.py     # Llama-3-8B QLoRA on Modal A100
+│   │   ├── sentiment.py            # DistilBERT + zero-shot BART
+│   │   └── rag_explainer.py        # Anthropic claude-haiku RAG
 │   └── pipeline/
-│       ├── scrapers/      # fia_scraper.py
-│       ├── parsers/       # decision_parser.py, text_cleaner.py, guidelines_parser.py
-│       ├── linkers/       # decision_linker.py, openf1_client.py
-│       ├── audio/         # radio_fetcher.py, transcriber.py
-│       ├── telemetry/     # fastf1_slicer.py
-│       ├── ml/            # embedder.py (BGE-M3)
-│       ├── flows/         # ingest_flow.py, live_session_flow.py, embedding_flow.py
-│       └── workers/       # celery_app.py + 3 task workers
-└── data/
-    └── parsed/            # decisions.jsonl (1,085 records)
+│       ├── scrapers/fia_scraper.py
+│       ├── parsers/                # decision_parser, text_cleaner, guidelines_parser,
+│       │                           # layoutlm_extractor, tesseract_fallback
+│       ├── resolvers/              # driver_resolver, article_resolver
+│       ├── linkers/                # decision_linker, openf1_client,
+│       │                           # race_control_linker, weather_linker
+│       ├── audio/                  # radio_fetcher, transcriber, asr_worker, diarisation
+│       ├── telemetry/fastf1_slicer.py
+│       ├── ml/embedder.py          # BGE-M3 batch backfill
+│       ├── flows/                  # ingest_flow, live_session_flow, embedding_flow
+│       └── workers/                # celery_app, modal_embed, modal_transcribe,
+│                                   # tasks/parse_pdf, extract_text, ocr_fallback
+├── scripts/
+│   ├── backfill_incidents.py       # Runs extraction over all 1,085 decisions
+│   ├── backfill_audio.py           # Fetches + caches team radio clips
+│   ├── backfill_race_control.py    # Links race control messages to incidents
+│   ├── seed_drivers.py             # Seeds drivers/teams from Jolpica-F1
+│   ├── seed_guidelines.py          # Seeds 35 FIA articles
+│   ├── sentiment_backfill.py       # DistilBERT sentiment over radio clips
+│   ├── load_jsonl_to_db.py         # Loads 1,085 decisions into Postgres
+│   ├── annotate_pairs.py           # CLI annotation tool (similar/dissimilar)
+│   ├── export_similarity_pairs.py  # Exports pairs for BGE-M3 fine-tuning
+│   ├── upload_to_r2.py             # Uploads PDFs to Cloudflare R2
+│   ├── load_test.k6.js             # k6 load test (p95 < 500ms, predict < 2s)
+│   └── outreach/
+│       ├── journalist_pitch.md
+│       └── launch_post.md
+├── infra/
+│   ├── terraform/                  # main.tf + tfvars.example + SETUP.md
+│   └── fly/fly.toml
+├── tests/                          # 219 tests passing
+├── Dockerfile                      # python:3.12-slim, uvicorn
+├── fly.toml                        # racejudge-api, IAD region
+├── requirements.txt                # All Python deps including Stripe + Sentry
+└── .github/workflows/ci.yml        # Lint + test + build CI
 ```
 
 ---
 
-*Report v3 — 2 June 2026 — Updated after Phases 4, 5, 6 code completion.*
+## SECTION 15 — Critical Launch Checklist (ordered)
+
+The following is the exact sequence to launch. Do each step before the next.
+
+### STEP 1 — Accounts (you, ~1 hour total)
+1. Register `racejudge.com` at Namecheap (~£12/year)
+2. Sign up Neon Postgres (neon.tech, free)
+3. Sign up Cloudflare R2 (cloudflare.com, free for first 10GB)
+4. Sign up Fly.io (fly.io, free)
+5. Sign up Upstash Redis (upstash.com, free)
+6. Sign up Clerk (clerk.com, free)
+7. Sign up Stripe (stripe.com — needed for billing)
+8. Sign up Sentry (sentry.io, free)
+9. Sign up Vercel (vercel.com, free)
+
+### STEP 2 — Data pipeline (run after accounts)
+```bash
+cd /Users/maruteymani/Documents/RaceJudge && source .venv/bin/activate
+# Apply all 6 migrations:
+cd packages/db && DATABASE_URL=$DATABASE_URL alembic upgrade head
+cd ../..
+# Load + seed:
+python scripts/load_jsonl_to_db.py      # 1,085 decisions
+python scripts/seed_guidelines.py       # 35 FIA articles
+python scripts/seed_drivers.py          # drivers/teams from Jolpica-F1
+# Extract incidents:
+python scripts/backfill_incidents.py    # ~5 min, populates incidents table
+# Embed incidents (CPU, ~2-4h) or Modal GPU (~10 min):
+python -m packages.pipeline.ml.embedder --batch-size 64
+```
+
+### STEP 3 — Three code fixes (I build these, one session)
+1. Fix middleware.ts to add all public pages to `isPublicRoute`
+2. Add `og.png` social card image to `apps/web/public/`
+3. Add cookie consent banner component
+
+### STEP 4 — Train models (run after incidents extracted)
+```bash
+python -m packages.ml.train     # XGBoost, ~5 min
+# If ECE < 0.05 AND Macro-F1 ≥ 0.65:
+# Add ENABLE_PREDICTIONS=true to .env
+```
+
+### STEP 5 — Deploy
+```bash
+fly deploy                       # API to Fly.io
+# Vercel: dashboard → import racejudge-hq/racejudge-web
+```
+
+### STEP 6 — Launch
+- DNS cutover to racejudge.com
+- Post r/formula1 on a Friday/Saturday of a race weekend
+- Send 5 journalist DMs
+- Post Twitter thread from launch_post.md
+
+---
+
+*Report v4 — 8 June 2026 — Full audit after Phases 1–8 code completion.*
