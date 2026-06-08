@@ -14,13 +14,51 @@ import os
 from functools import lru_cache
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["predict"])
 
 PENALTY_CLASSES = ["NFA", "REP", "5s", "10s", "DT", "GRID", "DSQ"]
+
+# Countries where gambling-adjacent predictions are legally restricted.
+# Configurable via GEO_BLOCK_COUNTRIES env var (comma-separated ISO-3166-1 alpha-2).
+_DEFAULT_BLOCKED = "US,AU,SG"
+
+
+def _get_blocked_countries() -> frozenset[str]:
+    raw = os.environ.get("GEO_BLOCK_COUNTRIES", _DEFAULT_BLOCKED)
+    return frozenset(c.strip().upper() for c in raw.split(",") if c.strip())
+
+
+def _check_geo_block(request: Request) -> None:
+    """
+    Block requests from gambling-regulated jurisdictions.
+    Reads CF-IPCountry (Cloudflare) then X-Country-Code as fallback.
+    Returns 451 Unavailable For Legal Reasons if blocked.
+    """
+    blocked = _get_blocked_countries()
+    if not blocked:
+        return
+    country = (
+        request.headers.get("CF-IPCountry")
+        or request.headers.get("X-Country-Code")
+        or ""
+    ).upper()
+    if country in blocked:
+        raise HTTPException(
+            status_code=451,
+            detail={
+                "error": "service_unavailable_legal",
+                "message": (
+                    "RACEJUDGE penalty prediction is not available in your region "
+                    "due to local regulations governing gambling-adjacent services. "
+                    "Please consult the FIA official website for decisions and precedents."
+                ),
+                "country": country,
+            },
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -86,13 +124,16 @@ def _load_model():
 # ---------------------------------------------------------------------------
 
 @router.post("/predict", response_model=PredictionResult)
-async def predict_penalty(incident: IncidentInput) -> dict[str, Any]:
+async def predict_penalty(incident: IncidentInput, request: Request) -> dict[str, Any]:
     """
     Predict the most likely penalty outcome for an incident.
 
     Requires the penalty model to be trained (Phase 5).
     Set ENABLE_PREDICTIONS=true to activate this endpoint.
+    Geo-blocked in gambling-regulated jurisdictions (HTTP 451).
     """
+    _check_geo_block(request)
+
     if os.environ.get("ENABLE_PREDICTIONS", "false").lower() != "true":
         raise HTTPException(
             status_code=503,

@@ -238,6 +238,19 @@ class Guideline(Base):
     )
 
 
+class StewardPanel(Base):
+    __tablename__ = "steward_panels"
+
+    panel_id:       Mapped[str]           = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    event_id:       Mapped[str]           = mapped_column(ForeignKey("events.event_id"), nullable=False)
+    chair:          Mapped[str]           = mapped_column(Text, nullable=False)
+    members:        Mapped[list[str]]     = mapped_column(ARRAY(Text), nullable=False)
+    driver_steward: Mapped[str | None]    = mapped_column(Text)
+    created_at:     Mapped[datetime]      = mapped_column(server_default=func.now())
+
+    event: Mapped[Event] = relationship("Event")
+
+
 class PrecedentLink(Base):
     __tablename__ = "precedent_links"
 

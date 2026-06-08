@@ -7,6 +7,10 @@ GET /v1/incidents/variance
 
 GET /v1/incidents/variance/{infraction_category}
   Deep-dive for a single category: per-season breakdown + penalty distribution.
+
+GET /v1/incidents/variance/by-panel
+  Chi-squared test comparing each steward panel chair's penalty distribution
+  against the global baseline. Surfaces statistically significant outliers.
 """
 
 from __future__ import annotations
@@ -80,9 +84,121 @@ async def _run_query(sql: str, params: dict[str, Any]) -> list[Any]:
         return []
 
 
+def _chi_squared(observed: dict[str, int], expected_dist: dict[str, float]) -> float:
+    """
+    Pearson chi-squared statistic comparing observed counts to an expected
+    distribution. Returns 0.0 if total observations < 5 (unreliable).
+
+    expected_dist must sum to 1.0 (global penalty proportions).
+    """
+    total = sum(observed.values())
+    if total < 5:
+        return 0.0
+    chi2 = 0.0
+    for penalty, obs in observed.items():
+        exp_prop = expected_dist.get(penalty, 0.0)
+        expected = total * exp_prop
+        if expected > 0:
+            chi2 += (obs - expected) ** 2 / expected
+    return round(chi2, 3)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.get("/incidents/variance/by-panel")
+async def panel_variance(
+    min_incidents: int = Query(10, ge=5, le=200, description="Minimum incidents per panel chair"),
+    seasons: int = Query(5, ge=1, le=15, description="Number of past seasons to include"),
+) -> dict[str, Any]:
+    """
+    Chi-squared analysis of penalty consistency per steward panel chair.
+
+    Compares each chair's penalty distribution against the global baseline.
+    High chi_squared = the chair penalises significantly differently from the norm.
+    p_value_approx is a rough estimate using the chi-squared CDF approximation
+    (df = number of penalty categories − 1).
+    """
+    rows = await _run_query(
+        """
+        SELECT
+            sp.chair,
+            i.penalty_type,
+            COUNT(*) AS cnt
+        FROM incidents i
+        JOIN decisions d ON i.doc_id = d.doc_id
+        JOIN events e    ON d.season = e.season
+        JOIN steward_panels sp ON sp.event_id = e.event_id
+        WHERE i.penalty_type IS NOT NULL
+          AND d.season >= (SELECT MAX(season) FROM decisions) - :seasons + 1
+        GROUP BY sp.chair, i.penalty_type
+        ORDER BY sp.chair
+        """,
+        {"seasons": seasons},
+    )
+
+    if not rows:
+        return {"chairs": [], "global_distribution": {}, "seasons": seasons}
+
+    # Build per-chair counts and global counts
+    by_chair: dict[str, dict[str, int]] = {}
+    global_counts: dict[str, int] = {}
+    for chair, penalty, cnt in rows:
+        if chair not in by_chair:
+            by_chair[chair] = {}
+        by_chair[chair][penalty] = cnt
+        global_counts[penalty] = global_counts.get(penalty, 0) + cnt
+
+    # Global distribution (proportions)
+    global_total = sum(global_counts.values())
+    global_dist: dict[str, float] = {
+        p: c / global_total for p, c in global_counts.items()
+    }
+
+    # Per-chair analysis
+    results = []
+    for chair, counts in by_chair.items():
+        total = sum(counts.values())
+        if total < min_incidents:
+            continue
+        chi2 = _chi_squared(counts, global_dist)
+        df = max(1, len([p for p in global_dist if global_dist[p] > 0]) - 1)
+        # Rough p-value approximation via Wilson–Hilferty cube-root transform
+        z = ((chi2 / df) ** (1 / 3) - (1 - 2 / (9 * df))) / math.sqrt(2 / (9 * df))
+        # Convert z-score to one-tailed p ≈ using error function approximation
+        p_approx = round(0.5 * (1 - math.erf(z / math.sqrt(2))), 4)
+        p_approx = max(0.0, min(1.0, p_approx))
+
+        results.append(
+            {
+                "chair":              chair,
+                "total_incidents":    total,
+                "penalty_distribution": counts,
+                "modal_penalty":      _modal(counts),
+                "mean_severity":      _mean_severity(counts),
+                "inconsistency_score": _inconsistency_score(counts),
+                "chi_squared":        chi2,
+                "degrees_of_freedom": df,
+                "p_value_approx":     p_approx,
+                "significant":        p_approx < 0.05,
+            }
+        )
+
+    # Sort most statistically deviant first
+    results.sort(key=lambda x: -x["chi_squared"])
+
+    return {
+        "chairs":              results,
+        "global_distribution": global_counts,
+        "seasons":             seasons,
+        "note": (
+            "p_value_approx uses Wilson–Hilferty normal approximation to chi-squared. "
+            "significant=true means p < 0.05 vs global baseline — treat as exploratory, "
+            "never as a verdict on individual stewards."
+        ),
+    }
+
 
 @router.get("/incidents/variance")
 async def list_variance(
