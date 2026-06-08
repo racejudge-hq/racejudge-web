@@ -122,6 +122,9 @@ app.add_middleware(RateLimitMiddleware)
 app.include_router(health.router)
 app.include_router(decisions.router,              prefix="/v1")
 app.include_router(search.router,                 prefix="/v1")
+# stewards must be before incidents — its /incidents/variance routes are more
+# specific than incidents' /incidents/{incident_id} wildcard
+app.include_router(stewards.router,               prefix="/v1")
 app.include_router(incidents.router,              prefix="/v1")
 app.include_router(annotations_router.router,     prefix="/v1")
 app.include_router(telemetry.router,              prefix="/v1")
@@ -137,5 +140,4 @@ app.include_router(review.router,                 prefix="/v1")
 app.include_router(mcp.router,                    prefix="/mcp/v1")
 
 # Phase 8 routes
-app.include_router(stewards.router,               prefix="/v1")
 app.include_router(metrics_router,                prefix="/v1")

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -85,6 +86,26 @@ function PenaltyBadge({ type }: { type: string | null }) {
       {type}
     </span>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const incident = await fetchIncident(id);
+  if (!incident) return { title: "Incident not found" };
+
+  const drivers = incident.drivers.map((d) => d.code ?? d.full_name ?? "unknown").join(" / ");
+  const penalty = incident.penalty_type ?? "NFA";
+  const title   = `${drivers} — ${incident.infraction_category ?? "Incident"} · ${penalty}`;
+
+  return {
+    title,
+    description: `F1 stewards' decision: ${title}. ${incident.reasoning_text.slice(0, 140)}…`,
+    openGraph: { title, description: `Penalty: ${penalty} · Lap ${incident.lap ?? "?"} · ${incident.corner ?? ""}` },
+  };
 }
 
 export default async function IncidentDetailPage({

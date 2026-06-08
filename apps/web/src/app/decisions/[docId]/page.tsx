@@ -1,9 +1,24 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getDecision } from "@/lib/api";
 import { notFound } from "next/navigation";
 
 interface Props {
   params: Promise<{ docId: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { docId } = await params;
+  try {
+    const d = await getDecision(docId);
+    return {
+      title: d.title,
+      description: `FIA stewards' decision — Season ${d.season}. ${d.title}.`,
+      openGraph: { title: d.title, description: `Season ${d.season} · FIA stewards' decision` },
+    };
+  } catch {
+    return { title: "Decision not found" };
+  }
 }
 
 export default async function DecisionDetailPage({ params }: Props) {
