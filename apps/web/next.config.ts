@@ -38,6 +38,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Self-contained Node server (.next/standalone/server.js) for the Fly.io
+  // container deploy — without this the Docker image can't run the app.
+  output: "standalone",
+
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

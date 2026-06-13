@@ -1,41 +1,50 @@
-# Fly.io deployment config for RACEJUDGE FastAPI backend
-# Deploy: fly deploy
-# First deploy: fly launch --no-deploy (then fly deploy)
+# Fly.io deployment — RACEJUDGE API (FastAPI, persistent container)
+# Deploy:        fly deploy
+# First deploy:  fly launch --no-deploy   (then: fly deploy)
+# This is the canonical API config (fly uses ./fly.toml by default).
 
-app      = "racejudge-api"
-primary_region = "iad"   # US East (closest to Neon Postgres US East)
+app            = "racejudge-api"
+primary_region = "lhr"   # London — co-located with Neon Postgres (eu-west-2)
+kill_signal    = "SIGINT"
+kill_timeout   = "5s"
 
 [build]
   dockerfile = "Dockerfile"
 
+[deploy]
+  # Apply migrations on every release (idempotent — no-op when already current).
+  release_command = "sh -c 'cd /app/packages/db && alembic upgrade head'"
+  strategy        = "rolling"
+
 [env]
   ENVIRONMENT = "production"
-  LOG_LEVEL   = "INFO"
+  LOG_LEVEL   = "info"
+  PORT        = "8000"
 
-# Secrets (set via: fly secrets set KEY=value)
-# DATABASE_URL, REDIS_URL, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
-# R2_SECRET_ACCESS_KEY, API_KEY_ENCRYPTION_SECRET
+# Secrets set via: fly secrets set KEY=value --app racejudge-api
+#   DATABASE_URL, REDIS_URL, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+#   R2_SECRET_ACCESS_KEY, API_KEY_ENCRYPTION_SECRET, CLERK_JWKS_URL,
+#   CLERK_ISSUER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SENTRY_DSN
 
 [http_service]
   internal_port        = 8000
   force_https          = true
-  auto_stop_machines   = "stop"
+  auto_stop_machines   = false      # always-on: holds WebSockets + warm HNSW
   auto_start_machines  = true
-  min_machines_running = 0   # scale to zero in dev; set to 1 in prod
+  min_machines_running = 1
 
   [http_service.concurrency]
     type       = "requests"
     soft_limit = 200
     hard_limit = 250
 
-[[vm]]
-  size   = "shared-cpu-1x"   # 256 MB — enough for Phase 1 (upgrade Phase 6)
-  memory = "256mb"
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval     = "15s"
+    method       = "GET"
+    path         = "/health"
+    timeout      = "5s"
 
-# Health check
-[[http_service.checks]]
-  grace_period  = "10s"
-  interval      = "30s"
-  method        = "GET"
-  path          = "/health"
-  timeout       = "5s"
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "1024mb"   # FastAPI + xgboost predict + warm HNSW

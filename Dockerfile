@@ -7,8 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Slim API runtime deps only (no torch / sentence-transformers / fastf1 /
+# playwright). Worker + training images use the full requirements.txt.
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir -r requirements-api.txt
 
 COPY . .
 

@@ -1,0 +1,37 @@
+# Fly.io deployment — RACEJUDGE web (Next.js 15 standalone container)
+# Deploy from this directory:  cd apps/web && fly deploy
+# Primary region lhr to sit next to the API + Neon (eu-west-2).
+
+app            = "racejudge-web"
+primary_region = "lhr"
+kill_signal    = "SIGINT"
+kill_timeout   = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+  # NEXT_PUBLIC_* are baked into the client bundle at build time.
+  # Point at the Fly API now; switch to https://racejudge.com after DNS cutover.
+  [build.args]
+    NEXT_PUBLIC_API_URL  = "https://racejudge-api.fly.dev"
+    NEXT_PUBLIC_SITE_URL = "https://racejudge.com"
+    # When Clerk is configured, add:
+    # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_..."
+
+[http_service]
+  internal_port        = 3000
+  force_https          = true
+  auto_stop_machines   = "suspend"
+  auto_start_machines  = true
+  min_machines_running = 1          # always-on — no cold starts
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval     = "15s"
+    method       = "GET"
+    path         = "/"
+    timeout      = "5s"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "512mb"
