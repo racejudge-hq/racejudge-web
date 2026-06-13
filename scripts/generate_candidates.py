@@ -17,8 +17,8 @@ Usage (from repo root with venv active):
 from __future__ import annotations
 
 import json
-import re
 import random
+import re
 from collections import defaultdict
 from itertools import combinations
 from pathlib import Path
@@ -279,10 +279,10 @@ def classify(d: dict) -> str | None:
 bucketed: dict[str, list[dict]] = defaultdict(list)
 unclassified = 0
 for d in all_decisions:
-    b = classify(d)
-    if b:
-        d["_bucket"] = b
-        bucketed[b].append(d)
+    bkt = classify(d)
+    if bkt:
+        d["_bucket"] = bkt
+        bucketed[bkt].append(d)
     else:
         unclassified += 1
 
@@ -443,19 +443,19 @@ for bucket, items in sorted(bucketed.items()):
         continue
     pool = _stratified_pool(items, per_season=12)   # every era in the pool
     scored: list[tuple[int, dict, dict]] = [
-        (sim_score(a, b), a, b)
-        for a, b in combinations(pool, 2)
+        (sim_score(da, db), da, db)
+        for da, db in combinations(pool, 2)
     ]
     scored.sort(key=lambda x: -x[0])
 
     added = 0
-    for sc, a, b in scored:
+    for _sc, da, db in scored:
         if added >= MAX_SIM_PER_BUCKET:
             break
-        pa   = get_penalty(a["raw_text"])
-        pb   = get_penalty(b["raw_text"])
-        fa   = extract_fact(a["raw_text"])
-        fb   = extract_fact(b["raw_text"])
+        pa   = get_penalty(da["raw_text"])
+        pb   = get_penalty(db["raw_text"])
+        fa   = extract_fact(da["raw_text"])
+        fb   = extract_fact(db["raw_text"])
         bl   = _bl(bucket)
 
         if pa == pb and pa not in ("other", ""):
@@ -465,7 +465,7 @@ for bucket, items in sorted(bucketed.items()):
             reason = (f"Both {bl}: identical breach — "
                       f"{fa[:75]} / {fb[:75]}")
 
-        if _add(a, b, "similar", reason, bl):
+        if _add(da, db, "similar", reason, bl):
             added += 1
 
 sim_count = sum(1 for c in candidates if c["label"] == "similar")
@@ -501,27 +501,27 @@ for bucket, items in sorted(bucketed.items()):
         continue
     pool = _stratified_pool(items, per_season=12)
     scored = [
-        (hard_score(a, b), a, b)
-        for a, b in combinations(pool, 2)
-        if get_penalty(a["raw_text"]) != get_penalty(b["raw_text"])
+        (hard_score(da, db), da, db)
+        for da, db in combinations(pool, 2)
+        if get_penalty(da["raw_text"]) != get_penalty(db["raw_text"])
         and not all(p in ("other", "") for p in
-                    [get_penalty(a["raw_text"]), get_penalty(b["raw_text"])])
+                    [get_penalty(da["raw_text"]), get_penalty(db["raw_text"])])
     ]
     scored.sort(key=lambda x: -x[0])
 
     bucket_hard = 0
-    for sc, a, b in scored:
+    for _sc, da, db in scored:
         if bucket_hard >= HARD_PER_BUCKET or hard_added >= HARD_TARGET:
             break
-        pa  = get_penalty(a["raw_text"])
-        pb  = get_penalty(b["raw_text"])
-        fa  = extract_fact(a["raw_text"])
-        fb  = extract_fact(b["raw_text"])
+        pa  = get_penalty(da["raw_text"])
+        pb  = get_penalty(db["raw_text"])
+        fa  = extract_fact(da["raw_text"])
+        fb  = extract_fact(db["raw_text"])
         bl  = _bl(bucket)
         reason = (f"Same {bl} but outcomes differ: "
                   f"{pa.replace('_',' ')} ({fa[:50]}) "
                   f"vs {pb.replace('_',' ')} ({fb[:50]})")
-        if _add(a, b, "dissimilar", reason, bl):
+        if _add(da, db, "dissimilar", reason, bl):
             bucket_hard += 1
             hard_added  += 1
 
@@ -540,9 +540,9 @@ easy_added  = 0
 bucket_names = list(bucketed.keys())
 random.shuffle(bucket_names)
 
-flat: dict[str, list[dict]] = {b: list(bucketed[b]) for b in bucket_names}
-for b in flat:
-    random.shuffle(flat[b])
+flat: dict[str, list[dict]] = {bn: list(bucketed[bn]) for bn in bucket_names}
+for _bk in flat:
+    random.shuffle(flat[_bk])
 
 # Enumerate every ordered bucket pair; repeat to hit target
 bucket_pairs: list[tuple[str, str]] = [
@@ -591,9 +591,9 @@ print(f"Total candidates : {len(candidates)}  "
 
 season_cnt: dict[int, int] = defaultdict(int)
 for c in candidates:
-    d = id_map.get(c["anchor_id"])
-    if d:
-        season_cnt[d.get("season", 0)] += 1
+    rec = id_map.get(c["anchor_id"])
+    if rec:
+        season_cnt[rec.get("season", 0)] += 1
 
 print("Anchor-season spread:")
 for season in sorted(season_cnt):
