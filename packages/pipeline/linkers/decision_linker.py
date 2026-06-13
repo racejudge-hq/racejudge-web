@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import re
@@ -27,7 +28,9 @@ PARSED_JSONL  = ROOT / "data" / "parsed" / "decisions.jsonl"
 LINKED_DIR    = ROOT / "data" / "linked"
 LINKED_JSONL  = LINKED_DIR / "decisions_linked.jsonl"
 
-LINKED_DIR.mkdir(parents=True, exist_ok=True)
+# read-only filesystem (serverless) — linker output is pipeline-only
+with contextlib.suppress(OSError):
+    LINKED_DIR.mkdir(parents=True, exist_ok=True)
 
 # Map FIA GP name fragments → OpenF1 circuit_short_name
 # Extend as needed; OpenF1 uses ICAO-style short names

@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncGenerator
+from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -27,13 +29,38 @@ from sqlalchemy.orm import DeclarativeBase
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-# Convert postgresql:// → postgresql+asyncpg://
-if DATABASE_URL.startswith("postgresql://"):
-    ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL.startswith("postgres://"):
-    ASYNC_DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-else:
-    ASYNC_DATABASE_URL = DATABASE_URL
+_SSL_REQUIRED_MODES = {"require", "verify-ca", "verify-full"}
+
+
+def _normalize_async_url(url: str) -> tuple[str, dict[str, Any]]:
+    """
+    Convert a libpq-style URL (as issued by Neon/Heroku/etc.) into an
+    asyncpg-compatible SQLAlchemy URL.
+
+    asyncpg rejects libpq query parameters like `sslmode` and
+    `channel_binding`, so they are stripped here and `sslmode=require`
+    is translated into asyncpg's `ssl=True` connect argument.
+    """
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query))
+    sslmode = query.pop("sslmode", "")
+    query.pop("channel_binding", None)
+
+    connect_args: dict[str, Any] = {}
+    if sslmode.lower() in _SSL_REQUIRED_MODES:
+        connect_args["ssl"] = True
+
+    return urlunsplit(parts._replace(query=urlencode(query))), connect_args
+
+
+ASYNC_DATABASE_URL, _CONNECT_ARGS = (
+    _normalize_async_url(DATABASE_URL) if DATABASE_URL else ("", {})
+)
 
 _engine = None
 _AsyncSessionLocal = None
@@ -48,6 +75,7 @@ def _get_engine():
             max_overflow=10,
             pool_pre_ping=True,
             echo=False,
+            connect_args=_CONNECT_ARGS,
         )
     return _engine
 

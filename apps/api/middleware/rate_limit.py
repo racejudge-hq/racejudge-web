@@ -42,13 +42,31 @@ TIER_DAILY_LIMITS: dict[str, int] = {
 _SKIP_PREFIXES = ("/health", "/docs", "/openapi.json", "/redoc")
 _SKIP_EXACT = {"/v1/billing/webhook"}
 
-# In-memory fallback: {redis_key: (count, day_str)}
+# In-memory fallback: {redis_key: (count, day_str)} — bounded to prevent
+# unbounded growth from attacker-generated keys
+_MEM_MAX_ENTRIES = 10_000
 _mem_counters: dict[str, tuple[int, str]] = defaultdict(lambda: (0, ""))
 _mem_key_cache: dict[str, dict[str, Any]] = {}  # key_hash → record
+
+# Shared Redis client — created once, reused across requests
+_redis_client: Any = None
+_redis_failed_at: float = 0.0
 
 
 def _today() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
+
+
+def _seconds_to_midnight_utc() -> int:
+    now = datetime.now(UTC)
+    return max(1, 86400 - (now.hour * 3600 + now.minute * 60 + now.second))
+
+
+def _evict_if_full(cache: dict) -> None:
+    """Drop ~10% oldest-inserted entries when the cache hits its bound."""
+    if len(cache) >= _MEM_MAX_ENTRIES:
+        for k in list(cache.keys())[: _MEM_MAX_ENTRIES // 10]:
+            cache.pop(k, None)
 
 
 def _hash_key(raw_key: str) -> str:
@@ -91,14 +109,25 @@ async def _lookup_key_db(key_hash: str) -> dict[str, Any] | None:
 
 
 async def _get_redis():
-    """Return a Redis client, or None if unavailable."""
+    """Return a shared Redis client, or None if unavailable.
+
+    Connection failures are remembered for 30s so a Redis outage doesn't add
+    a connect-timeout to every request.
+    """
+    global _redis_client, _redis_failed_at
+    if _redis_client is not None:
+        return _redis_client
+    if time.monotonic() - _redis_failed_at < 30:
+        return None
     try:
         import redis.asyncio as aioredis  # type: ignore[import]
         url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         client = aioredis.from_url(url, socket_connect_timeout=1, socket_timeout=1)
         await client.ping()
+        _redis_client = client
         return client
     except Exception:
+        _redis_failed_at = time.monotonic()
         return None
 
 
@@ -119,12 +148,14 @@ async def _check_and_increment(key_prefix: str, tier: str) -> tuple[int, int]:
             pipe.expire(redis_key, 86400)
             results = await pipe.execute()
             count = int(results[0])
-            await redis.aclose()
             return count, limit
         except Exception as exc:
+            global _redis_client
+            _redis_client = None  # reconnect on next request
             log.warning("Redis rate-limit increment failed: %s", exc)
 
     # In-memory fallback
+    _evict_if_full(_mem_counters)
     prev_count, prev_day = _mem_counters[redis_key]
     count = 1 if prev_day != today else prev_count + 1
     _mem_counters[redis_key] = (count, today)
@@ -165,6 +196,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
             # TTL cache: evict after 5 min by storing fetch time
             record["_cached_at"] = time.monotonic()
+            _evict_if_full(_mem_key_cache)
             _mem_key_cache[key_hash] = record
         else:
             # Refresh cache after 5 minutes
@@ -194,7 +226,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "requests_today": count,
                 },
                 status_code=429,
-                headers={"Retry-After": "86400"},
+                headers={"Retry-After": str(_seconds_to_midnight_utc())},
             )
 
         request.state.api_key   = record

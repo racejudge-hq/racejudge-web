@@ -5,6 +5,14 @@ on:
     branches: [main, develop]
   pull_request:
 
+# Least-privilege token for all jobs
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-test:
     name: Lint + Test (Python)
@@ -30,6 +38,33 @@ jobs:
       - name: Run tests
         run: pytest tests/ --cov=packages --cov-report=term-missing -q
 
+  security-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: pip-audit (Python CVEs)
+        # CVE-2025-3000: torch — no fixed release published yet; tracked in COMPLETION_REPORT
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --desc off --ignore-vuln CVE-2025-3000
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm audit (web, high+ only)
+        working-directory: apps/web
+        run: npm audit --audit-level=high
+
   build-web:
     name: Build (Next.js)
     runs-on: ubuntu-latest
@@ -43,6 +78,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -53,7 +90,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_API_URL: https://api.racejudge.example.invalid
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
 
@@ -71,6 +108,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -78,7 +117,7 @@ jobs:
       - name: Build for Lighthouse
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_API_URL: https://api.racejudge.example.invalid
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
 

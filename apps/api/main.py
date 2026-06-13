@@ -15,6 +15,7 @@ from apps.api.core.config import settings
 from apps.api.middleware.latency import LatencyMiddleware
 from apps.api.middleware.latency import router as metrics_router
 from apps.api.middleware.rate_limit import RateLimitMiddleware
+from apps.api.middleware.security_headers import SecurityHeadersMiddleware
 from apps.api.routers import (
     annotations as annotations_router,
 )
@@ -113,8 +114,9 @@ app.add_middleware(
     allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LatencyMiddleware)
 app.add_middleware(RateLimitMiddleware)
 

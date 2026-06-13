@@ -53,7 +53,9 @@ def enrich_with_parser(records: list[dict]) -> list[dict]:
     from packages.pipeline.parsers.decision_parser import extract_incident
     enriched = []
     for rec in records:
-        if "parsed" not in rec:
+        # `parsed` may exist but be null (scraper writes raw records) —
+        # treat empty as unparsed, not just a missing key
+        if not rec.get("parsed"):
             parsed = extract_incident(rec)
             rec = {**rec, "parsed": parsed}
         enriched.append(rec)

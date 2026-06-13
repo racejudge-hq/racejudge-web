@@ -1,0 +1,38 @@
+# Secrets
+.env
+.env.*
+
+# Local environments and caches
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.DS_Store
+
+# Frontend — deployed as its own Vercel project rooted at apps/web
+apps/web
+node_modules
+package-lock.json
+.lighthouserc.js
+
+# Local data and model artifacts (API reads from Postgres/R2, not disk)
+data
+models
+*.jsonl
+
+# Pipeline-only dependency list — Vercel installs from pyproject.toml.
+# Uploading this would make the builder install torch & co (500MB+ bundle).
+requirements.txt
+
+# Non-runtime files
+tests
+scripts
+infra
+.github
+.vscode
+Dockerfile
+fly.toml
+*.md
+*.docx

@@ -19,13 +19,16 @@ Dependencies (uncomment in requirements.txt when starting Phase 3):
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
 CACHE_DIR = ROOT / "fastf1_cache"
-CACHE_DIR.mkdir(exist_ok=True)
+# read-only filesystem (serverless) — cache only used by pipeline
+with contextlib.suppress(OSError):
+    CACHE_DIR.mkdir(exist_ok=True)
 
 log = logging.getLogger(__name__)
 

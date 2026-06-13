@@ -18,8 +18,10 @@ import os
 import secrets
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from apps.api.core.auth import ensure_user_match, get_verified_user_id
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["apikeys"])
@@ -124,8 +126,12 @@ def _row_to_public(row: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/apikeys", response_model=list[ApiKeyPublic])
-async def list_keys(user_id: str = Query(...)) -> list[dict[str, Any]]:
+async def list_keys(
+    user_id: str = Query(...),
+    verified_user: str | None = Depends(get_verified_user_id),
+) -> list[dict[str, Any]]:
     """Return all active (non-revoked) API keys for the given user."""
+    ensure_user_match(verified_user, user_id)
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         return []
@@ -155,7 +161,10 @@ async def list_keys(user_id: str = Query(...)) -> list[dict[str, Any]]:
 
 
 @router.post("/apikeys", response_model=CreateKeyResponse, status_code=201)
-async def create_key(body: CreateKeyRequest) -> dict[str, Any]:
+async def create_key(
+    body: CreateKeyRequest,
+    verified_user: str | None = Depends(get_verified_user_id),
+) -> dict[str, Any]:
     """
     Generate a new API key for the user.
 
@@ -163,6 +172,7 @@ async def create_key(body: CreateKeyRequest) -> dict[str, Any]:
     in the request body is accepted for convenience but may be overridden.
     The full key is returned exactly once and cannot be retrieved again.
     """
+    ensure_user_match(verified_user, body.user_id)
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         raise HTTPException(status_code=503, detail="Database not configured.")
@@ -216,8 +226,10 @@ async def create_key(body: CreateKeyRequest) -> dict[str, Any]:
 async def revoke_key(
     key_id: str,
     user_id: str = Query(..., description="Must match the key's owner"),
+    verified_user: str | None = Depends(get_verified_user_id),
 ) -> dict[str, Any]:
     """Revoke an API key. Only the owning user can revoke their own keys."""
+    ensure_user_match(verified_user, user_id)
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         raise HTTPException(status_code=503, detail="Database not configured.")

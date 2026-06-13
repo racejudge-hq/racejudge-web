@@ -60,7 +60,7 @@ async function fetchIncident(id: string): Promise<IncidentDetailData | null> {
     });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`API ${res.status}`);
-    return res.json();
+    return await res.json();
   } catch {
     return null;
   }
@@ -72,7 +72,7 @@ async function fetchSimilar(id: string) {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return [];
-    return res.json();
+    return await res.json();
   } catch {
     return [];
   }

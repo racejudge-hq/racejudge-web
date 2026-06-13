@@ -1,0 +1,35 @@
+# Secrets — never bake into the image
+.env
+.env.*
+!.env.example
+
+# Local environments and caches
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.DS_Store
+
+# Version control and editors
+.git
+.github
+.vscode
+
+# Frontend (deployed separately on Vercel)
+apps/web
+node_modules
+package-lock.json
+
+# Local data and model artifacts (loaded from DB/R2 in production)
+data
+models
+*.jsonl
+
+# Docs and reports
+*.md
+*.docx
+infra
+tests
+scripts/outreach

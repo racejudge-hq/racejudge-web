@@ -52,8 +52,10 @@ def upgrade() -> None:
     )
 
     # ------------------------------------------------------------------
-    # incidents — full Phase 2 schema
+    # incidents — full Phase 2 schema. Replaces the Phase-1 skeleton table
+    # from 0001 (different shape: decision_id UUID FK, no penalty_type).
     # ------------------------------------------------------------------
+    op.execute("DROP TABLE IF EXISTS incidents CASCADE")
     op.create_table(
         "incidents",
         sa.Column("incident_id", sa.Text(), primary_key=True,

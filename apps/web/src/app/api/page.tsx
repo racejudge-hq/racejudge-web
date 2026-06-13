@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -40,6 +41,13 @@ interface SubscriptionStatus {
 
 const DEMO_USER = "demo_user_001";
 
+// Same Clerk gate as layout.tsx — hooks may only be used inside ClerkProvider
+const CLERK_ENABLED = /^pk_(test|live)_\w{20,}$/.test(
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "",
+);
+
+type GetToken = () => Promise<string | null>;
+
 function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
     free: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400",
@@ -70,6 +78,29 @@ function UsageBar({ used, limit }: { used: number; limit: number }) {
 }
 
 export default function ApiPage() {
+  if (CLERK_ENABLED) return <ClerkApiPage />;
+  return <ApiPageContent userId={DEMO_USER} getToken={async () => null} />;
+}
+
+function ClerkApiPage() {
+  const { isLoaded, isSignedIn, userId, getToken } = useAuth();
+  if (!isLoaded) return null;
+  if (!isSignedIn || !userId) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10">
+        <p className="text-sm text-gray-500">
+          <Link href="/sign-in" className="underline hover:text-gray-900 dark:hover:text-white">
+            Sign in
+          </Link>{" "}
+          to manage your API keys.
+        </p>
+      </main>
+    );
+  }
+  return <ApiPageContent userId={userId} getToken={getToken} />;
+}
+
+function ApiPageContent({ userId, getToken }: { userId: string; getToken: GetToken }) {
   const [keys, setKeys]             = useState<ApiKey[]>([]);
   const [sub, setSub]               = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -79,20 +110,28 @@ export default function ApiPage() {
   const [copied, setCopied]         = useState(false);
   const [revoking, setRevoking]     = useState<string | null>(null);
 
-  const userId = DEMO_USER;
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    try {
+      const token = await getToken();
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  }, [getToken]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const headers = await authHeaders();
       const [keysRes, subRes] = await Promise.all([
-        fetch(`${API_BASE}/v1/apikeys?user_id=${userId}`),
-        fetch(`${API_BASE}/v1/billing/subscription?user_id=${userId}`),
+        fetch(`${API_BASE}/v1/apikeys?user_id=${userId}`, { headers }),
+        fetch(`${API_BASE}/v1/billing/subscription?user_id=${userId}`, { headers }),
       ]);
       if (keysRes.ok) setKeys(await keysRes.json());
       if (subRes.ok)  setSub(await subRes.json());
     } catch { /* ignore */ }
     setLoading(false);
-  }, [userId]);
+  }, [userId, authHeaders]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -103,7 +142,7 @@ export default function ApiPage() {
     try {
       const res = await fetch(`${API_BASE}/v1/apikeys`, {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body:    JSON.stringify({ user_id: userId, name: newKeyName || null }),
       });
       if (res.ok) {
@@ -122,7 +161,7 @@ export default function ApiPage() {
     try {
       const res = await fetch(
         `${API_BASE}/v1/apikeys/${keyId}?user_id=${userId}`,
-        { method: "DELETE" },
+        { method: "DELETE", headers: await authHeaders() },
       );
       if (res.ok) await loadData();
     } catch { /* ignore */ }

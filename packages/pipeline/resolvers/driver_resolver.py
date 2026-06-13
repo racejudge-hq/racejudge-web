@@ -18,6 +18,7 @@ Handles:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -28,7 +29,9 @@ log = logging.getLogger(__name__)
 
 ROOT      = Path(__file__).resolve().parents[3]
 CACHE_DIR = ROOT / "data" / "reference"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+# read-only filesystem (serverless) — cache only used by pipeline
+with contextlib.suppress(OSError):
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DRIVERS_CACHE = CACHE_DIR / "drivers.json"
 
 # ---------------------------------------------------------------------------
@@ -36,6 +39,13 @@ DRIVERS_CACHE = CACHE_DIR / "drivers.json"
 # ---------------------------------------------------------------------------
 
 DriverRecord = dict  # {code, full_name, number, nationality, jolpica_id, seasons[]}
+
+# Car #1 is worn by the reigning champion and changes hands; the Jolpica API
+# only reports a driver's *current* permanent number, so the holder per season
+# is curated here. Extend each January.
+CHAMPION_NUMBER_BY_SEASON: dict[int, str] = {
+    2022: "VER", 2023: "VER", 2024: "VER", 2025: "VER", 2026: "NOR",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +120,14 @@ def _build_indices(records: list[DriverRecord]) -> dict:
         if code:
             by_code[code] = r
 
-        num = r.get("number")
-        if num is not None:
-            by_number.setdefault(int(num), []).append(r)
+        nums = set()
+        if r.get("number") is not None:
+            nums.add(int(r["number"]))
+        for v in (r.get("numbers") or {}).values():
+            if v is not None:
+                nums.add(int(v))
+        for num in nums:
+            by_number.setdefault(num, []).append(r)
 
         parts = r.get("full_name", "").split()
         if parts:
@@ -210,15 +225,29 @@ class DriverResolver:
 
     def resolve_number(self, number: int, season: int | None = None) -> DriverRecord | None:
         """Resolve a car number to a driver. Uses season to disambiguate."""
+        # Champion's car #1: per-season holder is curated (the upstream
+        # API only exposes current numbers)
+        if season and int(number) == 1 and season in CHAMPION_NUMBER_BY_SEASON:
+            champ = self._idx["by_code"].get(CHAMPION_NUMBER_BY_SEASON[season])
+            if champ:
+                return champ
         candidates = self._idx["by_number"].get(int(number), [])
         if not candidates:
             return None
         if len(candidates) == 1:
             return candidates[0]
         if season:
+            # Exact per-season number match beats everything
+            for c in candidates:
+                if (c.get("numbers") or {}).get(str(season)) == int(number):
+                    return c
             for c in candidates:
                 if season in c.get("seasons", []):
                     return c
+        # No season given: prefer the current holder of the number
+        for c in candidates:
+            if c.get("number") == int(number):
+                return c
         return candidates[0]
 
     def resolve(self, name: str | None = None, number: int | None = None,

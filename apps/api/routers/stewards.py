@@ -157,7 +157,7 @@ async def panel_variance(
     }
 
     # Per-chair analysis
-    results = []
+    results: list[dict[str, Any]] = []
     for chair, counts in by_chair.items():
         total = sum(counts.values())
         if total < min_incidents:
@@ -315,7 +315,7 @@ async def category_variance(
 
     # Severity trend: is penalty getting heavier or lighter over time?
     season_list = sorted(by_season.keys())
-    severity_trend = [
+    severity_trend: list[dict[str, Any]] = [
         {
             "season":         yr,
             "counts":         by_season[yr],
@@ -331,7 +331,7 @@ async def category_variance(
         severities = [s["mean_severity"] for s in severity_trend]
         x_mean = sum(season_list) / len(season_list)
         y_mean = sum(severities) / len(severities)
-        numerator   = sum((x - x_mean) * (y - y_mean) for x, y in zip(season_list, severities))
+        numerator   = sum((x - x_mean) * (y - y_mean) for x, y in zip(season_list, severities, strict=True))
         denominator = sum((x - x_mean) ** 2 for x in season_list)
         slope = round(numerator / denominator, 4) if denominator else 0.0
     else:

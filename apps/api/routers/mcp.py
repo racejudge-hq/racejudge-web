@@ -157,6 +157,7 @@ async def mcp_query(
     tool = body.tool
     p    = body.params
 
+    result: Any
     try:
         if tool == "search_precedents":
             result = await _tool_search_precedents(p)

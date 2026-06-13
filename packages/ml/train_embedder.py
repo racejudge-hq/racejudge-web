@@ -241,6 +241,7 @@ def _run_on_modal(pairs_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    global EPOCHS, BATCH_SIZE, LR
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)-8s %(message)s",
@@ -278,7 +279,6 @@ def main() -> None:
         _run_on_modal(str(pairs_path))
         return
 
-    global EPOCHS, BATCH_SIZE, LR
     EPOCHS     = args.epochs
     BATCH_SIZE = args.batch_size
     LR         = args.lr

@@ -77,3 +77,7 @@ logs/
 # Celery
 celerybeat-schedule
 celerybeat.pid
+.vercel
+
+# Next.js incremental build state
+apps/web/tsconfig.tsbuildinfo

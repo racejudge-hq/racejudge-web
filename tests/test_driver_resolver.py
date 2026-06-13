@@ -55,9 +55,17 @@ def test_resolve_number(r):
 
 
 def test_resolve_number_verstappen(r):
-    rec = r.resolve_number(1)
+    # Car #1 changes hands with the championship — pin the season so the
+    # test stays valid as new rosters are fetched into data/reference.
+    rec = r.resolve_number(1, season=2024)
     assert rec is not None
     assert rec["code"] == "VER"
+
+
+def test_resolve_number_one_2026_champion(r):
+    rec = r.resolve_number(1, season=2026)
+    assert rec is not None
+    assert rec["code"] == "NOR"
 
 
 def test_resolve_unknown_name(r):

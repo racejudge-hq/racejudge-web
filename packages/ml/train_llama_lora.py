@@ -273,7 +273,7 @@ def _run_on_modal(db_url: str) -> None:
     def train_remote() -> str:
         import os
 
-        output = train(os.environ["DATABASE_URL"], output_dir="/models/llama-lora-penalty-v1")
+        output = train(os.environ["DATABASE_URL"], output_dir=Path("/models/llama-lora-penalty-v1"))
         return str(output)
 
     with app.run():

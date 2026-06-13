@@ -83,7 +83,9 @@ async def _insert_incident(db, result) -> str | None:
             doc_id              = result.doc_id,
             drivers             = result.drivers,
             lap                 = result.lap_number,
-            corner              = result.corner,
+            # extractor may yield an int turn number; column is Text and
+            # asyncpg does not coerce int → varchar
+            corner              = str(result.corner) if result.corner is not None else None,
             article_cited       = result.article_cited or [],
             infraction_category = result.infraction_category,
             penalty_type        = result.penalty_type,

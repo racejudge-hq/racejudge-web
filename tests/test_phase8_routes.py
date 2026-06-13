@@ -142,8 +142,9 @@ def test_entropy_pure_distribution():
 
 
 def test_entropy_uniform_distribution():
-    from apps.api.routers.stewards import _entropy
     import math
+
+    from apps.api.routers.stewards import _entropy
     counts = {"NFA": 5, "REP": 5, "5s": 5, "10s": 5}
     h = _entropy(counts)
     assert abs(h - math.log2(4)) < 0.001

@@ -14,10 +14,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from apps.api.core.auth import ensure_user_match, get_verified_user_id
 from apps.api.core.config import settings
 
 log = logging.getLogger(__name__)
@@ -195,8 +196,12 @@ class SubscriptionStatus(BaseModel):
 
 
 @router.get("/billing/subscription", response_model=SubscriptionStatus)
-async def get_subscription(user_id: str = Query(..., description="Clerk user_id")) -> dict[str, Any]:
+async def get_subscription(
+    user_id: str = Query(..., description="Clerk user_id"),
+    verified_user: str | None = Depends(get_verified_user_id),
+) -> dict[str, Any]:
     """Return the current subscription tier and status for a user."""
+    ensure_user_match(verified_user, user_id)
     db_url = __import__("os").environ.get("DATABASE_URL")
     if db_url:
         try:
@@ -248,13 +253,22 @@ class PortalResponse(BaseModel):
 
 
 @router.post("/billing/portal", response_model=PortalResponse)
-async def create_portal_session(body: PortalRequest) -> dict[str, Any]:
+async def create_portal_session(
+    body: PortalRequest,
+    verified_user: str | None = Depends(get_verified_user_id),
+) -> dict[str, Any]:
     """Create a Stripe Customer Portal session so the user can manage billing."""
+    ensure_user_match(verified_user, body.user_id)
     if not settings.stripe_enabled:
         raise HTTPException(
             status_code=503,
             detail="Billing not configured. Add STRIPE_SECRET_KEY to enable subscriptions.",
         )
+
+    # Only allow return URLs back to our own frontend
+    allowed = {o.rstrip("/") for o in settings.allowed_origins}
+    if not any(body.return_url.rstrip("/").startswith(o) for o in allowed):
+        raise HTTPException(status_code=400, detail="return_url must point to an allowed origin.")
 
     db_url = __import__("os").environ.get("DATABASE_URL")
     customer_id: str | None = None

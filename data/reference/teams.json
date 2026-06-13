@@ -1,0 +1,104 @@
+[
+  {
+    "name": "Alfa Romeo",
+    "short_name": "alfa",
+    "jolpica_id": "alfa",
+    "active": false
+  },
+  {
+    "name": "Ferrari",
+    "short_name": "ferrari",
+    "jolpica_id": "ferrari",
+    "active": false
+  },
+  {
+    "name": "Haas F1 Team",
+    "short_name": "haas",
+    "jolpica_id": "haas",
+    "active": false
+  },
+  {
+    "name": "McLaren",
+    "short_name": "mclaren",
+    "jolpica_id": "mclaren",
+    "active": false
+  },
+  {
+    "name": "Mercedes",
+    "short_name": "mercedes",
+    "jolpica_id": "mercedes",
+    "active": false
+  },
+  {
+    "name": "Racing Point",
+    "short_name": "racing_point",
+    "jolpica_id": "racing_point",
+    "active": false
+  },
+  {
+    "name": "Red Bull",
+    "short_name": "red_bull",
+    "jolpica_id": "red_bull",
+    "active": false
+  },
+  {
+    "name": "Renault",
+    "short_name": "renault",
+    "jolpica_id": "renault",
+    "active": false
+  },
+  {
+    "name": "Toro Rosso",
+    "short_name": "toro_rosso",
+    "jolpica_id": "toro_rosso",
+    "active": false
+  },
+  {
+    "name": "Williams",
+    "short_name": "williams",
+    "jolpica_id": "williams",
+    "active": false
+  },
+  {
+    "name": "AlphaTauri",
+    "short_name": "alphatauri",
+    "jolpica_id": "alphatauri",
+    "active": false
+  },
+  {
+    "name": "Alpine F1 Team",
+    "short_name": "alpine",
+    "jolpica_id": "alpine",
+    "active": false
+  },
+  {
+    "name": "Aston Martin",
+    "short_name": "aston_martin",
+    "jolpica_id": "aston_martin",
+    "active": false
+  },
+  {
+    "name": "RB F1 Team",
+    "short_name": "rb",
+    "jolpica_id": "rb",
+    "active": true
+  },
+  {
+    "name": "Sauber",
+    "short_name": "sauber",
+    "jolpica_id": "sauber",
+    "active": true
+  },
+  {
+    "name": "Audi",
+    "short_name": "audi",
+    "jolpica_id": "audi",
+    "active": true
+  },
+  {
+    "name": "Cadillac F1 Team",
+    "short_name": "cadillac",
+    "jolpica_id": "cadillac",
+    "active": true
+  }
+]

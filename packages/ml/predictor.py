@@ -130,9 +130,10 @@ class PenaltyPredictor:
     Phase 5 will add the LLM layer and meta-stacker on top.
     """
 
-    def __init__(self, pipeline=None, label_encoder=None):
+    def __init__(self, pipeline=None, label_encoder=None, calibrated=None):
         self._pipeline = pipeline
         self._label_encoder = label_encoder  # maps class idx → PENALTY_CLASSES
+        self._calibrated = calibrated  # sigmoid-calibrated wrapper, optional
 
     # ------------------------------------------------------------------
     # Training
@@ -167,6 +168,11 @@ class PenaltyPredictor:
         pipeline = _build_pipeline(n_classes=len(PENALTY_CLASSES))
 
         fit_kwargs: dict[str, Any] = {}
+
+        # Outcomes are heavily skewed towards NFA — without balancing the
+        # model collapses to the majority class
+        from sklearn.utils.class_weight import compute_sample_weight
+        fit_kwargs["clf__sample_weight"] = compute_sample_weight("balanced", y)
         if val_records:
             val_feats = batch_extract_features(val_records)
             val_df = pd.DataFrame(val_feats)
@@ -181,7 +187,29 @@ class PenaltyPredictor:
         pipeline.fit(X, y, **fit_kwargs)
         log.info("Training complete")
 
-        return cls(pipeline=pipeline)
+        # Sigmoid-calibrate probabilities on the validation split (ECE gate)
+        calibrated = None
+        if val_records:
+            val_feats = batch_extract_features(val_records)
+            val_df = pd.DataFrame(val_feats)
+            val_df = val_df[val_df["penalty_class"].notna()].copy()
+            if len(val_df) >= 50:
+                from sklearn.calibration import CalibratedClassifierCV
+                from sklearn.frozen import FrozenEstimator
+
+                X_val = val_df[CAT_COLS + NUM_COLS]
+                y_val = val_df["penalty_class"].map(PENALTY_CLASS_TO_IDX)
+                try:
+                    calibrated = CalibratedClassifierCV(
+                        FrozenEstimator(pipeline), method="sigmoid"
+                    )
+                    calibrated.fit(X_val, y_val)
+                    log.info("Probability calibration fitted on %d val records", len(val_df))
+                except Exception as exc:
+                    log.warning("Calibration failed (%s) — using raw probabilities", exc)
+                    calibrated = None
+
+        return cls(pipeline=pipeline, calibrated=calibrated)
 
     # ------------------------------------------------------------------
     # Inference
@@ -199,7 +227,8 @@ class PenaltyPredictor:
 
         feat = extract_features(record)
         X = pd.DataFrame([feat])[CAT_COLS + NUM_COLS]
-        proba = self._pipeline.predict_proba(X)[0]
+        model = self._calibrated if self._calibrated is not None else self._pipeline
+        proba = model.predict_proba(X)[0]
 
         class_idx = int(proba.argmax())
         predicted_class = PENALTY_CLASSES[class_idx]
@@ -222,7 +251,7 @@ class PenaltyPredictor:
     def save(self, path: str | Path | None = None) -> Path:
         import joblib
         path = Path(path) if path else MODELS_DIR / "penalty_v1.pkl"
-        joblib.dump({"pipeline": self._pipeline}, path)
+        joblib.dump({"pipeline": self._pipeline, "calibrated": self._calibrated}, path)
         log.info("Model saved to %s", path)
         return path
 
@@ -233,7 +262,7 @@ class PenaltyPredictor:
         if not path.exists():
             raise FileNotFoundError(f"Model file not found: {path}")
         state = joblib.load(path)
-        return cls(pipeline=state["pipeline"])
+        return cls(pipeline=state["pipeline"], calibrated=state.get("calibrated"))
 
     # ------------------------------------------------------------------
     # Evaluation
@@ -249,15 +278,23 @@ class PenaltyPredictor:
         Gate: do not ship publicly if ECE >= 0.05.
         """
         import numpy as np
-        import pandas as pd
         from sklearn.metrics import classification_report, f1_score
 
+        # Predict on the ORIGINAL records — extract_features() expects raw
+        # decision records, not already-extracted feature dicts
         feats = batch_extract_features(records)
-        df = pd.DataFrame(feats)
-        df = df[df["penalty_class"].notna()].copy()
+        labelled = [
+            (rec, f) for rec, f in zip(records, feats, strict=True)
+            if f.get("penalty_class") is not None
+        ]
+        if not labelled:
+            return {"macro_f1": 0.0, "ece": 1.0, "gate_pass": False,
+                    "per_class": {}, "n_samples": 0}
 
-        y_true = df["penalty_class"].map(PENALTY_CLASS_TO_IDX).values
-        preds = predictor.predict_batch(df.to_dict("records"))
+        raw_records = [rec for rec, _ in labelled]
+        y_true = np.array([PENALTY_CLASS_TO_IDX[f["penalty_class"]] for _, f in labelled])
+
+        preds = predictor.predict_batch(raw_records)
         y_pred = np.array([p["predicted_class_idx"] for p in preds])
         y_proba = np.array([[p["proba"][c] for c in PENALTY_CLASSES] for p in preds])
 
@@ -266,6 +303,7 @@ class PenaltyPredictor:
 
         report = classification_report(
             y_true, y_pred,
+            labels=list(range(len(PENALTY_CLASSES))),
             target_names=PENALTY_CLASSES,
             zero_division=0,
             output_dict=True,
@@ -278,7 +316,7 @@ class PenaltyPredictor:
             "ece": round(ece, 4),
             "gate_pass": gate_pass,  # must be True before public ship
             "per_class": report,
-            "n_samples": len(df),
+            "n_samples": len(labelled),
         }
 
 

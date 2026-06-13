@@ -17,7 +17,7 @@ async function fetchGuidelines(): Promise<Guideline[]> {
     const res = await fetch(`${API_BASE}/v1/guidelines`, {
       next: { revalidate: 3600 },
     });
-    if (res.ok) return res.json();
+    if (res.ok) return await res.json();
   } catch {
     // fall through
   }

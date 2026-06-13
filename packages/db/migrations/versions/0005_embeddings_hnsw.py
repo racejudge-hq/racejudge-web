@@ -27,9 +27,10 @@ def upgrade() -> None:
 
     # HNSW index for approximate nearest-neighbour search
     # m=16, ef_construction=200 per implementation plan
-    # Created CONCURRENTLY to avoid table lock on large tables
+    # Plain CREATE INDEX: CONCURRENTLY cannot run inside Alembic's transaction,
+    # and the table is empty at migration time anyway.
     op.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_incidents_embedding
+        CREATE INDEX IF NOT EXISTS idx_incidents_embedding
         ON incidents USING hnsw (embedding vector_cosine_ops)
         WITH (m = 16, ef_construction = 200);
     """)

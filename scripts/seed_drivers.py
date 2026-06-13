@@ -73,6 +73,8 @@ def _jolpica_driver_to_record(d: dict, season: int) -> dict:
         "number":      int(d["permanentNumber"]) if d.get("permanentNumber") else None,
         "jolpica_id":  d.get("driverId"),
         "seasons":     [season],
+        # Car numbers change hands (champion takes #1) — keep per-season map
+        "numbers":     {str(season): int(d["permanentNumber"])} if d.get("permanentNumber") else {},
         "active":      season >= 2024,
     }
 
@@ -93,10 +95,19 @@ def _merge_drivers(existing: list[dict], new_records: list[dict]) -> list[dict]:
         if not code:
             continue
         if code in by_code:
+            cur = by_code[code]
             # Merge seasons list
-            existing_seasons = set(by_code[code].get("seasons", []))
+            existing_seasons = set(cur.get("seasons", []))
             existing_seasons.update(r.get("seasons", []))
-            by_code[code]["seasons"] = sorted(existing_seasons)
+            cur["seasons"] = sorted(existing_seasons)
+            # Merge per-season number map; newest fetch wins per season
+            numbers = dict(cur.get("numbers") or {})
+            numbers.update(r.get("numbers") or {})
+            cur["numbers"] = numbers
+            # Top-level number/active reflect the most recent season seen
+            if numbers:
+                cur["number"] = numbers[max(numbers, key=int)]
+            cur["active"] = cur["active"] or r.get("active", False)
         else:
             by_code[code] = r
     return list(by_code.values())

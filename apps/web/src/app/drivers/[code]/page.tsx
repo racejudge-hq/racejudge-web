@@ -32,7 +32,7 @@ async function fetchDriverStats(code: string): Promise<DriverStats | null> {
     const res = await fetch(`${API_BASE}/v1/drivers/${code.toUpperCase()}/stats`, {
       next: { revalidate: 300 },
     });
-    if (res.ok) return res.json();
+    if (res.ok) return await res.json();
   } catch {
     // fall through to null
   }

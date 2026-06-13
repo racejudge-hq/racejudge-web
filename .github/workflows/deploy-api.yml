@@ -1,0 +1,45 @@
+name: Deploy API (Fly.io)
+
+# Deploys apps/api to Fly.io on every push to main, once CI requirements are
+# in place. Requires the FLY_API_TOKEN repository secret (Fly dashboard →
+# Tokens). The job is skipped silently when the secret is not configured, so
+# this workflow is safe to merge before the Fly app exists.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: fly deploy
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Check FLY_API_TOKEN
+        id: gate
+        run: |
+          if [ -n "$FLY_API_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "FLY_API_TOKEN not set — skipping deploy."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.enabled == 'true'
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.gate.outputs.enabled == 'true'
+
+      - name: Deploy
+        if: steps.gate.outputs.enabled == 'true'
+        run: flyctl deploy --remote-only

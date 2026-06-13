@@ -6,10 +6,6 @@ All tests run without a database (monkeypatched) and without Stripe credentials.
 
 from __future__ import annotations
 
-import hashlib
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 from fastapi.testclient import TestClient
 

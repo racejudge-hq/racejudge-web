@@ -19,7 +19,7 @@ async function fetchConsistency(): Promise<ConsistencyRow[]> {
     const res = await fetch(`${API_BASE}/v1/incidents/consistency`, {
       next: { revalidate: 3600 },
     });
-    if (res.ok) return res.json();
+    if (res.ok) return await res.json();
   } catch {
     // fall through to mock data
   }

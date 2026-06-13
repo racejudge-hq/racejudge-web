@@ -12,6 +12,7 @@ Target: 500 hand-labelled pairs from Pre-Work Action 2.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import uuid
 from datetime import UTC, datetime
@@ -24,7 +25,9 @@ from pydantic import BaseModel, Field
 router = APIRouter(tags=["annotations"])
 
 ANNOTATIONS_PATH = Path(__file__).resolve().parents[3] / "data" / "annotations.jsonl"
-ANNOTATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+# read-only filesystem (serverless) — annotations write to DB there
+with contextlib.suppress(OSError):
+    ANNOTATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
