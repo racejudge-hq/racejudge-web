@@ -278,7 +278,7 @@ async def _rag_legal_argument(
             system=_RAG_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )
-        return msg.content[0].text.strip(), True
+        return getattr(msg.content[0], "text", "").strip(), True
     except Exception as exc:
         log.warning("RAG legal argument failed: %s", exc)
         return _template_argument(incident, new_evidence, precedents), False

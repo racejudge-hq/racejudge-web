@@ -98,7 +98,7 @@ async def _upsert_subscription(sub_obj: dict[str, Any]) -> None:
     stripe.api_key = settings.stripe_secret_key
     try:
         customer = stripe.Customer.retrieve(customer_id)
-        user_id  = (customer.get("metadata") or {}).get("clerk_user_id", "")
+        user_id  = (getattr(customer, "metadata", None) or {}).get("clerk_user_id", "")
     except Exception as exc:
         log.warning("Could not retrieve Stripe customer %s: %s", customer_id, exc)
         user_id = ""

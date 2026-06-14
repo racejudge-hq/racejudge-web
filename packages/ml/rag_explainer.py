@@ -124,7 +124,7 @@ async def explain_prediction(
             max_tokens=MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}],
         )
-        return message.content[0].text.strip()
+        return getattr(message.content[0], "text", "").strip()
 
     except ImportError:
         log.warning("anthropic SDK not installed — using template fallback")

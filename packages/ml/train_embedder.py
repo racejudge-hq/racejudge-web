@@ -107,7 +107,11 @@ def build_triplets(pairs: list[dict]) -> list[dict]:
 
 def train(pairs_path: str | Path, output_dir: str | Path = OUTPUT_DIR) -> Path:
     from datasets import Dataset  # type: ignore[import]
-    from sentence_transformers import SentenceTransformer, SentenceTransformerTrainer, losses
+    from sentence_transformers import (  # type: ignore[attr-defined]
+        SentenceTransformer,
+        SentenceTransformerTrainer,
+        losses,
+    )
     from sentence_transformers.evaluation import TripletEvaluator
     from sentence_transformers.training_args import SentenceTransformerTrainingArguments
 

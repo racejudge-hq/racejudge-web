@@ -48,7 +48,7 @@ class LayoutLMExtractor:
 
     def __init__(self, model_path: str | Path | None = None):
         self._model_path = Path(model_path) if model_path else MODEL_PATH
-        self._pipeline = None
+        self._pipeline: Any = None
 
     def _load(self) -> bool:
         """Lazy-load the LayoutLMv3 pipeline. Returns True if successful."""
