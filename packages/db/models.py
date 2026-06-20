@@ -16,6 +16,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Date,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -41,7 +42,7 @@ def _uuid() -> str:
 class Driver(Base):
     __tablename__ = "drivers"
 
-    driver_id:    Mapped[str]  = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    driver_id:    Mapped[str]  = mapped_column(Text, primary_key=True, default=_uuid)
     code:         Mapped[str]  = mapped_column(Text, nullable=False, unique=True)  # VER, HAM
     full_name:    Mapped[str]  = mapped_column(Text, nullable=False)
     abbreviation: Mapped[str | None] = mapped_column(Text)
@@ -55,7 +56,7 @@ class Driver(Base):
 class Team(Base):
     __tablename__ = "teams"
 
-    team_id:    Mapped[str]  = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    team_id:    Mapped[str]  = mapped_column(Text, primary_key=True, default=_uuid)
     name:       Mapped[str]  = mapped_column(Text, nullable=False)
     short_name: Mapped[str | None] = mapped_column(Text)
     jolpica_id: Mapped[int | None] = mapped_column(Integer, unique=True)
@@ -95,7 +96,7 @@ class Decision(Base):
 class Incident(Base):
     __tablename__ = "incidents"
 
-    incident_id:         Mapped[str]       = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    incident_id:         Mapped[str]       = mapped_column(Text, primary_key=True, default=_uuid)
     doc_id:              Mapped[str]        = mapped_column(ForeignKey("decisions.doc_id"), nullable=False)
     drivers:             Mapped[list[Any]]  = mapped_column(JSONB, nullable=False, default=list)
     session_key:         Mapped[int | None] = mapped_column(Integer)
@@ -135,7 +136,7 @@ class Incident(Base):
 class Event(Base):
     __tablename__ = "events"
 
-    event_id:           Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    event_id:           Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     season:             Mapped[int]      = mapped_column(SmallInteger, nullable=False)
     round_number:       Mapped[int]      = mapped_column(SmallInteger, nullable=False)
     circuit:            Mapped[str]      = mapped_column(Text, nullable=False)
@@ -156,7 +157,7 @@ class Event(Base):
 class Session(Base):
     __tablename__ = "sessions"
 
-    session_id:   Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    session_id:   Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     event_id:     Mapped[str]      = mapped_column(ForeignKey("events.event_id", ondelete="CASCADE"), nullable=False)
     session_type: Mapped[str]      = mapped_column(Text, nullable=False)
     session_key:  Mapped[int | None] = mapped_column(Integer, unique=True)
@@ -170,9 +171,9 @@ class Session(Base):
 class RaceControlMessage(Base):
     __tablename__ = "race_control_messages"
 
-    message_id:    Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    message_id:    Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     session_key:   Mapped[int]      = mapped_column(Integer, nullable=False)
-    date:          Mapped[datetime] = mapped_column(nullable=False)
+    date:          Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     category:      Mapped[str | None] = mapped_column(Text)
     message:       Mapped[str]      = mapped_column(Text, nullable=False)
     flag:          Mapped[str | None] = mapped_column(Text)
@@ -188,10 +189,10 @@ class RaceControlMessage(Base):
 class TeamRadioClip(Base):
     __tablename__ = "team_radio_clips"
 
-    clip_id:        Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    clip_id:        Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     session_key:    Mapped[int]      = mapped_column(Integer, nullable=False)
     driver_number:  Mapped[int]      = mapped_column(SmallInteger, nullable=False)
-    date:           Mapped[datetime] = mapped_column(nullable=False)
+    date:           Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     recording_url:  Mapped[str]      = mapped_column(Text, nullable=False, unique=True)
     r2_key:         Mapped[str | None] = mapped_column(Text)
     transcript:     Mapped[str | None] = mapped_column(Text)
@@ -207,7 +208,7 @@ class TeamRadioClip(Base):
 class Annotation(Base):
     __tablename__ = "annotations"
 
-    annotation_id:   Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    annotation_id:   Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     doc_id:          Mapped[str]      = mapped_column(Text, nullable=False)
     annotator:       Mapped[str]      = mapped_column(Text, nullable=False, default="anonymous")
     infraction_type: Mapped[str | None] = mapped_column(Text)
@@ -224,7 +225,7 @@ class Annotation(Base):
 class Guideline(Base):
     __tablename__ = "guidelines"
 
-    article_id:         Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    article_id:         Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     document_name:      Mapped[str]      = mapped_column(Text, nullable=False)
     section:            Mapped[str | None] = mapped_column(Text)
     article_number:     Mapped[str]      = mapped_column(Text, nullable=False)
@@ -241,7 +242,7 @@ class Guideline(Base):
 class StewardPanel(Base):
     __tablename__ = "steward_panels"
 
-    panel_id:       Mapped[str]           = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    panel_id:       Mapped[str]           = mapped_column(Text, primary_key=True, default=_uuid)
     event_id:       Mapped[str]           = mapped_column(ForeignKey("events.event_id"), nullable=False)
     chair:          Mapped[str]           = mapped_column(Text, nullable=False)
     members:        Mapped[list[str]]     = mapped_column(ARRAY(Text), nullable=False)
@@ -264,7 +265,7 @@ class PrecedentLink(Base):
 class PredictionLog(Base):
     __tablename__ = "predictions_log"
 
-    prediction_id:  Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    prediction_id:  Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     query_text:     Mapped[str]      = mapped_column(Text, nullable=False)
     query_features: Mapped[dict | None] = mapped_column(JSONB)
     predicted_dist: Mapped[dict]     = mapped_column(JSONB, nullable=False)

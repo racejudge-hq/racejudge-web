@@ -23,9 +23,10 @@ log = logging.getLogger(__name__)
 
 
 def _parse_dt(s: str) -> datetime:
-    s = s.rstrip("Z")
-    fmt = "%Y-%m-%dT%H:%M:%S.%f" if "." in s else "%Y-%m-%dT%H:%M:%S"
-    return datetime.strptime(s, fmt).replace(tzinfo=UTC)
+    # OpenF1 timestamps may carry a +00:00 offset or trailing 'Z' — fromisoformat
+    # handles offsets and fractional seconds; strptime did not.
+    dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 class WeatherLinker:

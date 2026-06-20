@@ -42,12 +42,10 @@ WINDOW_SECONDS = 30  # ±30s around incident time
 
 
 def _parse_dt(s: str) -> datetime:
-    s = s.rstrip("Z")
-    if "." in s:
-        dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f")
-    else:
-        dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
-    return dt.replace(tzinfo=UTC)
+    # OpenF1 timestamps may carry a +00:00 offset or trailing 'Z' plus optional
+    # fractional seconds — fromisoformat handles all of them.
+    dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def _is_investigation_message(msg: str) -> bool:
