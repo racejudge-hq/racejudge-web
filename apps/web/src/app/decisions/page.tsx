@@ -1,5 +1,7 @@
 import { getDecisions } from "@/lib/api";
-import { DecisionCard } from "@/components/DecisionCard";
+import DecisionsTable from "@/components/DecisionsTable";
+import { Button } from "@/components/ui/button";
+import NotificationOptIn from "@/components/NotificationOptIn";
 
 interface Props {
   searchParams: Promise<{ season?: string; q?: string; page?: string }>;
@@ -27,6 +29,9 @@ export default async function DecisionsPage({ searchParams }: Props) {
         <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
           FIA stewards&apos; decisions — searchable and browsable
         </p>
+        <div className="mt-3">
+          <NotificationOptIn />
+        </div>
       </header>
 
       {/* Search form */}
@@ -48,24 +53,14 @@ export default async function DecisionsPage({ searchParams }: Props) {
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-white text-black rounded text-sm font-medium hover:bg-gray-200"
-        >
-          Search
-        </button>
+        <Button type="submit">Search</Button>
       </form>
 
       {/* Results */}
       {decisions.length === 0 ? (
         <p className="text-gray-500">No decisions found.</p>
       ) : (
-        <div className="space-y-3">
-          <p className="text-xs text-gray-400 dark:text-gray-600">{decisions.length} results</p>
-          {decisions.map((d) => (
-            <DecisionCard key={d.doc_id} d={d} />
-          ))}
-        </div>
+        <DecisionsTable decisions={decisions} />
       )}
 
       {/* Pagination */}

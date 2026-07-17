@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConsistencyCharts from "@/components/ConsistencyCharts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -88,6 +89,9 @@ export default async function ConsistencyPage() {
           </div>
         ))}
       </div>
+
+      {/* Interactive Plotly + D3 charts */}
+      <ConsistencyCharts data={data} />
 
       {/* One table per season */}
       {seasons.map((season) => {

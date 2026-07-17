@@ -20,6 +20,7 @@ data/raw_pdfs/
 data/parsed/decisions.jsonl
 data/annotations/
 data/ingested_hashes.json
+data/linked/
 audio_cache/
 *.pdf
 *.mp3

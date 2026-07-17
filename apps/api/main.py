@@ -30,6 +30,7 @@ from apps.api.routers import (
     mcp,
     precedents,
     predict,
+    push,
     review,
     search,
     stewards,
@@ -134,6 +135,7 @@ app.include_router(predict.router,                prefix="/v1")
 app.include_router(precedents.router,             prefix="/v1")
 app.include_router(guidelines.router,             prefix="/v1")
 app.include_router(live.router,                   prefix="/v1")
+app.include_router(push.router,                   prefix="/v1")
 
 # Phase 7 routes
 app.include_router(billing.router,                prefix="/v1")

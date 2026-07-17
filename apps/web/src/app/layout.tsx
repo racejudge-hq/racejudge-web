@@ -3,6 +3,10 @@ import { CookieConsent } from "@/components/CookieConsent";
 import { Nav } from "@/components/Nav";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://racejudge.com";
 
@@ -38,7 +42,7 @@ export default async function RootLayout({
   const hasClerk = /^pk_(test|live)_\w{20,}$/.test(clerkKey);
 
   const body = (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
       <body>
         <a
           href="#main-content"
