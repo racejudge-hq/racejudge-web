@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy import (
     ARRAY,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -50,7 +51,7 @@ class Driver(Base):
     number:       Mapped[int | None] = mapped_column(SmallInteger)
     jolpica_id:   Mapped[int | None] = mapped_column(Integer, unique=True)
     active:       Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at:   Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at:   Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Team(Base):
@@ -61,7 +62,7 @@ class Team(Base):
     short_name: Mapped[str | None] = mapped_column(Text)
     jolpica_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     active:     Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # ---------------------------------------------------------------------------
@@ -83,8 +84,8 @@ class Decision(Base):
     char_count:     Mapped[int]      = mapped_column(Integer, nullable=False, default=0)
     needs_ocr:      Mapped[bool]     = mapped_column(Boolean, nullable=False, default=False)
     parser_version: Mapped[str]      = mapped_column(Text, nullable=False, default="v1.0-pdfplumber")
-    parsed_at:      Mapped[datetime] = mapped_column(server_default=func.now())
-    created_at:     Mapped[datetime] = mapped_column(server_default=func.now())
+    parsed_at:      Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at:     Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     incidents: Mapped[list[Incident]] = relationship("Incident", back_populates="decision")
 
@@ -114,8 +115,8 @@ class Incident(Base):
     weather_context:     Mapped[dict | None] = mapped_column(JSONB)
     video_refs:          Mapped[list | None] = mapped_column(JSONB)
     extractor_version:   Mapped[str]        = mapped_column(Text, default="v1.0-regex")
-    created_at:          Mapped[datetime]   = mapped_column(server_default=func.now())
-    updated_at:          Mapped[datetime]   = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at:          Mapped[datetime]   = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at:          Mapped[datetime]   = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     decision: Mapped[Decision] = relationship("Decision", back_populates="incidents")
     race_control_messages: Mapped[list[RaceControlMessage]] = relationship(
@@ -144,7 +145,7 @@ class Event(Base):
     event_name:         Mapped[str]      = mapped_column(Text, nullable=False)
     event_date:         Mapped[date | None] = mapped_column(Date)
     openf1_meeting_key: Mapped[int | None] = mapped_column(Integer)
-    created_at:         Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at:         Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     sessions: Mapped[list[Session]] = relationship("Session", back_populates="event")
 
@@ -161,9 +162,9 @@ class Session(Base):
     event_id:     Mapped[str]      = mapped_column(ForeignKey("events.event_id", ondelete="CASCADE"), nullable=False)
     session_type: Mapped[str]      = mapped_column(Text, nullable=False)
     session_key:  Mapped[int | None] = mapped_column(Integer, unique=True)
-    start_time:   Mapped[datetime | None] = mapped_column()
-    end_time:     Mapped[datetime | None] = mapped_column()
-    created_at:   Mapped[datetime] = mapped_column(server_default=func.now())
+    start_time:   Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    end_time:     Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at:   Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     event: Mapped[Event] = relationship("Event", back_populates="sessions")
 
@@ -181,7 +182,7 @@ class RaceControlMessage(Base):
     sector:        Mapped[int | None] = mapped_column(SmallInteger)
     driver_number: Mapped[int | None] = mapped_column(SmallInteger)
     incident_id:   Mapped[str | None] = mapped_column(ForeignKey("incidents.incident_id"))
-    created_at:    Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at:    Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     incident: Mapped[Incident | None] = relationship("Incident", back_populates="race_control_messages")
 
@@ -200,7 +201,7 @@ class TeamRadioClip(Base):
     sentiment_score: Mapped[float | None] = mapped_column(Float)
     urgency_score:  Mapped[float | None] = mapped_column(Float)
     incident_id:    Mapped[str | None] = mapped_column(ForeignKey("incidents.incident_id"))
-    created_at:     Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at:     Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     incident: Mapped[Incident | None] = relationship("Incident", back_populates="radio_clips")
 
@@ -219,7 +220,7 @@ class Annotation(Base):
     notes:           Mapped[str | None] = mapped_column(Text)
     positive_doc_id: Mapped[str | None] = mapped_column(Text)
     negative_doc_id: Mapped[str | None] = mapped_column(Text)
-    created_at:      Mapped[datetime]   = mapped_column(server_default=func.now())
+    created_at:      Mapped[datetime]   = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Guideline(Base):
@@ -232,7 +233,7 @@ class Guideline(Base):
     article_text:       Mapped[str]      = mapped_column(Text, nullable=False)
     recommended_penalty: Mapped[str | None] = mapped_column(Text)
     effective_date:     Mapped[date | None] = mapped_column(Date)
-    created_at:         Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at:         Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         UniqueConstraint("document_name", "article_number", name="uq_guidelines_doc_article"),
@@ -247,7 +248,7 @@ class StewardPanel(Base):
     chair:          Mapped[str]           = mapped_column(Text, nullable=False)
     members:        Mapped[list[str]]     = mapped_column(ARRAY(Text), nullable=False)
     driver_steward: Mapped[str | None]    = mapped_column(Text)
-    created_at:     Mapped[datetime]      = mapped_column(server_default=func.now())
+    created_at:     Mapped[datetime]      = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     event: Mapped[Event] = relationship("Event")
 
@@ -259,7 +260,7 @@ class PrecedentLink(Base):
     similar_incident_id: Mapped[str]   = mapped_column(ForeignKey("incidents.incident_id"), primary_key=True)
     similarity_score:    Mapped[float] = mapped_column(Float, nullable=False)
     link_type:           Mapped[str]   = mapped_column(Text, default="semantic")
-    created_at:          Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at:          Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class PredictionLog(Base):
@@ -272,7 +273,7 @@ class PredictionLog(Base):
     ground_truth:   Mapped[str | None] = mapped_column(Text)
     model_version:  Mapped[str]      = mapped_column(Text, nullable=False)
     latency_ms:     Mapped[int | None] = mapped_column(Integer)
-    created_at:     Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at:     Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # ---------------------------------------------------------------------------
@@ -290,10 +291,10 @@ class ApiKey(Base):
     tier:           Mapped[str]           = mapped_column(Text, nullable=False, default="free")
     is_active:      Mapped[bool]          = mapped_column(Boolean, nullable=False, default=True)
     requests_today: Mapped[int]           = mapped_column(Integer, nullable=False, default=0)
-    requests_total: Mapped[int]           = mapped_column(Integer, nullable=False, default=0)
-    last_used_at:   Mapped[datetime | None] = mapped_column()
-    revoked_at:     Mapped[datetime | None] = mapped_column()
-    created_at:     Mapped[datetime]      = mapped_column(server_default=func.now())
+    requests_total: Mapped[int]           = mapped_column(BigInteger, nullable=False, default=0)
+    last_used_at:   Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at:     Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at:     Mapped[datetime]      = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     usage_logs: Mapped[list[UsageLog]] = relationship("UsageLog", back_populates="api_key")
 
@@ -311,10 +312,10 @@ class Subscription(Base):
     stripe_subscription_id: Mapped[str | None]    = mapped_column(Text, unique=True)
     tier:                   Mapped[str]           = mapped_column(Text, nullable=False, default="free")
     status:                 Mapped[str]           = mapped_column(Text, nullable=False, default="active")
-    current_period_end:     Mapped[datetime | None] = mapped_column()
+    current_period_end:     Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_at_period_end:   Mapped[bool]          = mapped_column(Boolean, nullable=False, default=False)
-    created_at:             Mapped[datetime]      = mapped_column(server_default=func.now())
-    updated_at:             Mapped[datetime]      = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at:             Mapped[datetime]      = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at:             Mapped[datetime]      = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
         CheckConstraint("tier IN ('free','pro','team')",                           name="ck_subscriptions_tier"),
@@ -333,6 +334,6 @@ class UsageLog(Base):
     status_code: Mapped[int | None]    = mapped_column(SmallInteger)
     latency_ms:  Mapped[int | None]    = mapped_column(Integer)
     ip_address:  Mapped[str | None]    = mapped_column(Text)
-    created_at:  Mapped[datetime]      = mapped_column(server_default=func.now())
+    created_at:  Mapped[datetime]      = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     api_key: Mapped[ApiKey | None] = relationship("ApiKey", back_populates="usage_logs")
