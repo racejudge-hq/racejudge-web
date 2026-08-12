@@ -338,7 +338,10 @@ async def _tool_get_driver_stats(p: dict[str, Any]) -> dict[str, Any]:
                 SELECT
                     COUNT(*)                    AS total_incidents,
                     COALESCE(SUM(i.penalty_points), 0) AS total_points,
-                    COUNT(*) FILTER (WHERE i.penalty_type NOT IN ('NFA','REP')) AS sanctioned,
+                    -- NFA, a warning and a reprimand are all non-sanctions;
+                    -- WARN was added in migration 0010 and would otherwise have
+                    -- inflated every driver's sanctioned count.
+                    COUNT(*) FILTER (WHERE i.penalty_type NOT IN ('NFA','WARN','REP')) AS sanctioned,
                     MAX(d.season)               AS latest_season
                 FROM incidents i
                 JOIN decisions d ON i.doc_id = d.doc_id

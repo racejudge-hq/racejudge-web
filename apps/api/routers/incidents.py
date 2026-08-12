@@ -283,9 +283,14 @@ async def get_consistency_heatmap(
             d.season,
             COUNT(*)                                                          AS total,
             ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'NFA')  / COUNT(*), 1) AS nfa_pct,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'WARN') / COUNT(*), 1) AS warn_pct,
             ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'REP')  / COUNT(*), 1) AS rep_pct,
-            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type IN ('5s','10s')) / COUNT(*), 1) AS time_penalty_pct,
-            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type IN ('DT','GRID')) / COUNT(*), 1) AS grid_dt_pct,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'FINE') / COUNT(*), 1) AS fine_pct,
+            -- Regex, not IN ('5s','10s'): 15s/20s/30s penalties exist too and
+            -- were falling outside every bucket, so the row failed to sum to 100.
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type ~ '^[0-9]{{1,2}}s$') / COUNT(*), 1) AS time_penalty_pct,
+            -- SG groups with DT/GRID: all three are served rather than added.
+            ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type IN ('DT','GRID','SG')) / COUNT(*), 1) AS grid_dt_pct,
             ROUND(100.0 * COUNT(*) FILTER (WHERE i.penalty_type = 'DSQ')  / COUNT(*), 1) AS dsq_pct,
             ROUND(AVG(i.penalty_points)::numeric, 2)                         AS avg_penalty_points
         FROM incidents i
@@ -311,7 +316,9 @@ async def get_consistency_heatmap(
             "season":              r["season"],
             "total":               r["total"],
             "nfa_pct":             float(r["nfa_pct"] or 0),
+            "warn_pct":            float(r["warn_pct"] or 0),
             "rep_pct":             float(r["rep_pct"] or 0),
+            "fine_pct":            float(r["fine_pct"] or 0),
             "time_penalty_pct":    float(r["time_penalty_pct"] or 0),
             "grid_dt_pct":         float(r["grid_dt_pct"] or 0),
             "dsq_pct":             float(r["dsq_pct"] or 0),

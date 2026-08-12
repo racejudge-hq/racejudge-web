@@ -200,3 +200,69 @@ def test_batch_extract():
         assert result["doc_id"] == f"batch-{i}"
         assert result["infraction_type"] == "track limits"
         assert result["outcome"] == "5s time penalty"
+
+
+# ---------------------------------------------------------------------------
+# Ruling types recovered by the v10 corpus scan
+#
+# Each string below is real phrasing taken from a stored FIA decision that the
+# extractor previously classified as None.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text,expected", [
+    ("The lap time achieved on lap 12 is deleted", "deleted lap times"),
+    ("Car 4 did not use the track at turn 9", "deleted lap times"),
+    ("Forcing another driver off the track", "forcing another driver off the track"),
+    ("The driver gained a lasting advantage", "gaining an advantage off track"),
+    ("Crossing the track without permission", "crossing the track"),
+    ("Breach of parc ferme conditions", "parc ferme breach"),
+    ("Parc Fermé", "parc ferme breach"),
+    ("Exceeding maximum time between the safety car lines SC2 - SC1",
+     "safety car line time limit"),
+    ("Failing to maintain the required 10 car lengths", "failing to maintain distance"),
+    ("Overtaking under the safety car", "overtaking under safety car"),
+    ("Failed to set a time within 107% of the fastest lap", "107% rule"),
+    ("Failure to follow the Race Director's instructions",
+     "failure to follow Race Director instructions"),
+    ("Practice start performed outside the designated area",
+     "practice start infringement"),
+    ("Car 55 was released in an unsafe condition", "released in an unsafe condition"),
+    ("Exceeded the permitted number of PU elements",
+     "power unit element infringement"),
+    ("Failure to attend the drivers' parade", "driver obligation breach"),
+    ("Failing to stop for weighing", "weighing procedure"),
+])
+def test_extract_infraction_type_recovered_types(text, expected):
+    assert extract_infraction_type(text) == expected
+
+
+def test_new_patterns_do_not_shadow_existing_ones():
+    """The new patterns are appended, so established labels must be unchanged."""
+    assert extract_infraction_type("causing a collision after leaving the track") == \
+        "causing a collision"
+    assert extract_infraction_type("track limits at turn 4, lap time deleted") == \
+        "track limits"
+
+
+# ---------------------------------------------------------------------------
+# Outcome fixes
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text", [
+    "Decision 10 Second Stop-and-Go penalty.",
+    "Decision 10 second stop and go penalty.",
+    "A mandatory Stop-and-Go penalty imposed after the Race.",
+])
+def test_extract_outcome_stop_and_go(text):
+    """Words between the number and 'penalty' used to defeat every rule."""
+    assert extract_outcome(text) == "stop-and-go penalty"
+
+
+@pytest.mark.parametrize("text", [
+    "The competitor (Scuderia Ferrari HP) is fined €1000.",
+    "The driver George Russell is fined €5.000, suspended for 12 months",
+    "is fined €30,000, €20,000 of which is suspended",
+])
+def test_extract_outcome_fine_currency_prefix(text):
+    """The FIA writes the symbol before the amount, not after."""
+    assert extract_outcome(text) == "fine"

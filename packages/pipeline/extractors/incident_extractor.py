@@ -17,6 +17,7 @@ Output: ExtractionResult with all structured fields + confidence metadata.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -74,24 +75,67 @@ class ExtractionResult:
 # FIA infraction category taxonomy (from 2025 Penalty Guidelines)
 # ---------------------------------------------------------------------------
 
+# Keys are matched as substrings against a lowercased infraction_type, first
+# match wins — so order is most-specific-first, and every label produced by
+# _INFRACTION_PATTERNS in decision_parser.py must have a key here. Labels
+# without one extract a type but still store a NULL category, which is what
+# left "false start", "starting procedure", "leaving the track", "driving
+# unnecessarily slowly" and "media commitment breach" unclassified: the key
+# "start procedure" never matches the label "starting procedure".
 _INFRACTION_CATEGORY_MAP: dict[str, str] = {
-    "causing a collision":    "collision",
-    "track limits":           "track_limits",
-    "unsafe release":         "unsafe_release",
-    "pit lane speeding":      "pit_lane_speed",
-    "impeding":               "impeding",
-    "ignoring blue flags":    "blue_flag",
-    "safety car violation":   "safety_car",
-    "vsc infringement":       "vsc",
-    "yellow flag violation":  "yellow_flag",
-    "disqualification":       "disqualification",
-    "weaving":                "erratic_driving",
-    "dangerous driving":      "dangerous_driving",
-    "formation lap":          "formation_lap",
-    "start procedure":        "start_procedure",
-    "technical infringement": "technical",
-    "reprimand":              "administrative",
-    "fine":                   "administrative",
+    # --- Contact and racing conduct ---
+    "causing a collision":                          "collision",
+    "forcing another driver off the track":         "forcing_off_track",
+    "dangerous driving":                            "dangerous_driving",
+    "weaving":                                      "erratic_driving",
+    "driving unnecessarily slowly":                 "driving_slowly",
+    "crossing the track":                           "crossing_track",
+
+    # --- Track limits (incl. the delete-the-lap-time form) ---
+    "deleted lap times":                            "track_limits",
+    "gaining an advantage off track":               "track_limits",
+    "leaving the track":                            "track_limits",
+    "track limits":                                 "track_limits",
+
+    # --- Pit lane. Speeding before the generic pit-lane key. ---
+    "pit lane speeding":                            "pit_lane_speed",
+    "released in an unsafe condition":              "unsafe_release",
+    "unsafe release":                               "unsafe_release",
+    "pit lane infringement":                        "pit_lane",
+
+    # --- Flags and neutralisations ---
+    "ignoring blue flags":                          "blue_flag",
+    "yellow flag violation":                        "yellow_flag",
+    "safety car line time limit":                   "safety_car_line_time",
+    "failing to maintain distance":                 "safety_car",
+    "overtaking under safety car":                  "safety_car",
+    "safety car violation":                         "safety_car",
+    "vsc infringement":                             "vsc",
+
+    # --- Starts and procedure ---
+    "false start":                                  "false_start",
+    "practice start infringement":                  "practice_start",
+    "starting procedure":                           "start_procedure",
+    "start procedure":                              "start_procedure",
+    "formation lap":                                "formation_lap",
+
+    # --- Sporting regulations ---
+    "impeding":                                     "impeding",
+    "107% rule":                                    "107_percent",
+    "failure to follow race director instructions": "race_director_instructions",
+
+    # --- Technical and scrutineering ---
+    "parc ferme breach":                            "parc_ferme",
+    "power unit element infringement":              "technical",
+    "technical infringement":                       "technical",
+    "weighing procedure":                           "weighing",
+
+    # --- Off-track obligations and administrative outcomes ---
+    "driver obligation breach":                     "driver_obligation",
+    "media commitment breach":                      "driver_obligation",
+    "disqualification":                             "disqualification",
+    "reprimand":                                    "administrative",
+    "fine":                                         "administrative",
 }
 
 _PENALTY_TYPE_MAP: dict[str, str] = {
@@ -102,19 +146,35 @@ _PENALTY_TYPE_MAP: dict[str, str] = {
     "5s":                   "5s",
     "10 second":            "10s",
     "10s":                  "10s",
+    "stop-and-go":          "SG",
+    "stop and go":          "SG",
     "drive-through":        "DT",
     "drive through":        "DT",
     "pit lane penalty":     "DT",
     "grid penalty":         "GRID",
     "grid position":        "GRID",
     "disqualif":            "DSQ",
+    # The stewards issue warnings and fines as standalone outcomes; neither had
+    # a penalty_type, so those rulings stored NULL despite a clear decision.
+    "warning":              "WARN",
+    "fine":                 "FINE",
 }
+
+# Time penalties are resolved numerically, before the substring map. The map
+# alone was wrong in two ways: it knew only 5s and 10s, so the 15s/20s/30s
+# penalties the FIA also issues fell through to NULL; and because its keys are
+# matched as substrings, "5 second" matched inside "15 second penalty" and a
+# 15-second penalty was silently recorded as a 5-second one.
+_SECONDS_PENALTY_RE = re.compile(r"\b(\d{1,2})\s*(?:s\b|second)", re.IGNORECASE)
 
 
 def _normalise_penalty_type(outcome: str | None) -> str | None:
     if not outcome:
         return None
     lower = outcome.lower()
+    m = _SECONDS_PENALTY_RE.search(lower)
+    if m and "penalty" in lower:
+        return f"{int(m.group(1))}s"
     for key, val in _PENALTY_TYPE_MAP.items():
         if key in lower:
             return val
@@ -217,15 +277,25 @@ class IncidentExtractor:
         text = record.get("raw_text", "")
         cleaned = clean_decision_text(text)
 
+        # decision_parser.extract_incident() classifies against "{title}\n{text}",
+        # and the FIA title is often the only place the offence is named at all
+        # ("Deleted Lap Times", "Parc Fermé", "Forcing Another Driver Off Track").
+        # This layer used to pass the body alone, so those rulings extracted no
+        # infraction_type. Match the parser's contract: title-aware for the
+        # document-level fields, body-only for the per-incident ones, since a
+        # title never carries a lap number and rarely a driver name.
+        title = record.get("title") or ""
+        combined = f"{title}\n{cleaned}" if title else cleaned
+
         return {
             "raw_text":        cleaned,
-            "car_number":      extract_car_number(cleaned),
+            "car_number":      extract_car_number(combined),
             "driver_name":     extract_driver_name(cleaned),
-            "infraction_type": extract_infraction_type(cleaned),
-            "outcome":         extract_outcome(cleaned),
-            "penalty_points":  extract_penalty_points(cleaned) or 0,
+            "infraction_type": extract_infraction_type(combined),
+            "outcome":         extract_outcome(combined),
+            "penalty_points":  extract_penalty_points(combined) or 0,
             "lap_number":      extract_lap_number(cleaned),
-            "session_type":    extract_session_type(cleaned),
+            "session_type":    extract_session_type(combined),
             "corner":          extract_turn_number(cleaned),
             "article_cited":   extract_article_citations(cleaned),
             "reasoning_text":  _extract_reasoning(cleaned),

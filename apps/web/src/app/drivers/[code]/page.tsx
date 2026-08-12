@@ -2,7 +2,10 @@ import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-const PENALTY_CLASSES = ["NFA", "REP", "5s", "10s", "DT", "GRID", "DSQ"];
+// Drives the per-driver breakdown, so it must list every penalty_type the DB
+// can hold (see ck_incidents_penalty_type) — a missing entry silently drops
+// those incidents from the counts.
+const PENALTY_CLASSES = ["NFA", "WARN", "REP", "FINE", "5s", "10s", "DT", "SG", "GRID", "DSQ"];
 
 interface DriverIncident {
   incident_id: string;

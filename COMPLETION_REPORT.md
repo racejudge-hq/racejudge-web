@@ -1,11 +1,25 @@
-# RACEJUDGE — Final Completion Report v10
+# RACEJUDGE — Final Completion Report v11
 
 > **Updated: 12 August 2026**
-> Tests: 267 passing | **CI: all 4 jobs verified green by execution** (v10 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
+> Tests: 309 passing | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
 > **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **32,120 precedent links materialised (v10).**
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
-> ⚠️ **Biggest open defect:** the extractor is under-classifying — **864 real stewards' rulings (69% of the 1,249 unclassified) are sitting unusable** in the corpus. Full scan in Section 2B.
+> ✅ **v10's biggest open defect is closed:** classified incidents went **357 → 1,180 (22.2% → 73.5%)**. Nothing was deleted. Section 2C.
+
+## What changed in v11 (12 August 2026)
+
+The under-classification defect v10 identified was fixed at its source: the extractor's vocabulary, not the data. **823 real stewards' rulings recovered, 199 penalty outcomes recovered, 0 rows deleted.** Full account in **Section 2C**.
+
+- **Classified incidents: 357 → 1,180 of 1,606 (22.2% → 73.5%).** Distinct categories 11 → 24. The 426 still unclassified track the ~385 genuinely administrative documents the v10 scan predicted.
+- **Four separate bugs, not one.** (a) Labels the parser emitted had no entry in the category map — the key read `start procedure` while the label was `starting procedure`, so five ruling types extracted a type and then stored a NULL category anyway. (b) No patterns at all for parc fermé, deleted lap times, SC2-SC1, 107%, forcing off track, Race Director instructions. (c) `_layer1` classified on the document body only, ignoring the title — and the FIA title is often the only place the offence is named. (d) `_PENALTY_TYPE_MAP` had no WARN/FINE/SG, and the `CHECK` constraint could not store them.
+- **`penalty_type` recovered for 199 rulings** — 113 FINE, 77 WARN, 9 SG. These had a plainly stated decision and were storing NULL because the schema had no value for them. Migration **`0010`** widens `ck_incidents_penalty_type`.
+- **Two latent correctness bugs caught by the new tests**, both pre-existing: the fine regex expected `5,000 €` but the FIA writes `€5,000`, so no fine ever matched; and because the penalty map is matched by substring, `"5 second"` matched inside `"15 second penalty"` — a 15s penalty would have been recorded as 5s. Stored data audited: **0 rows affected**, the outcome regex had matched the full number first.
+- **Display and aggregation layers brought in line.** Three frontend penalty maps and two SQL aggregations still assumed the old 7-value set: a warning counted as a "sanction" in driver stats, and the consistency heat-map's buckets no longer summed to 100%. Verified: all 108 heat-map rows now sum to 100%.
+- **Tests: 267 → 309.** Includes a completeness guard asserting every label the parser can emit has a category mapping — the invariant whose absence caused the defect.
+- **Not done, deliberately:** 4 rows where the new code disagrees with an existing stored value were left untouched and are listed in Section 2C. Only blank fields were written.
+
+---
 
 ## What changed in v10 (12 August 2026)
 
@@ -148,7 +162,7 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 | Dockerfile (non-root `racejudge` uid 1001) | ✅ | `Dockerfile` — statically validated (v10): `requirements-api.txt` present, `.dockerignore` excludes `.env`/`.venv`/`node_modules`. Its dep set is a **superset** of `pyproject.toml`, which the live Vercel API already boots on, so the import surface is proven. Image build itself unverified (no Docker daemon locally; Fly is 💳) |
 | `.dockerignore` / `.vercelignore` | ✅ | Keep secrets + data out of build/bundle |
 | Vercel Python runtime entrypoint | ✅ | `pyproject.toml [tool.vercel] entrypoint = "apps.api.main:app"` |
-| Migrations 0001–0009 | ✅ | `packages/db/migrations/versions/` — **`0009` added in v10** (`steward_panels.created_at`, see 2B). Neon confirmed at head `0009`; all nine applied |
+| Migrations 0001–0010 | ✅ | `packages/db/migrations/versions/` — **`0009` added in v10** (`steward_panels.created_at`, see 2B), **`0010` in v11** (widen `ck_incidents_penalty_type` for WARN/FINE/SG + `Ns`, see 2C). Neon confirmed at head `0010`; all ten applied |
 | SQLAlchemy ORM models (incl. `StewardPanel`) | ✅ | `packages/db/models.py` — **all 158 columns diffed against live Neon (v10); 3 classes of drift found and fixed, now 0 mismatches** |
 | Prefect deployment manifest | ⚠️ | **`prefect.yaml` written in v10** — the 3 flows were code-only and had never been registered (see 2B). Applying it needs a worker host → 💳 Fly |
 | Async engine + URL normaliser (asyncpg) | ✅ | `packages/db/database.py` — strips libpq `sslmode`/`channel_binding` |
@@ -225,7 +239,79 @@ Two further points worth noting:
 - **293 of the recovered rulings are "no further action" decisions.** For a precedent engine these are *high-value*, not noise — they are the evidence of what the stewards decline to penalise.
 - The admin documents should still be excluded from the precedent corpus, but that is ~385 rows, not 1,249.
 
-**Recommended next step:** extend the extractor's category taxonomy to cover the ruling types above and re-run extraction over the 864, rather than filtering. This is a data-recovery task, not a deletion task. Not yet actioned — it is a meaningful change to the extractor and to what the product treats as a precedent.
+**Recommended next step:** extend the extractor's category taxonomy to cover the ruling types above and re-run extraction over the 864, rather than filtering. This is a data-recovery task, not a deletion task. ✅ **Actioned in v11 — see Section 2C.**
+
+---
+
+### SECTION 2C — Extractor taxonomy fix and data recovery (v11)
+
+Acting on 2B. Constraint held throughout: **fill blank fields only — never overwrite a stored value, never delete a row.** Row count before and after: **1,606 → 1,606.**
+
+#### Result
+
+| Metric | Before | After |
+|---|---|---|
+| Incidents with `infraction_category` | 357 (22.2%) | **1,180 (73.5%)** |
+| Distinct categories | 11 | **24** |
+| Incidents with `penalty_type` | 736 | **935** |
+| Consistency heat-map rows | — | **108, all summing to 100%** |
+| Tests | 267 | **309** |
+| Rows deleted | — | **0** |
+
+#### The defect was four bugs, not one
+
+The scan in 2B assumed a single cause (a narrow vocabulary). Reading the code found four independent failure points, two of which would have defeated a vocabulary-only fix:
+
+1. **Map keys did not match the labels they were supposed to map.** `decision_parser` emits an infraction *label*; `incident_extractor` maps that label to a *category*. Nothing connected the two lists. The key `start procedure` never matched the label `starting procedure`; `false start`, `leaving the track`, `driving unnecessarily slowly` and `media commitment breach` had no key at all. Those rulings extracted a type successfully and *then* stored a NULL category.
+2. **No patterns for the missing ruling types** — parc fermé, deleted lap times, SC2-SC1, 107%, forcing off track, Race Director instructions, practice starts, weighbridge, driver obligations.
+3. **`_layer1` classified on the document body alone**, though the parser's own `extract_incident()` uses `title + body` and the code comment claimed the title was tried first. For rulings such as *"Deleted Lap Times"* or *"Parc Fermé"* the title is the only place the offence is named.
+4. **`penalty_type` had no representation for warnings, fines or stop-go**, and `ck_incidents_penalty_type` would have rejected them anyway.
+
+New patterns were **appended** rather than interleaved, so first-match-wins guarantees every previously classified document keeps its label. Confirmed by re-run: 0 existing categories changed.
+
+#### Categories after the fix
+
+`technical` 196 · `track_limits` 181 · `impeding` 95 · `pit_lane_speed` 94 · `parc_ferme` 90 · `collision` 85 · `yellow_flag` 80 · `safety_car_line_time` 55 · `unsafe_release` 52 · `driver_obligation` 36 · `race_director_instructions` 35 · `driving_slowly` 31 · `107_percent` 28 · `forcing_off_track` 27 · `vsc` 17 · `start_procedure` 14 · `pit_lane` 14 · `false_start` 13 · `safety_car` 11 · `practice_start` 11 · `weighing` 7 · `crossing_track` 3 · `erratic_driving` 3 · `blue_flag` 2
+
+`penalty_type` after: NFA 394 · 5s 136 · **FINE 113** · **WARN 77** · 10s 75 · REP 67 · DSQ 32 · GRID 19 · DT 13 · **SG 9**
+
+#### Two latent bugs the new tests caught
+
+Both pre-existed this work and were found only because the new cases used verbatim FIA text:
+
+- **No fine was ever matched.** The pattern required `5,000 €`; every FIA decision writes `is fined €5,000`. The symbol precedes the amount.
+- **A 15-second penalty would have been stored as `5s`.** The penalty map is matched by substring, and `"5 second"` is a substring of `"15 second penalty"`. Now resolved numerically before the map is consulted. **Stored data audited: 0 rows affected** — the outcome regex happened to capture the full number first — but the bug was live.
+
+#### Downstream layers corrected
+
+The recovered values are real data the rest of the stack could not display or count:
+
+| Layer | Problem | Fix |
+|---|---|---|
+| `precedents/page.tsx` | WARN/FINE/SG unstyled; absent from the filter | Added, ordered by severity |
+| `incidents/[id]/page.tsx` | No colour mapping | Added |
+| `drivers/[code]/page.tsx` | Counts silently dropped those incidents | Added |
+| `incidents.py` consistency | `IN ('5s','10s')` missed 15s/20s/30s; WARN/FINE in no bucket, so rows did not sum to 100% | Regex bucket + `warn_pct`/`fine_pct` (additive, `list[dict]` return — no schema break) |
+| `mcp.py` driver stats | A warning counted as a *sanction* | `NOT IN ('NFA','WARN','REP')` |
+
+`predict/page.tsx` was deliberately **left alone** — that list is the ML model's output classes, and the model predicts 7. Adding classes it cannot emit would render permanent 0% bars. Retraining on the widened label set is a Phase 5 task, noted in Section 10.
+
+#### Left untouched — needs your call
+
+4 rows where the new code disagrees with an existing stored value. Per the fill-blanks-only rule these were **not** written:
+
+| Incident | Field | Stored | New code says |
+|---|---|---|---|
+| `07d03f4f…` | `infraction_category` | `race_director_instructions` | `track_limits` |
+| `775c5a13…` | `infraction_category` | `yellow_flag` | `impeding` |
+| `b5e74ba9…` | `infraction_category` | `erratic_driving` | `impeding` |
+| `7caff04e…` | `penalty_type` | `REP` | `SG` |
+
+The last is most likely a genuine miss — a stop-and-go recorded as a reprimand — but overwriting stored values was outside what was authorised.
+
+#### Still open
+
+**426 incidents remain unclassified.** That tracks the ~385 genuinely administrative documents 2B predicted (Technical Delegate reports, *"PU elements used per driver"*, *"RNCs used per driver"*), plus ~40 weak stewards' documents. Excluding those from the precedent corpus is the remaining follow-up — and `infraction_category IS NULL` is now a **defensible** filter for it, which it emphatically was not before this fix.
 
 ### SECTION 2A — Hosting migration: Vercel → Fly.io (in progress)
 
@@ -368,12 +454,15 @@ Almost everything v4 listed here is now done. What genuinely remains:
 |---|---|---|---|
 | 1 | ~~Embeddings backfill on production DB~~ | ✅ **Resolved (v7)** — 1,606 incidents embedded with the LoRA-tuned BGE-M3; precedent search live and verified. | Done |
 | 1a | ~~`precedent_links` never materialised~~ | ✅ **Resolved (v10)** — `/v1/precedents/{id}/similar` was returning `[]` with HTTP 200 for every incident. 32,120 links computed from the existing real embeddings; endpoint verified live. | Done |
+| 1e | **`/v1/incidents/consistency` returns 500 in production** (found v11, pre-existing) | The `/consistency` heat-map page is broken live. **Not caused by the v11 changes** — the deployed handler is byte-identical to the pre-v11 local one, that handler returns 108 correct rows locally against the same Neon DB, and the deployed SQL runs clean against Neon directly. Fails in 0.9 s (not a timeout) with a plain-text `Internal Server Error` rather than FastAPI's JSON `{"detail":…}`, which points at the Vercel serverless layer, not the app. Sibling routes in the same router (`/v1/incidents`) return 200. | Diagnose after the **Fly.io migration** (Section 2A) rather than on Vercel — the interim Vercel deployment is being retired, and this is the class of failure the migration exists to remove. Re-test the endpoint as a Fly smoke check. |
 
-### ⚠️ Biggest open defect — data recovery, no card needed
+### Data recovery — no card needed
 
 | # | What | Impact | How |
 |---|---|---|---|
-| 1b | **The extractor is under-classifying: 864 real stewards' rulings are unusable** | A full scan of all 1,249 unclassified incidents (not a sample) found **864 (69.2%) are genuine stewards' rulings**, carrying real outcomes (293 no-further-action, 148 time penalties, 104 deleted lap times, 25 disqualifications…). The extractor recognises only 11 categories and misses deleted lap times, parc fermé, SC2-SC1, 107%, forcing another driver off track, Race Director instructions, and ~292 further ruling titles. True corpus is **~1,221 real incidents (76%)**, not 357. Meanwhile precedent results are diluted by the ~385 genuinely administrative docs. | **Extend the extractor's category taxonomy and re-run extraction over the 864** — this is data recovery, not deletion. Exclude only the ~385 Technical Delegate/admin documents from the precedent corpus. ⚠️ **Do not filter on `infraction_category IS NULL`** — that would discard 2.4× more real incidents than are currently classified. See Section 2B. |
+| 1b | ~~The extractor is under-classifying: 864 real stewards' rulings are unusable~~ | ✅ **Resolved (v11)** — classified incidents **357 → 1,180 (22.2% → 73.5%)**, categories 11 → 24, `penalty_type` recovered for a further 199 rulings. 0 rows deleted, 0 existing values overwritten. Four distinct bugs fixed, incl. two latent correctness bugs (no fine ever matched; 15s penalties resolvable as 5s). See Section 2C. | Done |
+| 1c | **Exclude the ~385 administrative documents from the precedent corpus** | The 426 still-unclassified incidents are Technical Delegate reports and *"PU elements/RNCs used per driver"* notices, not stewarding decisions. They dilute precedent results — a live `/similar` lookup previously returned three of them as the top-3 precedents. | Now that 2C is done, `infraction_category IS NULL` is a **defensible** filter for this (it was not before — it would have discarded 864 real rulings). Apply it at the precedent-retrieval query, not by deleting rows. |
+| 1d | **Retrain the penalty predictor on the widened label set** | The model predicts 7 classes; the DB now holds WARN/FINE/SG. `predict/page.tsx` was deliberately left at 7 classes rather than showing bars the model can never emit. | Phase 5 retrain against the 935 rows now carrying a `penalty_type`. Not urgent — the model is correct for what it was trained on. |
 
 ### Config (your accounts)
 
@@ -416,6 +505,8 @@ Almost everything v4 listed here is now done. What genuinely remains:
 
 Drivers: 40 · Teams: 17 · Incidents extracted: 1,606 · Guidelines articles live: 45 (33 curated FIA + 12 empirical)
 
+**Classification (v11, see Section 2C):** incidents with `infraction_category`: **1,180 / 1,606 (73.5%)** across **24** categories, up from 357 / 11 · incidents with `penalty_type`: **935**, across 10 values (NFA · WARN · REP · FINE · `Ns` · DT · SG · GRID · DSQ). The remaining 426 unclassified are the Technical Delegate / administrative documents identified by the Section 2B scan, not stewarding decisions.
+
 **Multimodal data (Phase 3 backfill, v8):** incidents with `session_key`: 651 / 182 OpenF1 sessions · race-control messages: 12,111 (861 incident-linked) · incidents with weather: 297 · team-radio clips: 198 (192 transcribed + sentiment/urgency, 192 diarized) · FastF1 lap-feature rows: 105,768 / 182 sessions.
 
 ---
@@ -436,7 +527,7 @@ Drivers: 40 · Teams: 17 · Incidents extracted: 1,606 · Guidelines articles li
 | `test_auth.py` (dev fallback, prod 401, 403 mismatch, garbage JWT) | ✅ |
 | `test_phase7_routes.py` (billing, apikeys, mcp, review) | ✅ |
 | `test_phase8_routes.py` (stewards, latency, rate_limit) | ✅ |
-| **Total collected** | **267 ✅** |
+| **Total collected** | **309 ✅** (v11: +42 — recovered ruling types, outcome fixes, penalty-type normalisation, and a completeness guard asserting every parser label has a category mapping) |
 
 ---
 
@@ -518,6 +609,8 @@ Already complete: EUIPO/USPTO/UK trademark searches (v9); social handles + 300-p
 Penalty model: two real retrains (v8) confirmed Macro-F1 plateaus ~0.14 (≈5× below the 0.65 gate) due to rare-class data scarcity — feature/label tuning won't close it. Only set `ENABLE_PREDICTIONS=true` once the **LLM reasoning layer (Layer B)** is built out *and* far more per-class labels exist *and* the gate (**Macro-F1 ≥ 0.65 AND ECE < 0.05**) is actually met. Until then it stays correctly gated. ~~Add `SENTRY_DSN`~~ ✅ **done (v9)**; BetterStack status page waits on the Fly deploy (nothing to monitor until then).
 
 ---
+
+*Report v11 — 12 August 2026 — Closed v10's biggest open defect at its source. The v10 scan blamed a narrow category vocabulary; reading the extractor found **four** independent bugs, two of which would have defeated a vocabulary-only fix: parser labels that had no entry in the category map at all (the key read `start procedure`, the label was `starting procedure`), missing patterns for parc fermé / deleted lap times / SC2-SC1 / 107% / forcing off track / Race Director instructions, a `_layer1` that classified on the document body while ignoring the title the offence is usually named in, and a `penalty_type` schema with no value for warnings, fines or stop-go. **Classified incidents 357 → 1,180 (22.2% → 73.5%), categories 11 → 24, `penalty_type` recovered for 199 more rulings, 0 rows deleted, 0 stored values overwritten.** Migration `0010` widens `ck_incidents_penalty_type`. Writing tests against verbatim FIA text exposed two further latent bugs, both pre-existing: the fine regex expected `5,000 €` when the FIA writes `€5,000` (so no fine had ever matched), and substring matching meant `"5 second"` matched inside `"15 second penalty"` — audited, 0 stored rows affected. Corrected the downstream layers that still assumed 7 penalty values: three frontend maps, the driver-stats query that counted a warning as a sanction, and the consistency heat-map whose buckets no longer summed to 100% (now verified across all 108 rows). Tests 267 → 309, including a guard asserting every parser label has a category mapping. Left untouched and listed in Section 2C: 4 rows where the new code disagrees with a stored value. Remaining blockers unchanged and all 💳.*
 
 *Report v10 — 12 August 2026 — Audited Section 2 by execution rather than inspection: every CI gate run with its true exit code checked, all 158 ORM columns diffed against live Neon. Five real defects found in a section that was fully marked ✅. Fixed: the `security-audit` job (red on both halves — npm `postcss`/`sharp`, Python `msgpack`), the silently-dead `/v1/precedents/{id}/similar` endpoint (materialised 32,120 precedent links from the real embeddings already in Neon), `steward_panels.created_at` missing from the DB (migration `0009`, applied), 22 naive-vs-`timestamptz` datetime columns, and a pyannote-4 `use_auth_token` runtime bug. Wrote `prefect.yaml` — the 3 flows had never been registered, so nothing had ever been scheduled. IP India trademark search completed (clear) — knock-out search now done in all four jurisdictions. **Then ran a full deep scan of all 1,249 unclassified incidents** (not a sample) to settle whether they were junk or extraction failures: **864 of them (69.2%) are genuine stewards' rulings the extractor failed to categorise**, validated against the FIA document signature with the 357 classified incidents as a 94%-matching control. Filtering them — the intuitive fix — would have destroyed 2.4× more real incidents than the corpus currently has classified. The real defect is the extractor's category vocabulary; recommended fix is taxonomy extension + re-extraction (Section 2B). Remaining blockers unchanged and all 💳: Fly billing, Clerk/Stripe live keys, domain + email, Anthropic key, lawyer clearance.*
 

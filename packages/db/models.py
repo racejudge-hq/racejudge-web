@@ -105,7 +105,7 @@ class Incident(Base):
     corner:              Mapped[str | None] = mapped_column(Text)
     article_cited:       Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     infraction_category: Mapped[str | None] = mapped_column(Text)
-    penalty_type:        Mapped[str | None] = mapped_column(Text)  # NFA/REP/5s/10s/DT/GRID/DSQ
+    penalty_type:        Mapped[str | None] = mapped_column(Text)  # see ck_incidents_penalty_type
     penalty_seconds:     Mapped[int | None] = mapped_column(SmallInteger)
     penalty_points:      Mapped[int]        = mapped_column(SmallInteger, default=0)
     grid_positions:      Mapped[int | None] = mapped_column(SmallInteger)
@@ -127,8 +127,14 @@ class Incident(Base):
     )
 
     __table_args__ = (
+        # WARN, FINE and SG were missing: the stewards issue standalone warnings
+        # and fines constantly, and a stop-and-go is a distinct penalty from a
+        # drive-through. Rulings with those outcomes could not be represented at
+        # all and stored NULL. The regex arm admits any "Ns" time penalty — the
+        # FIA issues 15s/20s/30s as well as 5s/10s. Widened in migration 0010.
         CheckConstraint(
-            "penalty_type IN ('NFA','REP','5s','10s','DT','GRID','DSQ')",
+            "penalty_type IN ('NFA','REP','WARN','FINE','SG','DT','GRID','DSQ')"
+            " OR penalty_type ~ '^[0-9]{1,2}s$'",
             name="ck_incidents_penalty_type",
         ),
     )

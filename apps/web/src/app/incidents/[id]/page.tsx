@@ -6,10 +6,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const PENALTY_COLORS: Record<string, string> = {
   NFA:  "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700",
+  WARN: "text-yellow-300 border-yellow-900",
   REP:  "text-yellow-400 border-yellow-800",
+  FINE: "text-blue-400 border-blue-800",
   "5s": "text-orange-400 border-orange-800",
   "10s":"text-orange-500 border-orange-700",
   DT:   "text-red-400 border-red-800",
+  SG:   "text-red-500 border-red-800",
   GRID: "text-red-500 border-red-700",
   DSQ:  "text-red-600 border-red-600",
 };

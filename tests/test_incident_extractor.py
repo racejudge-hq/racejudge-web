@@ -206,3 +206,54 @@ def test_extract_disqualification(extractor):
     result = extractor.extract(record)
     assert result.penalty_type == "DSQ"
     assert result.car_number == 16
+
+
+# ---------------------------------------------------------------------------
+# Taxonomy completeness
+# ---------------------------------------------------------------------------
+
+def test_every_infraction_label_maps_to_a_category():
+    """
+    Regression guard for the defect that left 823 real rulings unclassified.
+
+    decision_parser emits an infraction label; incident_extractor maps it to a
+    category. Nothing tied the two together, so labels such as "starting
+    procedure" (whose map key read "start procedure") extracted a type and then
+    silently stored a NULL category. Any new pattern must ship with a mapping.
+    """
+    from packages.pipeline.parsers.decision_parser import _INFRACTION_PATTERNS
+
+    unmapped = [
+        label for _, label in _INFRACTION_PATTERNS
+        if _normalise_infraction_category(label) is None
+    ]
+    assert unmapped == [], f"labels with no category mapping: {unmapped}"
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("deleted lap times",                            "track_limits"),
+    ("forcing another driver off the track",         "forcing_off_track"),
+    ("parc ferme breach",                            "parc_ferme"),
+    ("safety car line time limit",                   "safety_car_line_time"),
+    ("107% rule",                                    "107_percent"),
+    ("failure to follow Race Director instructions", "race_director_instructions"),
+    ("starting procedure",                           "start_procedure"),
+    ("false start",                                  "false_start"),
+    ("leaving the track",                            "track_limits"),
+    ("driving unnecessarily slowly",                 "driving_slowly"),
+    ("media commitment breach",                      "driver_obligation"),
+])
+def test_normalise_infraction_category_recovered(raw, expected):
+    assert _normalise_infraction_category(raw) == expected
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("stop-and-go penalty", "SG"),
+    ("stop and go penalty", "SG"),
+    ("warning",             "WARN"),
+    ("fine",                "FINE"),
+    ("20s time penalty",    "20s"),
+    ("15 second penalty",   "15s"),
+])
+def test_normalise_penalty_type_recovered(raw, expected):
+    assert _normalise_penalty_type(raw) == expected

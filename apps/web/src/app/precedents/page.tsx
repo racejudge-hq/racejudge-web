@@ -32,12 +32,17 @@ interface SearchResponse {
   query: string;
 }
 
+// Ordered by severity. WARN/FINE/SG were added once the extractor could record
+// them — see migration 0010; before that they were stored as NULL.
 const PENALTY_COLORS: Record<string, string> = {
   NFA: "text-gray-500 border-gray-300 dark:border-gray-700",
+  WARN: "text-yellow-400 border-yellow-900",
   REP: "text-yellow-500 border-yellow-800",
+  FINE: "text-blue-400 border-blue-800",
   "5s": "text-orange-400 border-orange-800",
   "10s": "text-orange-500 border-orange-700",
   DT: "text-red-400 border-red-800",
+  SG: "text-red-500 border-red-800",
   GRID: "text-red-500 border-red-700",
   DSQ: "text-red-600 border-red-600",
 };
@@ -76,7 +81,7 @@ const QUICK_QUERIES = [
   "dangerous driving under safety car",
 ];
 
-const PENALTY_TYPES = ["NFA", "REP", "5s", "10s", "DT", "GRID", "DSQ"];
+const PENALTY_TYPES = ["NFA", "WARN", "REP", "FINE", "5s", "10s", "DT", "SG", "GRID", "DSQ"];
 const SEASONS = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
 
 export default function PrecedentsPage() {
