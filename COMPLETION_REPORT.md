@@ -1,10 +1,21 @@
-# RACEJUDGE — Final Completion Report v8
+# RACEJUDGE — Final Completion Report v9
 
-> **Updated: 21 June 2026**
+> **Updated: 12 August 2026**
 > Tests: 267 passing | **CI: all jobs green** (last committed state) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
 > **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified.
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
+
+## What changed in v9 (12 August 2026)
+
+- **New legend symbol 💳** — card-gated items are now visually separated from genuine gaps. Previously they were mixed in with 🔶/👤, which made the report read as if work was outstanding when it was simply parked awaiting a payment method.
+- **Sentry is live and verified** — org `racejudge-if` / project `racejudge-api`; DSN in `.env`, test events accepted end-to-end. See Section 9.
+- **Domain reality check (changes the plan):** `racejudge.com` is **not available** — held since 2003 by GoDaddy's NameFind investment arm, so it is a premium-priced asset, not a ~£12 registration. `racejudge.io` / `.app` / `.dev` / `.co.uk` verified available; **`racejudge.app` recommended** as primary. See Section 1.
+- **Trademark knock-out searches done (by you):** exact mark "RaceJudge" is **clear** at EUIPO/TMview, USPTO and UK IPO. **IP India remains unsearched — the jurisdiction you actually operate in**, and now the single open pre-work item that needs no card. `RACE GUIDE` (UK, live, classes 9/35/42) flagged for the lawyer. See Section 1A.
+- **Phase-3 backfill work, frontend libraries, push pipeline and ML enrich scripts committed** as `1e009ed` (34 files) — the v8 working tree is no longer uncommitted.
+- Corrected two stale claims: Grafana/BetterStack/PagerDuty are *blocked on deploy*, not merely "optional"; journalist outreach is *deliberately held*, not pending.
+
+---
 
 ## What changed in v8 (21 June 2026)
 
@@ -14,7 +25,7 @@
 - **Stripe billing configured (test mode):** products/prices were already present; created the webhook endpoint + `STRIPE_WEBHOOK_SECRET`; end-to-end checkout verified. See Section 8.
 - **Penalty ship gate — two honest retrains run:** multimodal features (test Macro-F1 0.08) and clean DB labels (0.14); neither approaches 0.65. Confirmed structural (rare-class data scarcity), correctly stays gated. See Section 6.
 - **Migrations 0007 (rc_incident_fk) + 0008 (push_subscriptions)** added and applied.
-- New/changed code from this session (frontend components, `apps/api/routers/push.py`, `packages/ml/enrich.py`, temp backfill scripts) is in the working tree; only the `models.py`/linker/migration-0007 fix is committed so far.
+- ~~New/changed code from this session is in the working tree~~ → ✅ **all committed in v9** as `1e009ed` (34 files: frontend components, `apps/api/routers/push.py`, `packages/ml/enrich.py`, migration 0008, backfill scripts).
 
 ---
 
@@ -67,6 +78,7 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 | 🔶 | Code done — blocked on your account / credentials / GPU to run |
 | ⚠️ | Code done — but a one-time data/command step is still pending |
 | 👤 | Only you can do this — no code involved |
+| 💳 | **Card-gated — parked by your instruction.** Needs a payment method; no work possible (by you or me) until a card is ready. Do not treat as a bug or an oversight. |
 | ❌ | Not built — post-launch scope or explicitly not started |
 
 ---
@@ -79,12 +91,32 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 | Journalist pitch templates | ✅ | `scripts/outreach/journalist_pitch.md` |
 | 1,606 decisions scraped 2019–2026 | ✅ | `data/parsed/decisions.jsonl` |
 | Curated driver/team reference rosters | ✅ | `data/reference/drivers.json` + `teams.json` |
-| Register `racejudge.com` + `.io` + `.app` | 👤 | Namecheap — ~£12/year |
+| Register domain | 💳 | ⚠️ **`racejudge.com` is NOT available** — registered 2003, nameservers `ns1/ns2.namefind.com` (GoDaddy's domain-investment arm), i.e. investor-held and priced as a premium asset, not ~£12. **Verified available (v9): `racejudge.io` (registry "Domain not found"), `.app`, `.dev`, `.co.uk` (no whois record, no NS).** Recommended primary: **`racejudge.app`** — ~£12/yr, HSTS-preloaded by default (browser-forced HTTPS). Parked until a card is ready. |
 | Reserve `@racejudge` on X, Threads, LinkedIn, Bluesky | ✅ | Reserved (X, Instagram, Threads, LinkedIn, Bluesky) |
-| Register email `hello@`, `legal@`, `press@racejudge.com` | 👤 | Cloudflare Email Routing (free) |
-| Trademark search EUIPO + USPTO class 42 | 👤 | Before launch — book a media law firm |
+| Register email `hello@`, `legal@`, `press@` | 💳 | Cloudflare Email Routing is **free**, but **hard-blocked by the domain purchase above** — it cannot be set up without an owned domain on Cloudflare nameservers. Steps are written and ready to execute the moment the domain exists. ⚠️ Note: Email Routing **receives/forwards only — it cannot send**; replying *as* `press@…` additionally needs Gmail "Send mail as" + an SMTP relay (Resend/Brevo/SMTP2GO free tier). |
+| Trademark knock-out search — EUIPO/TMview, USPTO, UK IPO | ✅ | **Done by you (v9). Exact mark "RaceJudge" is clear in all three.** TMview `RaceJudge` → 0 rows; TMview `RACEJUDGE` → 0 rows; TMview `Race Judge` → 1 hit, *unrelated* + status **Ended** (dead); USPTO `RaceJudge` → **0 live, 0 dead**. USPTO `Race Judge` returned 4,347 rows but that is a fuzzy OR-match on the common word "JUDGE" (JUDGE, Judge Leo, Old Judge…), **not** a "Race Judge" conflict. See flag below. |
+| Trademark search — **India (IP India)** | 👤 | ⚠️ **Still open — and the most relevant jurisdiction, since you are based and operating in India.** Free + self-serve, no card. See Section 1A. |
+| Trademark **clearance opinion** (lawyer) | 💳 | The searches above are a *knock-out* check, **not** legal clearance. A media/IP lawyer's formal opinion + any filing costs money — parked. |
 | Label 300 annotation pairs (similar/dissimilar) | ✅ | **Done** via the two-stage AI-adjudicated pipeline — **359 pairs** (215 similar / 144 dissimilar). Fed the BGE-M3 LoRA fine-tune (see v7 changelog). |
-| Cold-email / DM 5 journalists | 👤 | Templates in `journalist_pitch.md` |
+| Cold-email / DM 5 journalists | 👤 | Templates ready in `scripts/outreach/journalist_pitch.md`. **Deliberately held until after deploy** — the API is not live (verified: `racejudge-api.fly.dev` → no response), so a pitch today links to nothing. Send from `press@` once the domain + deploy land. Same logic for the r/formula1 post. |
+
+### SECTION 1A — Brand & trademark clearance (v9)
+
+**Status: exact mark "RaceJudge" is clear in EU, UK and US. India is unchecked and is the priority gap.**
+
+**Open action — IP India search (free, ~20 min, no card):**
+
+1. Go to [IP India — Public Search of Trade Marks](https://tmrsearch.ipindia.gov.in/tmrpublicsearch/) (verified live, HTTP 200)
+2. Search type: **Wordmark**
+3. Run these three searches, each against **Class 42** (software/SaaS), then repeat for **Class 41** (sports info/entertainment) and **Class 9** (downloadable software):
+   - `RACEJUDGE` (Search Type: *Start With* and again *Contains*)
+   - `RACE JUDGE`
+   - `RACEJUDGE` under **Phonetic** search type — India weights phonetic similarity heavily, so this matters more than it does at USPTO
+4. Any **Registered** or **Objected/Advertised** live mark in classes 9/41/42 is a flag → report it before committing to the name
+
+**Flag for the lawyer (not a blocker, but disclose it):** UK IPO returned **`RACE GUIDE`** — UK00003569887, **Registered**, filed 18 Dec 2020, **classes 9, 35, 42**. Different word (GUIDE ≠ JUDGE, and phonetically distinct), and "RACE" is descriptive in a motorsport context — but it is a live mark sharing the leading element in overlapping software classes. Worth a sentence in the clearance brief rather than a surprise later.
+
+> ⚖️ These searches are a **knock-out check, not legal clearance.** They rule out the obvious collisions cheaply. They do not substitute for an IP lawyer's opinion (💳, parked).
 
 ---
 
@@ -111,8 +143,8 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 |---|---|---|
 | **Neon Postgres** (eu-west-2 / London) | ✅ | Provisioned, all 6 migrations applied, data loaded — **live**. All 1,606 incidents embedded (`bge-m3-f1-lora`) — precedent search live |
 | **Vercel (API + Web)** — interim host | ⚠️ | Live and serving, but being replaced by Fly.io (Section 2A) |
-| **Fly.io (API + Web)** — target host | 🔶 | Config staged + committed; blocked on Fly billing (add a card / prepaid credit) |
-| Cloudflare R2 (PDF/audio/telemetry buckets) | 🔶 | Optional for soft launch — only needed for raw-PDF + audio hosting (card-gated, parked) |
+| **Fly.io (API + Web)** — target host | 💳 | Config staged + committed; blocked on Fly billing (Fly has no free tier — needs a card or prepaid credit before `fly apps create` succeeds) |
+| Cloudflare R2 (PDF/audio/telemetry buckets) | 💳 | Optional for soft launch — only needed for raw-PDF + audio hosting |
 | Upstash Redis (rate-limit + live pub/sub) | ✅ | **`REDIS_URL` configured in `.env`** (Upstash, card-free). Wires in at deploy via Fly secrets. |
 | Prefect Cloud (scheduled flows) | ✅ | **`PREFECT_API_URL` + `PREFECT_API_KEY` configured in `.env`** (card-free). |
 
@@ -241,8 +273,8 @@ The plan specifies **Fly.io multi-region** persistent containers; the interim Ve
 | Lighthouse CI (`.lighthouserc.js` + CI job) | ✅ | |
 | Geo-blocking on `/v1/predict` | ✅ | |
 | k6 load test, launch posts, LEGAL.md (DMCA), BRAND_CHECKLIST.md | ✅ | |
-| Sentry account + DSN | 🔶 | Code wired; needs account |
-| Grafana / BetterStack status page / PagerDuty | 👤 | Account-only; optional for soft launch |
+| Sentry account + DSN | ✅ | **Done (v9)** — org `racejudge-if`, project `racejudge-api` (EU/`.de` ingest). `SENTRY_DSN` in `.env` (gitignored); `sentry-sdk[fastapi]>=2.0.0` pinned in both `requirements.txt` and `requirements-api.txt`. **Live-verified:** test events accepted by the ingest endpoint (`event_id 111018df…`, `910655b4…`). At deploy, also run `fly secrets set SENTRY_DSN=…`. |
+| Grafana / BetterStack status page / PagerDuty | 👤 | Account-only. **Deliberately deferred: all three monitor a public URL, and the API is not deployed** (verified: `racejudge-api.fly.dev` → no response), so they would watch a dead endpoint. Do after the Fly deploy. BetterStack alone covers status page + uptime alerts for soft launch; Grafana/PagerDuty are overkill for one operator. ⚠️ Grafana would also need a Prometheus-format `/metrics` endpoint — the current `/v1/metrics/latency` returns JSON, which Grafana cannot scrape. |
 | DNS cutover, legal review, Substack, r/formula1, journalist DMs | 👤 | Brand/legal/launch |
 
 ---
@@ -261,9 +293,11 @@ Almost everything v4 listed here is now done. What genuinely remains:
 
 | # | What | Impact | How |
 |---|---|---|---|
-| 2 | **Clerk *production* keys** | Clerk **test** keys (`pk_test_`/`sk_test_`) + JWKS/issuer already in `.env` — sign-in works in dev. Only the `pk_live_`/`sk_live_` swap remains for production launch. | Section 15 Step A |
-| 3 | ~~**Stripe keys + products**~~ | ✅ **Done (test mode)** — keys + Pro/Team prices + webhook secret configured; checkout verified. Swap test→live keys + re-create webhook in live mode at launch. | Section 8 |
-| 4 | **Finish Fly.io migration** | Plan's target host; Vercel is interim. Blocked on Fly billing | Section 2A + Section 15 Step 0 |
+| 2 | 💳 **Clerk *production* keys** | Clerk **test** keys (`pk_test_`/`sk_test_`) + JWKS/issuer already in `.env` — sign-in works in dev. Only the `pk_live_`/`sk_live_` swap remains for production launch. | Section 15 Step A |
+| 3 | ~~**Stripe keys + products**~~ | ✅ **Done (test mode)** — keys + Pro/Team prices + webhook secret configured; checkout verified. 💳 Swap test→live keys + re-create webhook in live mode at launch. | Section 8 |
+| 4 | 💳 **Finish Fly.io migration** | Plan's target host; Vercel is interim. Blocked on Fly billing | Section 2A + Section 15 Step 0 |
+| 5 | 💳 **Domain + `hello@`/`legal@`/`press@` email** | No custom domain yet; `racejudge.com` is investor-held, `racejudge.app` recommended. Cloudflare Email Routing is free but blocked on owning the domain. | Section 1 + 1A |
+| 6 | 👤 **IP India trademark search** | **Free, no card, and the jurisdiction you actually operate in.** The one open pre-work item you can finish today. | Section 1A |
 
 ### Quality (optional)
 
@@ -378,13 +412,23 @@ Add `FLY_API_TOKEN` (`fly tokens create deploy`) to GitHub repo secrets — the 
 
 ### STEP 3 — Brand / legal (no code)
 
-Register domain + email; EUIPO/USPTO trademark search; media-rights lawyer review; journalist DMs; publish launch post; r/formula1 on a race-weekend Friday. *(Social handles + 300-pair annotation already done — v7.)*
+Ordered by dependency (v9):
+
+1. 👤 **IP India trademark search** — free, no card, **do this first** (Section 1A). Confirms the name is safe *before* any spend.
+2. 💳 **Register `racejudge.app`** — `.com` is investor-held; see Section 1.
+3. 💳→free **Cloudflare Email Routing** (`hello@`/`legal@`/`press@`) — free itself, but impossible until step 2.
+4. 💳 **Media/IP lawyer clearance** — disclose the UK `RACE GUIDE` mark.
+5. 👤 **Journalist DMs + launch post + r/formula1** (race-weekend Friday) — **after deploy**, sent from `press@`.
+
+Already complete: EUIPO/USPTO/UK trademark searches (v9); social handles + 300-pair annotation (v7).
 
 ### STEP 4 — (Optional) Model + observability
 
-Penalty model: two real retrains (v8) confirmed Macro-F1 plateaus ~0.14 (≈5× below the 0.65 gate) due to rare-class data scarcity — feature/label tuning won't close it. Only set `ENABLE_PREDICTIONS=true` once the **LLM reasoning layer (Layer B)** is built out *and* far more per-class labels exist *and* the gate (**Macro-F1 ≥ 0.65 AND ECE < 0.05**) is actually met. Until then it stays correctly gated. Add `SENTRY_DSN`; set up BetterStack status page.
+Penalty model: two real retrains (v8) confirmed Macro-F1 plateaus ~0.14 (≈5× below the 0.65 gate) due to rare-class data scarcity — feature/label tuning won't close it. Only set `ENABLE_PREDICTIONS=true` once the **LLM reasoning layer (Layer B)** is built out *and* far more per-class labels exist *and* the gate (**Macro-F1 ≥ 0.65 AND ECE < 0.05**) is actually met. Until then it stays correctly gated. ~~Add `SENTRY_DSN`~~ ✅ **done (v9)**; BetterStack status page waits on the Fly deploy (nothing to monitor until then).
 
 ---
+
+*Report v9 — 12 August 2026 — Committed the v8 working tree (`1e009ed`, 34 files). Wired and live-verified Sentry (org `racejudge-if`). Introduced the 💳 symbol so card-gated items read as parked rather than outstanding. Established that `racejudge.com` is investor-held and recommended `racejudge.app` instead. Recorded the completed EUIPO/USPTO/UK trademark knock-out searches (exact mark clear) and opened the **IP India** search as the one remaining pre-work item needing no card. Remaining blockers unchanged and all now 💳: Fly billing, Clerk/Stripe live keys, domain + email, Anthropic key, lawyer clearance.*
 
 *Report v8 — 21 June 2026 — Ran the full Phase-3 multimodal backfill with real data (race-control, weather, radio ASR + diarization, FastF1 telemetry — 105,768 lap rows / 182 sessions), fixed the ORM↔DB type drift that was silently zeroing those writes, built the deferred frontend libraries (Plotly · D3 · TanStack · shadcn · MapLibre · Web Push, `next build` green), configured Stripe billing in test mode, and ran two honest penalty-model retrains confirming the ship gate is structurally (not card-) blocked. Remaining blockers are unchanged: Fly billing (deploy) + Clerk/Stripe **live** keys + Anthropic key (all card-gated, parked at the user's request).*
 
