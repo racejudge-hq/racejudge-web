@@ -1,17 +1,32 @@
-# RACEJUDGE — Final Completion Report v9
+# RACEJUDGE — Final Completion Report v10
 
 > **Updated: 12 August 2026**
-> Tests: 267 passing | **CI: all jobs green** (last committed state) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
-> **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified.
+> Tests: 267 passing | **CI: all 4 jobs verified green by execution** (v10 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
+> **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **32,120 precedent links materialised (v10).**
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
+> ⚠️ **Open product decision:** 77.8% of the incidents corpus is administrative noise — see Section 2B.
+
+## What changed in v10 (12 August 2026)
+
+Section 2 was audited by **execution rather than inspection** — every CI gate run with its true exit code checked, every schema claim diffed against live Neon. It was fully marked ✅; five real defects were found. See **Section 2B** for the full account.
+
+- **The "all 4 CI jobs green" claim was stale.** `security-audit` was failing on *both* halves — 3 high npm advisories (`postcss`, `sharp`, pinned by `next@15.5`) and `PYSEC-2026-3625` (`msgpack`). Both fixed without the breaking `next@16` upgrade `npm audit fix --force` wanted. All four jobs now genuinely exit 0.
+- **The precedent engine's core endpoint was silently dead in production.** `/v1/precedents/{id}/similar` returned `[]` with HTTP 200 for *every* incident, because `precedent_links` had never been populated — Prefect has never run a single flow. Recomputed from the real embeddings already in Neon: **32,120 links, all 1,606 incidents.** Endpoint verified live.
+- **ORM↔database drift eliminated.** All 158 columns diffed: `steward_panels.created_at` existed in the model but not the DB (any ORM query on it would raise), 22 datetime columns were naive vs `timestamptz`, and `api_keys.requests_total` was narrowed. Migration **`0009`** applied to Neon; drift is now **0**.
+- **Orchestration was never wired up.** 3 `@flow`s existed but there was no `prefect.yaml`, no schedules, no deployments — Prefect Cloud showed 0 pools / 0 flows / 0 runs. Manifest written; applying it is 💳-blocked on a Fly worker.
+- **Latent runtime bug fixed:** diarisation called `Pipeline.from_pretrained(use_auth_token=)`, removed in pyannote 4.x.
+- **India trademark search ✅ complete — clear.** Knock-out search now done in all four jurisdictions.
+- Corrected: web build emits **20 routes**, not 16.
+
+---
 
 ## What changed in v9 (12 August 2026)
 
 - **New legend symbol 💳** — card-gated items are now visually separated from genuine gaps. Previously they were mixed in with 🔶/👤, which made the report read as if work was outstanding when it was simply parked awaiting a payment method.
 - **Sentry is live and verified** — org `racejudge-if` / project `racejudge-api`; DSN in `.env`, test events accepted end-to-end. See Section 9.
 - **Domain reality check (changes the plan):** `racejudge.com` is **not available** — held since 2003 by GoDaddy's NameFind investment arm, so it is a premium-priced asset, not a ~£12 registration. `racejudge.io` / `.app` / `.dev` / `.co.uk` verified available; **`racejudge.app` recommended** as primary. See Section 1.
-- **Trademark knock-out searches done (by you):** exact mark "RaceJudge" is **clear** at EUIPO/TMview, USPTO and UK IPO. **IP India remains unsearched — the jurisdiction you actually operate in**, and now the single open pre-work item that needs no card. `RACE GUIDE` (UK, live, classes 9/35/42) flagged for the lawyer. See Section 1A.
+- **Trademark knock-out searches done (by you):** exact mark "RaceJudge" is **clear** at EUIPO/TMview, USPTO and UK IPO. *(IP India was the open item at v9 — completed in v10, also clear.)* `RACE GUIDE` (UK, live, classes 9/35/42) flagged for the lawyer. See Section 1A.
 - **Phase-3 backfill work, frontend libraries, push pipeline and ML enrich scripts committed** as `1e009ed` (34 files) — the v8 working tree is no longer uncommitted.
 - Corrected two stale claims: Grafana/BetterStack/PagerDuty are *blocked on deploy*, not merely "optional"; journalist outreach is *deliberately held*, not pending.
 
@@ -95,14 +110,14 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 | Reserve `@racejudge` on X, Threads, LinkedIn, Bluesky | ✅ | Reserved (X, Instagram, Threads, LinkedIn, Bluesky) |
 | Register email `hello@`, `legal@`, `press@` | 💳 | Cloudflare Email Routing is **free**, but **hard-blocked by the domain purchase above** — it cannot be set up without an owned domain on Cloudflare nameservers. Steps are written and ready to execute the moment the domain exists. ⚠️ Note: Email Routing **receives/forwards only — it cannot send**; replying *as* `press@…` additionally needs Gmail "Send mail as" + an SMTP relay (Resend/Brevo/SMTP2GO free tier). |
 | Trademark knock-out search — EUIPO/TMview, USPTO, UK IPO | ✅ | **Done by you (v9). Exact mark "RaceJudge" is clear in all three.** TMview `RaceJudge` → 0 rows; TMview `RACEJUDGE` → 0 rows; TMview `Race Judge` → 1 hit, *unrelated* + status **Ended** (dead); USPTO `RaceJudge` → **0 live, 0 dead**. USPTO `Race Judge` returned 4,347 rows but that is a fuzzy OR-match on the common word "JUDGE" (JUDGE, Judge Leo, Old Judge…), **not** a "Race Judge" conflict. See flag below. |
-| Trademark search — **India (IP India)** | 👤 | ⚠️ **Still open — and the most relevant jurisdiction, since you are based and operating in India.** Free + self-serve, no card. See Section 1A. |
+| Trademark search — **India (IP India)** | ✅ | **Done by you (v10) — nothing at all, everything clear.** The most relevant jurisdiction, since you are based and operating in India. Knock-out search is now complete in **all four** jurisdictions (EUIPO · USPTO · UK IPO · IP India). |
 | Trademark **clearance opinion** (lawyer) | 💳 | The searches above are a *knock-out* check, **not** legal clearance. A media/IP lawyer's formal opinion + any filing costs money — parked. |
 | Label 300 annotation pairs (similar/dissimilar) | ✅ | **Done** via the two-stage AI-adjudicated pipeline — **359 pairs** (215 similar / 144 dissimilar). Fed the BGE-M3 LoRA fine-tune (see v7 changelog). |
 | Cold-email / DM 5 journalists | 👤 | Templates ready in `scripts/outreach/journalist_pitch.md`. **Deliberately held until after deploy** — the API is not live (verified: `racejudge-api.fly.dev` → no response), so a pitch today links to nothing. Send from `press@` once the domain + deploy land. Same logic for the r/formula1 post. |
 
 ### SECTION 1A — Brand & trademark clearance (v9)
 
-**Status: exact mark "RaceJudge" is clear in EU, UK and US. India is unchecked and is the priority gap.**
+**Status: exact mark "RaceJudge" is clear in all four searched jurisdictions — EU, UK, US and India. The knock-out search is complete.** Remaining trademark work is the lawyer's formal clearance + filing (💳).
 
 **Open action — IP India search (free, ~20 min, no card):**
 
@@ -127,13 +142,14 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 | Item | Status | File |
 |---|---|---|
 | Monorepo scaffold | ✅ | `apps/`, `packages/`, `infra/`, `scripts/` |
-| GitHub Actions CI | ✅ | `.github/workflows/ci.yml` — ruff, mypy, pytest, tsc, next build, dep-audit, Lighthouse. **All 4 jobs green (v7)** — fixed ruff/mypy stub-drift + added `apps/web/lighthouserc.json` |
+| GitHub Actions CI | ✅ | `.github/workflows/ci.yml` — ruff, mypy, pytest, tsc, next build, dep-audit, Lighthouse. ⚠️ **The v7 "all 4 jobs green" claim was stale — see SECTION 2B.** `security-audit` was failing on *both* halves. **Re-verified green (v10)** by running every gate locally: `91fea0a` + `07e246c` |
 | API deploy workflow | ✅ | `.github/workflows/deploy-api.yml` (Fly.io, gated on `FLY_API_TOKEN`) |
-| Dockerfile (non-root `racejudge` uid 1001) | ✅ | `Dockerfile` |
+| Dockerfile (non-root `racejudge` uid 1001) | ✅ | `Dockerfile` — statically validated (v10): `requirements-api.txt` present, `.dockerignore` excludes `.env`/`.venv`/`node_modules`. Its dep set is a **superset** of `pyproject.toml`, which the live Vercel API already boots on, so the import surface is proven. Image build itself unverified (no Docker daemon locally; Fly is 💳) |
 | `.dockerignore` / `.vercelignore` | ✅ | Keep secrets + data out of build/bundle |
 | Vercel Python runtime entrypoint | ✅ | `pyproject.toml [tool.vercel] entrypoint = "apps.api.main:app"` |
-| Migrations 0001–0008 | ✅ | `packages/db/migrations/versions/` — adds `0007` (rc_incident_fk) + `0008` (push_subscriptions), both applied to Neon |
-| SQLAlchemy ORM models (incl. `StewardPanel`) | ✅ | `packages/db/models.py` |
+| Migrations 0001–0009 | ✅ | `packages/db/migrations/versions/` — **`0009` added in v10** (`steward_panels.created_at`, see 2B). Neon confirmed at head `0009`; all nine applied |
+| SQLAlchemy ORM models (incl. `StewardPanel`) | ✅ | `packages/db/models.py` — **all 158 columns diffed against live Neon (v10); 3 classes of drift found and fixed, now 0 mismatches** |
+| Prefect deployment manifest | ⚠️ | **`prefect.yaml` written in v10** — the 3 flows were code-only and had never been registered (see 2B). Applying it needs a worker host → 💳 Fly |
 | Async engine + URL normaliser (asyncpg) | ✅ | `packages/db/database.py` — strips libpq `sslmode`/`channel_binding` |
 | FastAPI app + `/health` + settings | ✅ | `apps/api/main.py`, `apps/api/core/config.py` |
 
@@ -141,12 +157,55 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 
 | Item | Status | Notes |
 |---|---|---|
-| **Neon Postgres** (eu-west-2 / London) | ✅ | Provisioned, all 6 migrations applied, data loaded — **live**. All 1,606 incidents embedded (`bge-m3-f1-lora`) — precedent search live |
+| **Neon Postgres** (eu-west-2 / London) | ✅ | Provisioned, **all 9 migrations applied (head `0009`, verified v10)**, data loaded — **live**. 22 tables. All 1,606 incidents embedded (`bge-m3-f1-lora`), HNSW index present. **`precedent_links` materialised in v10 — 32,120 links (was empty; see 2B)** |
 | **Vercel (API + Web)** — interim host | ⚠️ | Live and serving, but being replaced by Fly.io (Section 2A) |
 | **Fly.io (API + Web)** — target host | 💳 | Config staged + committed; blocked on Fly billing (Fly has no free tier — needs a card or prepaid credit before `fly apps create` succeeds) |
 | Cloudflare R2 (PDF/audio/telemetry buckets) | 💳 | Optional for soft launch — only needed for raw-PDF + audio hosting |
 | Upstash Redis (rate-limit + live pub/sub) | ✅ | **`REDIS_URL` configured in `.env`** (Upstash, card-free). Wires in at deploy via Fly secrets. |
-| Prefect Cloud (scheduled flows) | ✅ | **`PREFECT_API_URL` + `PREFECT_API_KEY` configured in `.env`** (card-free). |
+| Prefect Cloud (scheduled flows) | ⚠️ | **Credentials valid — `/health` returns 200 (v10).** But the workspace is **completely empty: 0 work pools, 0 flows, 0 deployments, 0 runs ever.** Nothing has ever been scheduled. `prefect.yaml` now exists; registering it needs a worker host → 💳 Fly. |
+
+### SECTION 2B — Deep audit of Section 2 (v10)
+
+Everything in Section 2 was marked ✅. Rather than trust the marks, every gate was **executed** and every schema claim **diffed against live Neon**. Five real defects were found; four are fixed, one is a product decision for you.
+
+**Verified genuinely green** (run locally, true exit codes checked):
+
+| Gate | Result |
+|---|---|
+| `ruff check packages/ apps/ scripts/ tests/` | ✅ All checks passed |
+| `mypy --explicit-package-bases packages/ apps/ scripts/` | ✅ no issues, 108 files |
+| `pytest tests/` | ✅ **267 passed** |
+| `npx tsc --noEmit` | ✅ clean |
+| `npm run build` | ✅ **20 routes** (report previously said 16) |
+| `npm audit --audit-level=high` | ✅ **0 vulnerabilities** (after fix below) |
+| `pip-audit -r requirements.txt` | ✅ exit 0 (after fix below) |
+| Vercel API + Web | ✅ live, serving real DB data |
+
+**Defects found and fixed:**
+
+1. **`security-audit` CI job was RED on both halves — the "all 4 jobs green" claim was stale.**
+   - *npm side:* 12 vulnerabilities, 3 high. `next@15.5` pins `postcss@8.4.31` (4 high advisories incl. sourceMappingURL path traversal) and `sharp@0.34.5` (libvips CVE-2026-33327/33328/35590/35591). `npm audit fix --force` would have installed **`next@16.3.0`** — a breaking major. Fixed instead with documented npm `overrides` pinning `postcss ^8.5.26` / `sharp ^0.35.3`, both minor-compatible. Audit now 0 vulns, and `tsc` + `next build` still pass.
+   - *Python side:* `PYSEC-2026-3625` (`msgpack 1.1.2`, DoS-only out-of-bounds read). **Cannot be upgraded** — it is transitive via `fastf1 → signalrcore`, and `signalrcore 1.0.2` (latest) hard-pins `msgpack==1.1.2`; pip can only satisfy `>=1.2.1` by downgrading signalrcore to `0.8.8`. Not exposed in production (`fastf1`/`msgpack` are absent from `pyproject.toml`, the set the deployed API installs). Ignored with a written rationale beside the existing torch exception.
+
+2. **`precedent_links` was empty in production — the precedent engine's core endpoint was silently dead.**
+   `GET /v1/precedents/{id}/similar` reads that table and returned **`[]` with HTTP 200 for every incident** — a silent failure, not an error. Root cause: `refresh_precedent_links_task` lives inside `embedding_flow`, and **Prefect has never run a single flow**, so the links were never materialised (incidents were embedded by a one-off script instead). Recomputed the top-20 cosine neighbours over the existing real embeddings — **32,120 links across all 1,606 incidents, 20s**, avg score 0.804. Live endpoint re-tested: **now returns real precedents.** No synthetic data — pure pgvector over the embeddings already in the DB.
+
+3. **`steward_panels.created_at` existed in the ORM but not in the database.** Migration `0004` created the table without it while the model declares it, so any ORM read/write on that table raised `UndefinedColumn`. Latent only because the table has 0 rows and nothing queries it. Fixed by **migration `0009`**, applied to Neon.
+
+4. **22 datetime columns were naive in the ORM but `timestamptz` in Postgres.** `Mapped[datetime]` with no explicit type infers `DateTime(timezone=False)`; reads come back tz-aware from the driver, so any comparison against a naive datetime raises *"can't compare offset-naive and offset-aware datetimes"*. All now declare `DateTime(timezone=True)`, matching `events.date`/`sessions.date` which already did. Also widened `api_keys.requests_total` (ORM `Integer` vs DB `bigint`). **ORM↔DB drift is now 0 across all 158 columns** — the same bug class as the `text`/`uuid` mismatch that previously zeroed the Phase-3 backfill.
+
+5. **Orchestration was entirely unwired.** 3 flows (`ingest-flow`, `embedding-flow`, `live-session-monitor`) are decorated with `@flow` but there was **no `prefect.yaml`, no `.deploy()`/`.serve()`, no schedules** — hence 0 deployments and 0 runs. Wrote `prefect.yaml` registering all three (ingest every 6h, embedding nightly 03:30 UTC, live-session on-demand). Applying it needs a work pool + running worker → blocked on 💳 Fly.
+
+**⚠️ Open — needs your decision (not fixed):**
+
+**77.8% of the "incidents" corpus is administrative noise.** Of 1,606 incidents, **1,249 have `infraction_category = NULL`** and 870 have no `penalty_type`. The bulk are non-stewarding FIA documents ingested as incidents — *"PU elements used per driver up to now"* (105), *"RNCs used per driver up to now"* (51). Only **357 are real classified stewarding incidents** (pit_lane_speed 94, yellow_flag 77, impeding 71, collision 54, unsafe_release 28, …).
+
+This directly degrades the product: the precedent lookup tested above returned three *"PU elements used per driver"* documents as the top-3 precedents. Two options —
+
+- **(a) Filter at ingest/link time** — exclude documents with no infraction from the precedent corpus. Cheap, immediate, reversible; shrinks the corpus to 357 real incidents.
+- **(b) Improve the extractor** — many of the 1,249 may be genuine incidents the regex extractor failed to classify, in which case filtering would throw away real data. Needs a sample review to tell (a) and (b) apart.
+
+Recommend sampling ~30 null-category documents first to establish the split before choosing. Not actioned unilaterally because it changes what the product considers a precedent.
 
 ### SECTION 2A — Hosting migration: Vercel → Fly.io (in progress)
 
@@ -288,6 +347,13 @@ Almost everything v4 listed here is now done. What genuinely remains:
 | # | What | Impact | How |
 |---|---|---|---|
 | 1 | ~~Embeddings backfill on production DB~~ | ✅ **Resolved (v7)** — 1,606 incidents embedded with the LoRA-tuned BGE-M3; precedent search live and verified. | Done |
+| 1a | ~~`precedent_links` never materialised~~ | ✅ **Resolved (v10)** — `/v1/precedents/{id}/similar` was returning `[]` with HTTP 200 for every incident. 32,120 links computed from the existing real embeddings; endpoint verified live. | Done |
+
+### ⚠️ Product decision needed (no card, blocks nothing — but shapes the product)
+
+| # | What | Impact | How |
+|---|---|---|---|
+| 1b | **77.8% of the incidents corpus is administrative noise** | 1,249 of 1,606 "incidents" have no `infraction_category` — mostly *"PU elements used per driver"* / *"RNCs used per driver"* FIA admin documents. Only **357** are real classified stewarding incidents. Precedent results are visibly diluted: a live lookup returned three admin documents as the top-3 precedents. | Sample ~30 null-category docs to decide between **filtering them out of the precedent corpus** vs **improving the extractor** (they may be real incidents it failed to classify). See Section 2B. |
 
 ### Config (your accounts)
 
@@ -297,7 +363,7 @@ Almost everything v4 listed here is now done. What genuinely remains:
 | 3 | ~~**Stripe keys + products**~~ | ✅ **Done (test mode)** — keys + Pro/Team prices + webhook secret configured; checkout verified. 💳 Swap test→live keys + re-create webhook in live mode at launch. | Section 8 |
 | 4 | 💳 **Finish Fly.io migration** | Plan's target host; Vercel is interim. Blocked on Fly billing | Section 2A + Section 15 Step 0 |
 | 5 | 💳 **Domain + `hello@`/`legal@`/`press@` email** | No custom domain yet; `racejudge.com` is investor-held, `racejudge.app` recommended. Cloudflare Email Routing is free but blocked on owning the domain. | Section 1 + 1A |
-| 6 | 👤 **IP India trademark search** | **Free, no card, and the jurisdiction you actually operate in.** The one open pre-work item you can finish today. | Section 1A |
+| 6 | ✅ ~~**IP India trademark search**~~ | **Done (v10) — clear.** Knock-out search complete in all four jurisdictions. | Section 1A |
 
 ### Quality (optional)
 
@@ -356,15 +422,20 @@ Drivers: 40 · Teams: 17 · Incidents extracted: 1,606 · Guidelines articles li
 
 ## SECTION 13 — CI / Quality Gates
 
+**All re-run locally in v10 with true exit codes checked** — not inherited from a previous claim.
+
 | Check | Status |
 |---|---|
-| `ruff` lint | ✅ clean |
-| `mypy` type-check | ✅ clean (all 12 prior errors fixed) |
-| `pytest` | ✅ 267 passing |
+| `ruff check packages/ apps/ scripts/ tests/` | ✅ All checks passed |
+| `mypy --explicit-package-bases packages/ apps/ scripts/` | ✅ clean — **108 source files** |
+| `pytest tests/` | ✅ **267 passing** |
 | `tsc --noEmit` | ✅ clean |
-| `npm run build` (Next.js) | ✅ clean |
-| pip-audit + npm audit (dep CVEs) | ✅ job added (torch CVE-2025-3000 ignored — no fix released) |
+| `npm run build` (Next.js) | ✅ clean — **20 routes** |
+| `npm audit --audit-level=high` | ✅ **0 vulnerabilities** — was 12 (3 high) until v10; fixed via `overrides` pinning `postcss`/`sharp`, avoiding a breaking `next@16` upgrade |
+| `pip-audit -r requirements.txt` | ✅ exit 0 — two documented exceptions: torch `CVE-2025-3000` (no fix released) and msgpack `PYSEC-2026-3625` (DoS-only; upgrade blocked by `signalrcore==1.1.2` hard pin; absent from the deployed dep set) |
 | Lighthouse CI | ✅ job added |
+
+⚠️ **Note on prior versions:** v7–v9 asserted "all 4 jobs green". That was true when written but had gone stale — new advisories landed against already-pinned transitive deps, so `security-audit` was red on both halves by v10. Dependency-audit gates decay without any code change; re-run them before trusting the badge.
 
 ---
 
@@ -414,7 +485,7 @@ Add `FLY_API_TOKEN` (`fly tokens create deploy`) to GitHub repo secrets — the 
 
 Ordered by dependency (v9):
 
-1. 👤 **IP India trademark search** — free, no card, **do this first** (Section 1A). Confirms the name is safe *before* any spend.
+1. ✅ ~~**IP India trademark search**~~ — **done (v10), clear.** Name confirmed safe in all four jurisdictions before any spend.
 2. 💳 **Register `racejudge.app`** — `.com` is investor-held; see Section 1.
 3. 💳→free **Cloudflare Email Routing** (`hello@`/`legal@`/`press@`) — free itself, but impossible until step 2.
 4. 💳 **Media/IP lawyer clearance** — disclose the UK `RACE GUIDE` mark.
@@ -427,6 +498,8 @@ Already complete: EUIPO/USPTO/UK trademark searches (v9); social handles + 300-p
 Penalty model: two real retrains (v8) confirmed Macro-F1 plateaus ~0.14 (≈5× below the 0.65 gate) due to rare-class data scarcity — feature/label tuning won't close it. Only set `ENABLE_PREDICTIONS=true` once the **LLM reasoning layer (Layer B)** is built out *and* far more per-class labels exist *and* the gate (**Macro-F1 ≥ 0.65 AND ECE < 0.05**) is actually met. Until then it stays correctly gated. ~~Add `SENTRY_DSN`~~ ✅ **done (v9)**; BetterStack status page waits on the Fly deploy (nothing to monitor until then).
 
 ---
+
+*Report v10 — 12 August 2026 — Audited Section 2 by execution rather than inspection: every CI gate run with its true exit code checked, all 158 ORM columns diffed against live Neon. Five real defects found in a section that was fully marked ✅. Fixed: the `security-audit` job (red on both halves — npm `postcss`/`sharp`, Python `msgpack`), the silently-dead `/v1/precedents/{id}/similar` endpoint (materialised 32,120 precedent links from the real embeddings already in Neon), `steward_panels.created_at` missing from the DB (migration `0009`, applied), 22 naive-vs-`timestamptz` datetime columns, and a pyannote-4 `use_auth_token` runtime bug. Wrote `prefect.yaml` — the 3 flows had never been registered, so nothing had ever been scheduled. IP India trademark search completed (clear) — knock-out search now done in all four jurisdictions. **One open product decision: 77.8% of the incidents corpus is administrative noise (Section 2B).** Remaining blockers unchanged and all 💳: Fly billing, Clerk/Stripe live keys, domain + email, Anthropic key, lawyer clearance.*
 
 *Report v9 — 12 August 2026 — Committed the v8 working tree (`1e009ed`, 34 files). Wired and live-verified Sentry (org `racejudge-if`). Introduced the 💳 symbol so card-gated items read as parked rather than outstanding. Established that `racejudge.com` is investor-held and recommended `racejudge.app` instead. Recorded the completed EUIPO/USPTO/UK trademark knock-out searches (exact mark clear) and opened the **IP India** search as the one remaining pre-work item needing no card. Remaining blockers unchanged and all now 💳: Fly billing, Clerk/Stripe live keys, domain + email, Anthropic key, lawyer clearance.*
 

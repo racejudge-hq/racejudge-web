@@ -1,0 +1,64 @@
+# Prefect 3 deployment manifest.
+#
+# The three flows under packages/pipeline/flows/ were previously code-only:
+# decorated with @flow but never registered, so the Prefect Cloud workspace had
+# 0 deployments, 0 flows and 0 runs, and nothing was ever scheduled. That is why
+# precedent_links sat empty in production — embedding_flow owns
+# refresh_precedent_links_task and had never executed.
+#
+# This manifest registers them. Applying it needs a work pool with a running
+# worker; the intended host is the Fly.io machine, so the actual `prefect deploy`
+# is blocked on that deploy. Registration itself costs nothing.
+#
+# Once the Fly worker exists:
+#   prefect work-pool create racejudge-pool --type process
+#   prefect deploy --all
+#   prefect worker start --pool racejudge-pool      # on the Fly machine
+#
+# Schedules are UTC. ingest runs 4x/day to catch FIA documents published during
+# a race weekend; embedding runs after it so new incidents get vectors and
+# precedent links the same night.
+
+name: racejudge
+prefect-version: ">=3.0.0"
+
+deployments:
+  - name: ingest
+    entrypoint: packages/pipeline/flows/ingest_flow.py:ingest_flow
+    description: >-
+      Scrape FIA stewards' decision PDFs for the current season and load them
+      into Postgres. Uses Playwright for season filtering.
+    work_pool:
+      name: racejudge-pool
+    parameters:
+      use_playwright: true
+    schedules:
+      - cron: "0 */6 * * *"
+        timezone: "UTC"
+
+  - name: embedding
+    entrypoint: packages/pipeline/flows/embedding_flow.py:embedding_flow
+    description: >-
+      Backfill BGE-M3 embeddings for new incidents, then recompute the top-20
+      pgvector precedent links. Must run after ingest.
+    work_pool:
+      name: racejudge-pool
+    parameters:
+      batch_size: 64
+      top_k: 20
+    schedules:
+      - cron: "30 3 * * *"
+        timezone: "UTC"
+
+  # Event-triggered, not scheduled: requires a session_key for a session that is
+  # actually live, and runs for up to ~3.3h. Trigger a run when a session opens.
+  - name: live-session
+    entrypoint: packages/pipeline/flows/live_session_flow.py:live_session_flow
+    description: >-
+      Poll an active F1 session for incidents and race-control messages.
+      Triggered on demand with the session_key of a live session.
+    work_pool:
+      name: racejudge-pool
+    parameters:
+      poll_interval_s: 60
+      max_polls: 200
