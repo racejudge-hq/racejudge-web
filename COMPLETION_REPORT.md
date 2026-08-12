@@ -5,7 +5,7 @@
 > **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **32,120 precedent links materialised (v10).**
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
-> ⚠️ **Open product decision:** 77.8% of the incidents corpus is administrative noise — see Section 2B.
+> ⚠️ **Biggest open defect:** the extractor is under-classifying — **864 real stewards' rulings (69% of the 1,249 unclassified) are sitting unusable** in the corpus. Full scan in Section 2B.
 
 ## What changed in v10 (12 August 2026)
 
@@ -17,6 +17,7 @@ Section 2 was audited by **execution rather than inspection** — every CI gate 
 - **Orchestration was never wired up.** 3 `@flow`s existed but there was no `prefect.yaml`, no schedules, no deployments — Prefect Cloud showed 0 pools / 0 flows / 0 runs. Manifest written; applying it is 💳-blocked on a Fly worker.
 - **Latent runtime bug fixed:** diarisation called `Pipeline.from_pretrained(use_auth_token=)`, removed in pyannote 4.x.
 - **India trademark search ✅ complete — clear.** Knock-out search now done in all four jurisdictions.
+- **Full corpus scan (all 1,249 unclassified incidents, not a sample):** 864 of them (69.2%) are **genuine stewards' rulings the extractor failed to categorise** — verified against the FIA document signature, with the 357 already-classified incidents as a control (94% match). Filtering them out, the obvious first instinct, would have **destroyed 2.4× more real incidents than the corpus currently has classified.** Only ~385 are truly administrative. The real defect is the extractor's category vocabulary. See Section 2B.
 - Corrected: web build emits **20 routes**, not 16.
 
 ---
@@ -196,16 +197,35 @@ Everything in Section 2 was marked ✅. Rather than trust the marks, every gate 
 
 5. **Orchestration was entirely unwired.** 3 flows (`ingest-flow`, `embedding-flow`, `live-session-monitor`) are decorated with `@flow` but there was **no `prefect.yaml`, no `.deploy()`/`.serve()`, no schedules** — hence 0 deployments and 0 runs. Wrote `prefect.yaml` registering all three (ingest every 6h, embedding nightly 03:30 UTC, live-session on-demand). Applying it needs a work pool + running worker → blocked on 💳 Fly.
 
-**⚠️ Open — needs your decision (not fixed):**
+**⚠️ Open — the extractor is under-classifying, and it is losing most of the corpus (v10 deep scan):**
 
-**77.8% of the "incidents" corpus is administrative noise.** Of 1,606 incidents, **1,249 have `infraction_category = NULL`** and 870 have no `penalty_type`. The bulk are non-stewarding FIA documents ingested as incidents — *"PU elements used per driver up to now"* (105), *"RNCs used per driver up to now"* (51). Only **357 are real classified stewarding incidents** (pit_lane_speed 94, yellow_flag 77, impeding 71, collision 54, unsafe_release 28, …).
+1,249 of 1,606 incidents have `infraction_category = NULL`. A **full scan of all 1,249** (not a sample) was run to determine whether those are genuinely non-incidents or extraction failures. **They are overwhelmingly extraction failures.**
 
-This directly degrades the product: the precedent lookup tested above returned three *"PU elements used per driver"* documents as the top-3 precedents. Two options —
+Method: FIA stewards' rulings have a fixed document signature — sender `From The Stewards` plus the structured fields `Fact` / `Infringement` / `Decision` / `Reason`. Administrative documents come `From The FIA Formula One Technical Delegate` and carry none of that structure. Each document was scored 0–5 on those five signals.
 
-- **(a) Filter at ingest/link time** — exclude documents with no infraction from the precedent corpus. Cheap, immediate, reversible; shrinks the corpus to 357 real incidents.
-- **(b) Improve the extractor** — many of the 1,249 may be genuine incidents the regex extractor failed to classify, in which case filtering would throw away real data. Needs a sample review to tell (a) and (b) apart.
+**Control:** of the 357 *already-classified* incidents, **all 357** are `From The Stewards` and **335 (94%)** score 4–5. The signature is reliable.
 
-Recommend sampling ~30 null-category documents first to establish the split before choosing. Not actioned unilaterally because it changes what the product considers a precedent.
+**Result across all 1,249 null-category documents:**
+
+| Bucket | Count | Share |
+|---|---|---|
+| **Real stewards' ruling (strong, score 4–5)** | **821** | 65.7% |
+| **Real stewards' ruling (probable, score 3)** | **43** | 3.4% |
+| Stewards document, weak/minimal structure | 140 | 11.2% |
+| ADMIN — Technical Delegate report | 226 | 18.1% |
+| ADMIN / non-ruling | 19 | 1.5% |
+
+**864 of the 1,249 (69.2%) are genuine stewards' rulings that the extractor failed to categorise.** 1,004 of 1,249 are `From The Stewards`. They carry real, stated outcomes: 293 *no further action*, 148 time penalties, 104 deleted lap times, 61 pit-lane starts, 57 fines, 54 warnings, 52 reprimands, 25 disqualifications, 17 grid penalties, 8 drive-throughs, 6 stop-go.
+
+**Conclusion: option (a) — filtering — was the wrong instinct and has been rejected.** It would have discarded **864 real stewarding decisions, ~2.4× more than the 357 currently classified.** The true corpus is **~1,221 real incidents (76%)** against only **~385 genuinely administrative documents (24%)** — mostly *"PU elements used per driver"* (145) and *"RNCs used per driver"* (65), which are Technical Delegate reports and correctly excluded.
+
+**The actual defect is the extractor's category vocabulary being far too narrow.** It recognises 11 categories (pit_lane_speed, yellow_flag, impeding, collision, unsafe_release, vsc, track_limits, erratic_driving, safety_car, blue_flag). The scan shows it is missing at minimum: **deleted lap times / track limits (153), parc fermé (85), safety-car-line time SC2-SC1 (66), technical breach (21), forcing another driver off the track, failure to follow Race Director's instructions, unsafe release variants, overtaking under safety car, starting-procedure infringements, practice starts, 107% rule, driver conduct (32), false start (7)** — 292 distinct ruling titles in the unclassified set alone.
+
+Two further points worth noting:
+- **293 of the recovered rulings are "no further action" decisions.** For a precedent engine these are *high-value*, not noise — they are the evidence of what the stewards decline to penalise.
+- The admin documents should still be excluded from the precedent corpus, but that is ~385 rows, not 1,249.
+
+**Recommended next step:** extend the extractor's category taxonomy to cover the ruling types above and re-run extraction over the 864, rather than filtering. This is a data-recovery task, not a deletion task. Not yet actioned — it is a meaningful change to the extractor and to what the product treats as a precedent.
 
 ### SECTION 2A — Hosting migration: Vercel → Fly.io (in progress)
 
@@ -349,11 +369,11 @@ Almost everything v4 listed here is now done. What genuinely remains:
 | 1 | ~~Embeddings backfill on production DB~~ | ✅ **Resolved (v7)** — 1,606 incidents embedded with the LoRA-tuned BGE-M3; precedent search live and verified. | Done |
 | 1a | ~~`precedent_links` never materialised~~ | ✅ **Resolved (v10)** — `/v1/precedents/{id}/similar` was returning `[]` with HTTP 200 for every incident. 32,120 links computed from the existing real embeddings; endpoint verified live. | Done |
 
-### ⚠️ Product decision needed (no card, blocks nothing — but shapes the product)
+### ⚠️ Biggest open defect — data recovery, no card needed
 
 | # | What | Impact | How |
 |---|---|---|---|
-| 1b | **77.8% of the incidents corpus is administrative noise** | 1,249 of 1,606 "incidents" have no `infraction_category` — mostly *"PU elements used per driver"* / *"RNCs used per driver"* FIA admin documents. Only **357** are real classified stewarding incidents. Precedent results are visibly diluted: a live lookup returned three admin documents as the top-3 precedents. | Sample ~30 null-category docs to decide between **filtering them out of the precedent corpus** vs **improving the extractor** (they may be real incidents it failed to classify). See Section 2B. |
+| 1b | **The extractor is under-classifying: 864 real stewards' rulings are unusable** | A full scan of all 1,249 unclassified incidents (not a sample) found **864 (69.2%) are genuine stewards' rulings**, carrying real outcomes (293 no-further-action, 148 time penalties, 104 deleted lap times, 25 disqualifications…). The extractor recognises only 11 categories and misses deleted lap times, parc fermé, SC2-SC1, 107%, forcing another driver off track, Race Director instructions, and ~292 further ruling titles. True corpus is **~1,221 real incidents (76%)**, not 357. Meanwhile precedent results are diluted by the ~385 genuinely administrative docs. | **Extend the extractor's category taxonomy and re-run extraction over the 864** — this is data recovery, not deletion. Exclude only the ~385 Technical Delegate/admin documents from the precedent corpus. ⚠️ **Do not filter on `infraction_category IS NULL`** — that would discard 2.4× more real incidents than are currently classified. See Section 2B. |
 
 ### Config (your accounts)
 
@@ -499,7 +519,7 @@ Penalty model: two real retrains (v8) confirmed Macro-F1 plateaus ~0.14 (≈5× 
 
 ---
 
-*Report v10 — 12 August 2026 — Audited Section 2 by execution rather than inspection: every CI gate run with its true exit code checked, all 158 ORM columns diffed against live Neon. Five real defects found in a section that was fully marked ✅. Fixed: the `security-audit` job (red on both halves — npm `postcss`/`sharp`, Python `msgpack`), the silently-dead `/v1/precedents/{id}/similar` endpoint (materialised 32,120 precedent links from the real embeddings already in Neon), `steward_panels.created_at` missing from the DB (migration `0009`, applied), 22 naive-vs-`timestamptz` datetime columns, and a pyannote-4 `use_auth_token` runtime bug. Wrote `prefect.yaml` — the 3 flows had never been registered, so nothing had ever been scheduled. IP India trademark search completed (clear) — knock-out search now done in all four jurisdictions. **One open product decision: 77.8% of the incidents corpus is administrative noise (Section 2B).** Remaining blockers unchanged and all 💳: Fly billing, Clerk/Stripe live keys, domain + email, Anthropic key, lawyer clearance.*
+*Report v10 — 12 August 2026 — Audited Section 2 by execution rather than inspection: every CI gate run with its true exit code checked, all 158 ORM columns diffed against live Neon. Five real defects found in a section that was fully marked ✅. Fixed: the `security-audit` job (red on both halves — npm `postcss`/`sharp`, Python `msgpack`), the silently-dead `/v1/precedents/{id}/similar` endpoint (materialised 32,120 precedent links from the real embeddings already in Neon), `steward_panels.created_at` missing from the DB (migration `0009`, applied), 22 naive-vs-`timestamptz` datetime columns, and a pyannote-4 `use_auth_token` runtime bug. Wrote `prefect.yaml` — the 3 flows had never been registered, so nothing had ever been scheduled. IP India trademark search completed (clear) — knock-out search now done in all four jurisdictions. **Then ran a full deep scan of all 1,249 unclassified incidents** (not a sample) to settle whether they were junk or extraction failures: **864 of them (69.2%) are genuine stewards' rulings the extractor failed to categorise**, validated against the FIA document signature with the 357 classified incidents as a 94%-matching control. Filtering them — the intuitive fix — would have destroyed 2.4× more real incidents than the corpus currently has classified. The real defect is the extractor's category vocabulary; recommended fix is taxonomy extension + re-extraction (Section 2B). Remaining blockers unchanged and all 💳: Fly billing, Clerk/Stripe live keys, domain + email, Anthropic key, lawyer clearance.*
 
 *Report v9 — 12 August 2026 — Committed the v8 working tree (`1e009ed`, 34 files). Wired and live-verified Sentry (org `racejudge-if`). Introduced the 💳 symbol so card-gated items read as parked rather than outstanding. Established that `racejudge.com` is investor-held and recommended `racejudge.app` instead. Recorded the completed EUIPO/USPTO/UK trademark knock-out searches (exact mark clear) and opened the **IP India** search as the one remaining pre-work item needing no card. Remaining blockers unchanged and all now 💳: Fly billing, Clerk/Stripe live keys, domain + email, Anthropic key, lawyer clearance.*
 
