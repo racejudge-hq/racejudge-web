@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +43,10 @@ class Diariser:
     def __init__(self, hf_token: str | None = None, num_speakers: int = 2):
         self._token       = hf_token or HF_TOKEN
         self._num_speakers = num_speakers
-        self._pipeline    = None
+        # Typed Any: pyannote is an optional dep, so its symbols resolve to Any
+        # when it is absent. Annotating here keeps mypy consistent whether or
+        # not pyannote is installed (CI does not install it).
+        self._pipeline: Any = None
 
     def _load(self) -> bool:
         if self._pipeline is not None:
@@ -55,10 +59,19 @@ class Diariser:
             return False
         try:
             from pyannote.audio import Pipeline
-            self._pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
-                use_auth_token=self._token,
-            )
+
+            # pyannote 4.x renamed `use_auth_token` → `token`; 3.x only accepts
+            # the old name. Try the current spelling first, fall back for 3.x.
+            try:
+                self._pipeline = Pipeline.from_pretrained(
+                    "pyannote/speaker-diarization-3.1",
+                    token=self._token,
+                )
+            except TypeError:
+                self._pipeline = Pipeline.from_pretrained(  # type: ignore[call-arg]
+                    "pyannote/speaker-diarization-3.1",
+                    use_auth_token=self._token,
+                )
             log.info("pyannote diarisation pipeline loaded")
             return True
         except ImportError:

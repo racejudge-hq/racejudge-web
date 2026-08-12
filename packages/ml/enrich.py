@@ -94,7 +94,8 @@ def enrich_with_db(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     enriched = []
     for r in records:
-        info = inc_by_doc.get(r.get("doc_id"))
+        doc_id = r.get("doc_id")
+        info = inc_by_doc.get(doc_id) if doc_id else None
         r = dict(r)
         if info:
             w = info["weather"] or {}

@@ -180,8 +180,11 @@ def train(db_url: str, output_dir: Path = OUTPUT_DIR) -> Path:
         bias="none",
         task_type=TaskType.CAUSAL_LM,
     )
-    model = get_peft_model(model, lora_config)
-    model.print_trainable_parameters()
+    # peft is an optional dep (GPU-only path, not installed in CI), so these
+    # resolve to Any there and to concrete PEFT types locally. Ignores keep the
+    # type-check result identical in both environments.
+    model = get_peft_model(model, lora_config)  # type: ignore[assignment]
+    model.print_trainable_parameters()  # type: ignore[operator]
 
     # Dataset
     ds = Dataset.from_list(examples)
