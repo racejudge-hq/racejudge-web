@@ -87,7 +87,11 @@ _INFRACTION_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"false\s+start", re.IGNORECASE),                           "false start"),
     (re.compile(r"start(?:ing)?\s+procedure", re.IGNORECASE),              "starting procedure"),
     (re.compile(r"weav(?:ing|e)", re.IGNORECASE),                          "weaving"),
-    (re.compile(r"safety\s+car.*?(overtook?|pass(?:ed|ing))", re.IGNORECASE), "safety car violation"),
+    # The second branch covers the Article 55.5 rulings ("Near collision behind
+    # the safety car"), which state no overtake and so matched nothing at all.
+    (re.compile(r"safety\s+car.*?(overtook?|pass(?:ed|ing))"
+                r"|(?:incident|near\s+collision|collision)\s+behind\s+the\s+safety\s+car",
+                re.IGNORECASE),                                            "safety car violation"),
     (re.compile(r"virtual\s+safety\s+car", re.IGNORECASE),                 "VSC infringement"),
     (re.compile(r"yellow\s+flag", re.IGNORECASE),                          "yellow flag violation"),
     (re.compile(r"driving\s+(?:unnecessarily\s+)?slowly", re.IGNORECASE),  "driving unnecessarily slowly"),
@@ -107,10 +111,12 @@ _INFRACTION_PATTERNS: list[tuple[re.Pattern, str]] = [
 
     # Track-limit enforcement: the stewards delete lap times rather than
     # issuing a penalty. 153 documents in the corpus.
-    # ". {0,80}" rather than an adjacent verb: the FIA writes "the lap time
-    # achieved on lap 12 is deleted", so the two halves are rarely adjacent.
-    # Bounded and comma/period-free to keep it inside a single clause.
-    (re.compile(r"deleted\s+lap\s+time|lap\s+time[s]?\b[^.]{0,80}?\bdelet"
+    # Deliberately requires the deletion to be *stated*, not merely referred to.
+    # A wider "lap time ... deleted" window was tried and reverted: it recovered
+    # no additional documents and it mis-classified rulings whose Reason section
+    # mentions a deletion in passing ("knew his lap time would be deleted") when
+    # the actual Infringement was something else entirely.
+    (re.compile(r"deleted\s+lap\s+time|lap\s+time[s]?\s+(?:was|were|are|is)\s+deleted"
                 r"|did\s+not\s+use\s+the\s+track", re.IGNORECASE),         "deleted lap times"),
     (re.compile(r"forc(?:ing|ed)\s+(?:another\s+driver\s+)?off\s+the\s+track",
                 re.IGNORECASE),                                            "forcing another driver off the track"),
@@ -131,10 +137,25 @@ _INFRACTION_PATTERNS: list[tuple[re.Pattern, str]] = [
 
     # Qualifying / sporting-regulation rulings.
     (re.compile(r"107\s*%|within\s+107", re.IGNORECASE),                   "107% rule"),
-    (re.compile(r"fail(?:ing|ed|ure)?\s+to\s+follow\s+(?:the\s+)?"
-                r"(?:race\s+director|rd)'?s?\s+instruction", re.IGNORECASE),
-                                                                           "failure to follow Race Director instructions"),
-    (re.compile(r"practice\s+start", re.IGNORECASE),                       "practice start infringement"),
+    # "Practice Start Area" is a *place* in the pit lane, and it is named in the
+    # Facts of rulings that are really pit-lane offences ("overtook several cars
+    # in the Fast Lane whilst traversing the Working Lane to the Practice Start
+    # Area"). Matching the bare noun phrase pulled six such rulings out of their
+    # real category, so require the practice start to be the act itself —
+    # performed, or the subject of the instruction that was breached.
+    # The last two branches carry the rulings that *name* the offence, in the
+    # title, which is the only place several of them state it. They are kept
+    # narrow — "practice start infringement", or a title ending in "- Practice
+    # Start" — because the pit-lane rulings above also discuss practice starts
+    # in their Reason ("did perform a genuine practice start", "without doing a
+    # practice start") and any looser branch takes them back.
+    (re.compile(r"(?:perform|undert(?:ook|ake|aken)|complet|carr(?:y|ied)\s+out|execut)\w*"
+                r"\s+(?:a\s+|the\s+)?practice\s+start"
+                r"|practice\s+start(?:s)?\s+(?:outside|before|in\s+the\s+wrong)"
+                r"|(?:considering|regarding|concerning)\s+practice\s+start"
+                r"|practice\s+start\s+infringement"
+                r"|-\s*(?:alleged\s+)?practice\s+start\s*$",
+                re.IGNORECASE | re.MULTILINE),                             "practice start infringement"),
     (re.compile(r"released\s+in\s+an\s+unsafe\s+condition", re.IGNORECASE), "released in an unsafe condition"),
     (re.compile(r"pit\s*(?:lane|exit)\s+infringement|infringement\s+at\s+pit\s+exit"
                 r"|impeding\s+at\s+pit\s+exit", re.IGNORECASE),            "pit lane infringement"),
@@ -151,9 +172,30 @@ _INFRACTION_PATTERNS: list[tuple[re.Pattern, str]] = [
                 r"|fail(?:ing|ed|ure)?\s+to\s+(?:stop\s+for\s+)?weigh", re.IGNORECASE),
                                                                            "weighing procedure"),
 
-    # Off-track obligations (parades, fan events, briefings).
-    (re.compile(r"drivers?'?\s*parade|fan\s+engagement|drivers?'?\s*(?:meeting|briefing)",
+    # Off-track obligations (parades, fan events, briefings, the anthem).
+    # The meeting/briefing branch deliberately requires offence language. Every
+    # ruling that actually is one says "late for" / "late attendance" / "failed
+    # to attend" / "behaviour in", whereas a bare mention of the drivers'
+    # briefing turns up in the Reason narrative of wholly unrelated rulings —
+    # the yellow-flag, escape-road and crossing-the-track decisions all cite it
+    # — and a bare match captured those. Note the curly apostrophe: the PDFs
+    # contain U+2019, and only the cleaned text is normalised to a straight one.
+    (re.compile(r"drivers?['’]?\s*parade|fan\s+engagement"
+                r"|(?:late\s+(?:for|attendance)|fail(?:ing|ed|ure)?\s+to\s+attend"
+                r"|absence\s+from|behaviour\s+in)"
+                r"[^.]{0,40}?drivers?['’]?\s*(?:meeting|briefing)"
+                r"|late\s+attendance\s+of\s+(?:the\s+)?national\s+anthem",
                 re.IGNORECASE),                                            "driver obligation breach"),
+
+    # Deliberately last. "Breach of the Race Director's Event Notes" is the
+    # catch-all article the FIA cites for offences that already have a specific
+    # category above — pit lane infringements and practice starts among them —
+    # so it must only win when nothing more specific matched. The curly
+    # apostrophe (U+2019) is what the PDFs actually contain; a straight-quote
+    # pattern missed every one of these.
+    (re.compile(r"fail(?:ing|ed|ure)?\s+to\s+follow\s+(?:the\s+)?"
+                r"(?:race\s+director|rd)['’]?s?\s+(?:instruction|event\s+note)",
+                re.IGNORECASE),                                            "failure to follow Race Director instructions"),
 ]
 
 

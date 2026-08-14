@@ -210,7 +210,7 @@ def test_batch_extract():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("text,expected", [
-    ("The lap time achieved on lap 12 is deleted", "deleted lap times"),
+    ("The lap time is deleted", "deleted lap times"),
     ("Car 4 did not use the track at turn 9", "deleted lap times"),
     ("Forcing another driver off the track", "forcing another driver off the track"),
     ("The driver gained a lasting advantage", "gaining an advantage off track"),
@@ -224,7 +224,7 @@ def test_batch_extract():
     ("Failed to set a time within 107% of the fastest lap", "107% rule"),
     ("Failure to follow the Race Director's instructions",
      "failure to follow Race Director instructions"),
-    ("Practice start performed outside the designated area",
+    ("Car 20 allegedly undertook a practice start at pit exit",
      "practice start infringement"),
     ("Car 55 was released in an unsafe condition", "released in an unsafe condition"),
     ("Exceeded the permitted number of PU elements",
@@ -266,3 +266,93 @@ def test_extract_outcome_stop_and_go(text):
 def test_extract_outcome_fine_currency_prefix(text):
     """The FIA writes the symbol before the amount, not after."""
     assert extract_outcome(text) == "fine"
+
+
+def test_passing_mention_of_a_deletion_is_not_a_track_limits_ruling():
+    """
+    Verbatim from doc 34, 2024 Singapore GP. The Infringement is a Race
+    Director's Event Notes breach; the Reason merely observes that the driver
+    knew a lap time would be deleted. Classifying on that passing mention put
+    the ruling in the wrong category.
+    """
+    # Classification runs on "{title}\n{body}", as extract_incident does.
+    text = (
+        "Doc 34 - Infringement - Car 55 - Failure to follow Race Director's Instructions\n"
+        "Fact Failure to follow the Race Director’s Event Notes. "
+        "Infringement Alleged breach of Article 12.2.1 i) of the International "
+        "Sporting Code and noncompliance with Race Director’s Event Note. "
+        "Reason ... as it was qualifying knew that his lap time would be deleted."
+    )
+    assert extract_infraction_type(text) == "failure to follow Race Director instructions"
+
+
+@pytest.mark.parametrize("text,expected", [
+    # Genuine driver-obligation rulings, verbatim corpus titles.
+    ("Doc 27 - Decision - Car 10 - Late attendance to Drivers' meeting",
+     "driver obligation breach"),
+    ("Doc 19 - Summons - Car 10 - Late for drivers’ meeting", "driver obligation breach"),
+    ("Offence - Car 5 - Behaviour in Drivers' Meeting", "driver obligation breach"),
+    ("Doc 49 - Infringement - Car 55 - Late attendance of National Anthem",
+     "driver obligation breach"),
+    ("Doc 18 - Infringement - Car 18 - Fan Engagement Activity", "driver obligation breach"),
+    ("Infringement - Car 20 - Drivers' Parade", "driver obligation breach"),
+])
+def test_driver_obligation_rulings(text, expected):
+    assert extract_infraction_type(text) == expected
+
+
+def test_passing_mention_of_the_drivers_briefing_is_not_an_obligation_breach():
+    """
+    Verbatim from doc 37, 2024 Italian GP: an escape-road ruling whose Reason
+    happens to mention the drivers' briefing. A bare "drivers' briefing" match
+    stole this document — and the yellow-flag and crossing-the-track rulings
+    too — from their real categories.
+    """
+    text = (
+        "Doc 37 - Decision - Car 18 - Alleged failure to follow Race Director's "
+        "instructions (Escape Road)\n"
+        "Fact Car 18 did not follow the Race Director's Event Notes regarding the "
+        "escape road instructions at Turns 4/5. "
+        "Reason ... there was some confusion following the drivers' briefing as to "
+        "where the bollard would be located."
+    )
+    assert extract_infraction_type(text) == "failure to follow Race Director instructions"
+
+
+@pytest.mark.parametrize("text,expected", [
+    # Titles are the only place several of these rulings name the offence.
+    ("Doc 73 - Infringement - Car 5 - Practice Start", "practice start infringement"),
+    ("Summons - Car 1 - Alleged practice start infringement", "practice start infringement"),
+    ("Car 63 performed a practice start outside the designated practice start area",
+     "practice start infringement"),
+])
+def test_practice_start_rulings(text, expected):
+    assert extract_infraction_type(text) == expected
+
+
+def test_practice_start_area_as_a_location_is_not_a_practice_start_ruling():
+    """
+    Verbatim from doc 30, 2023. The offence is overtaking in the fast lane; the
+    Practice Start Area is only where the car was heading, and the Reason even
+    notes the driver "did perform a genuine practice start" — lawfully. Matching
+    the bare phrase pulled six pit-lane rulings out of their real category.
+    """
+    text = (
+        "Doc 30 - Infringement - Car 81 - Failure to follow Race Director's instructions\n"
+        "Fact Car 81 overtook several cars in the Fast Lane whilst traversing the "
+        "Working Lane to the Practice Start Area. "
+        "Reason ... it was impractical to drive directly from the garage to the "
+        "practice start area. The Stewards also accept the driver of Car 81 did in "
+        "fact perform a genuine practice start and tried to rejoin."
+    )
+    assert extract_infraction_type(text) == "failure to follow Race Director instructions"
+
+
+def test_near_collision_behind_the_safety_car():
+    """Article 55.5 rulings state no overtake, so the overtake-only rule missed them."""
+    text = (
+        "Decision - Car 22 - Incident behind the Safety Car\n"
+        "Fact Near collision behind the safety car. "
+        "Offence Alleged breach of Article 55.5 of the FIA Formula One Sporting Regulations."
+    )
+    assert extract_infraction_type(text) == "safety car violation"

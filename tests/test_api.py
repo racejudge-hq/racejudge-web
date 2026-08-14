@@ -155,3 +155,34 @@ def test_get_decision_not_found(client):
 def test_get_decision_includes_sha256(client):
     resp = client.get("/v1/decisions/abc123def456abc1")
     assert "sha256_hash" in resp.json()
+
+
+def test_consistency_route_is_not_shadowed_by_incident_id():
+    """
+    /incidents/consistency is a literal path declared alongside
+    /incidents/{incident_id}. Starlette matches in declaration order, so if the
+    parameterised route is declared first the literal one is swallowed —
+    incident_id becomes "consistency" and the endpoint 404s/500s. This broke the
+    /consistency page in production. Assert route ordering, not just the handler.
+    """
+    import re as _re
+
+    from apps.api.main import app
+
+    seen: list[tuple[str, str]] = []
+    for route in app.routes:
+        path = getattr(route, "path", None)
+        if not path:
+            continue
+        for method in sorted(getattr(route, "methods", None) or []):
+            if method in ("HEAD", "OPTIONS"):
+                continue
+            for prev_method, prev_path in seen:
+                if prev_method != method or "{" not in prev_path or "{" in path:
+                    continue
+                pattern = "^" + _re.sub(r"\{[^}]+\}", "[^/]+", prev_path) + "$"
+                assert not _re.match(pattern, path), (
+                    f"{method} {path} is shadowed by the earlier route {prev_path}; "
+                    f"declare the literal path first"
+                )
+            seen.append((method, path))

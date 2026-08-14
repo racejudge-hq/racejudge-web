@@ -247,16 +247,11 @@ async def list_incidents(
     return await _pg_list(season, penalty_type, infraction, driver, article, has_radio, limit, offset)
 
 
-@router.get("/incidents/{incident_id}", response_model=IncidentDetail)
-async def get_incident(incident_id: str) -> dict:
-    if not _DB_AVAILABLE:
-        raise HTTPException(status_code=503, detail="DATABASE_URL required")
-    result = await _pg_get(incident_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail=f"Incident {incident_id!r} not found")
-    return result
-
-
+# NOTE: this literal route MUST stay above "/incidents/{incident_id}". Starlette
+# matches in declaration order, so with the parameterised route first, a request
+# for /incidents/consistency was captured as incident_id="consistency" and never
+# reached this handler — which is why the /consistency page was failing in
+# production. Do not reorder.
 @router.get("/incidents/consistency")
 async def get_consistency_heatmap(
     season: Annotated[int | None, Query(ge=2018, le=2030)] = None,
@@ -326,6 +321,18 @@ async def get_consistency_heatmap(
         }
         for r in rows
     ]
+
+
+# Declared after every literal /incidents/... route above, so those are matched
+# first rather than being swallowed as an incident_id.
+@router.get("/incidents/{incident_id}", response_model=IncidentDetail)
+async def get_incident(incident_id: str) -> dict:
+    if not _DB_AVAILABLE:
+        raise HTTPException(status_code=503, detail="DATABASE_URL required")
+    result = await _pg_get(incident_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id!r} not found")
+    return result
 
 
 @router.get("/drivers/{driver_code}/stats")
