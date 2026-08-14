@@ -47,6 +47,48 @@ CHAMPION_NUMBER_BY_SEASON: dict[int, str] = {
     2022: "VER", 2023: "VER", 2024: "VER", 2025: "VER", 2026: "NOR",
 }
 
+# Per-season car numbers for drivers whose number changed over the corpus span.
+#
+# The upstream Jolpica/Ergast driver endpoint exposes only `permanentNumber` —
+# the driver's number *today* — and the seed script therefore wrote that one
+# value into every season of the per-season map, which silently made the map
+# non-historical. The effect was not cosmetic: "Car 33" (Verstappen 2019–21) and
+# "Car 4" (Norris 2019–25) resolved to nobody at all, and "Car 3" resolved to
+# Verstappen for 2019–24, when it was Ricciardo's.
+#
+# These numbers are transcribed from the decisions themselves, which state the
+# pairing verbatim ("Driver 33 - Max Verstappen"), so the corpus is its own
+# authority here — nothing below is inferred. Verstappen really does carry #3
+# from 2026 ("Driver 3 - Max Verstappen", Oracle Red Bull Racing), so the
+# upstream value is right for the current season and wrong only for the past.
+#
+# Extend this when a driver changes number; the champion's #1 stays in
+# CHAMPION_NUMBER_BY_SEASON above.
+CURATED_NUMBERS_BY_SEASON: dict[str, dict[int, int]] = {
+    "VER": {2019: 33, 2020: 33, 2021: 33,
+            2022: 1, 2023: 1, 2024: 1, 2025: 1,
+            2026: 3},
+    "NOR": {2019: 4, 2020: 4, 2021: 4, 2022: 4, 2023: 4, 2024: 4, 2025: 4,
+            2026: 1},
+    "RIC": {2019: 3, 2020: 3, 2021: 3, 2022: 3, 2023: 3, 2024: 3},
+    # Reserve and stand-in drivers run a number of their own before they take a
+    # full-time seat, and the upstream record only ever carries the race number
+    # they ended up with, so their practice and stand-in rulings resolved to
+    # nobody. Also corpus-attested ("Driver 40 - Liam Lawson").
+    "LAW": {2023: 40},
+    "HAD": {2024: 37},
+    "LIN": {2025: 36},
+}
+
+# Numbers a driver also ran in a season without them being the primary entry
+# above — Bearman drove practice for Haas as #38 and stood in for Ferrari as
+# #50 in the same 2024 season, so one number per season cannot express it.
+# These feed the number index only; each is unique to its driver, so a lookup
+# never has to disambiguate them by season.
+ADDITIONAL_NUMBERS: dict[str, list[int]] = {
+    "BEA": [38, 50],
+}
+
 
 # ---------------------------------------------------------------------------
 # Known driver database (2019–2025) — updated from Jolpica-F1 by seed script
@@ -65,7 +107,8 @@ KNOWN_DRIVERS: list[DriverRecord] = [
     {"code": "ALO", "full_name": "Fernando Alonso",       "number": 14, "nationality": "Spanish"},
     {"code": "STR", "full_name": "Lance Stroll",          "number": 18, "nationality": "Canadian"},
     {"code": "GAS", "full_name": "Pierre Gasly",          "number": 10, "nationality": "French"},
-    {"code": "COL", "full_name": "Jack Doohan",           "number": 7,  "nationality": "Australian"},
+    {"code": "DOO", "full_name": "Jack Doohan",           "number": 7,  "nationality": "Australian"},
+    {"code": "COL", "full_name": "Franco Colapinto",      "number": 43, "nationality": "Argentine"},
     {"code": "ALB", "full_name": "Alexander Albon",       "number": 23, "nationality": "Thai"},
     {"code": "SAR", "full_name": "Logan Sargeant",        "number": 2,  "nationality": "American"},
     {"code": "HUL", "full_name": "Nico Hulkenberg",       "number": 27, "nationality": "German"},
@@ -89,6 +132,11 @@ KNOWN_DRIVERS: list[DriverRecord] = [
     {"code": "MAZ", "full_name": "Nikita Mazepin",        "number": 9,  "nationality": "Russian"},
     {"code": "FIT", "full_name": "Pietro Fittipaldi",     "number": 51, "nationality": "Brazilian"},
     {"code": "DEV", "full_name": "Nyck de Vries",         "number": 21, "nationality": "Dutch"},
+    # Test driver — appears in the corpus only through practice rulings
+    # ("Driver 97 - Robert Shwartzman") and so is absent from the seeded set,
+    # which is built from race entry lists. Nationality is left out because the
+    # decisions do not state it and nothing here should be guessed.
+    {"code": "SHW", "full_name": "Robert Shwartzman",     "number": 97},
 ]
 
 
@@ -126,6 +174,8 @@ def _build_indices(records: list[DriverRecord]) -> dict:
         for v in (r.get("numbers") or {}).values():
             if v is not None:
                 nums.add(int(v))
+        for v in (r.get("extra_numbers") or []):
+            nums.add(int(v))
         for num in nums:
             by_number.setdefault(num, []).append(r)
 
@@ -157,6 +207,25 @@ def _get_indices() -> dict:
         for r in cached:
             if r.get("code"):
                 all_records[r["code"]] = r
+        # Curated history wins over the upstream per-season map, which only ever
+        # repeats today's permanent number. Copy before mutating: these records
+        # come straight from the cache file's parsed JSON.
+        for code, per_season in CURATED_NUMBERS_BY_SEASON.items():
+            rec = all_records.get(code)
+            if rec is None:
+                continue
+            rec = dict(rec)
+            numbers = {str(k): v for k, v in (rec.get("numbers") or {}).items()}
+            numbers.update({str(s): n for s, n in per_season.items()})
+            rec["numbers"] = numbers
+            all_records[code] = rec
+        for code, extra in ADDITIONAL_NUMBERS.items():
+            rec = all_records.get(code)
+            if rec is None:
+                continue
+            rec = dict(rec)
+            rec["extra_numbers"] = sorted({*(rec.get("extra_numbers") or []), *extra})
+            all_records[code] = rec
         _indices = _build_indices(list(all_records.values()))
     return _indices
 

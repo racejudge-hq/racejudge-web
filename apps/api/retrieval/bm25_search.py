@@ -46,7 +46,7 @@ async def bm25_search(
         conditions.append("i.infraction_category = :infraction")
         params["infraction"] = infraction
     if driver:
-        conditions.append("i.drivers @> :driver_filter::jsonb")
+        conditions.append("i.drivers @> CAST(:driver_filter AS jsonb)")
         params["driver_filter"] = f'[{{"code":"{driver.upper()}"}}]'
 
     where = " AND ".join(conditions)

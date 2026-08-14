@@ -130,7 +130,7 @@ async def _fetch_incident(incident_id: str) -> dict[str, Any] | None:
                            i.article_cited, d.title, d.published_at, d.season
                     FROM incidents i
                     JOIN decisions d ON i.doc_id = d.doc_id
-                    WHERE i.incident_id = :iid::uuid
+                    WHERE i.incident_id = :iid
                 """),
                 {"iid": incident_id},
             )).fetchone()
@@ -192,7 +192,7 @@ async def _fetch_lenient_precedents(incident: dict[str, Any], limit: int = 4) ->
                     JOIN decisions d ON i.doc_id = d.doc_id
                     WHERE i.penalty_type = ANY(:lenient)
                       AND i.infraction_category = :cat
-                      AND i.incident_id != :iid::uuid
+                      AND i.incident_id != :iid
                     ORDER BY d.season DESC
                     LIMIT :lim
                 """),

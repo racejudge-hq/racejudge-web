@@ -28,10 +28,27 @@ from typing import Any
 # Compiled patterns
 # ---------------------------------------------------------------------------
 
-# Car number: "Car 44", "Car No. 44", "#44"
+# Car number: "Car 44", "Car No. 44", "Car Number 06", "Cars 6 8 11 44", "#44".
+# The plural and the spelled-out "number" both occur in the corpus and were
+# missed by the original singular/"no." form: the technical rulings write "the
+# engine intake air pressure of car number 05 was checked", and the multi-driver
+# summonses are titled "Summons - Drivers of Cars 10 18 23 55". Zero-padding is
+# harmless — int("06") is 6. Only the first car is returned, as before; the
+# multi-car case is handled downstream by the driver resolver.
 _CAR_RE = re.compile(
-    r"(?:car\s*(?:no\.?\s*)?|#)(\d{1,2})\b",
+    r"(?:cars?\s*(?:nos?\.?|numbers?)?\s*|#)(\d{1,2})\b",
     re.IGNORECASE,
+)
+
+# The decision's own header states who is being judged, as "Driver 33 - Max
+# Verstappen", and that is the only unambiguous statement of the subject in the
+# document. Everything else has to be inferred from word order, which goes wrong
+# whenever the title names the other party instead — "Decision - Alleged
+# impeding of Car 20" is a ruling *against* car 1, not car 20. So this is tried
+# before _CAR_RE, and it settles both the number and the name at once.
+_SUBJECT_RE = re.compile(
+    r"Driver\s+(\d{1,2})\s*[-–]\s*"
+    r"([A-Z][A-Za-zÀ-ÿ'’.\-]+(?:\s+[A-Z][A-Za-zÀ-ÿ'’.\-]+){1,3})",
 )
 
 # Driver names — common F1 name endings after "driver" keyword
@@ -209,11 +226,18 @@ def _first_match(pattern: re.Pattern, text: str, group: int = 1) -> str | None:
 
 
 def extract_car_number(text: str) -> int | None:
+    m = _SUBJECT_RE.search(text)
+    if m:
+        return int(m.group(1))
     m = _CAR_RE.search(text)
     return int(m.group(1)) if m else None
 
 
 def extract_driver_name(text: str) -> str | None:
+    m = _SUBJECT_RE.search(text)
+    if m:
+        # Collapse the newline the PDF puts before the next header field.
+        return " ".join(m.group(2).split("\n")[0].split())
     return _first_match(_DRIVER_RE, text)
 
 

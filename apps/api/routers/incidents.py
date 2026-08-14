@@ -366,7 +366,7 @@ async def get_driver_stats(driver_code: str) -> dict:
             LEFT(i.reasoning_text, 300) AS reasoning_snippet
         FROM incidents i
         JOIN decisions d ON i.doc_id = d.doc_id
-        WHERE i.drivers @> :driver_filter::jsonb
+        WHERE i.drivers @> CAST(:driver_filter AS jsonb)
         ORDER BY d.season DESC, d.published_at DESC
         LIMIT 200
     """)
@@ -376,6 +376,13 @@ async def get_driver_stats(driver_code: str) -> dict:
             sql_incidents, {"driver_filter": f'[{{"code":"{code}"}}]'}
         )
         rows = result.mappings().all()
+        # The drivers table is seeded now, so the name no longer has to fall
+        # back to the three-letter code.
+        name_row = await db.execute(
+            text("SELECT full_name FROM drivers WHERE code = :code LIMIT 1"),
+            {"code": code},
+        )
+        full_name = name_row.scalar()
 
     if not rows:
         raise HTTPException(status_code=404, detail=f"No incidents found for driver {code!r}")
@@ -384,7 +391,13 @@ async def get_driver_stats(driver_code: str) -> dict:
 
     # Aggregate stats
     total_pts = sum(r["penalty_points"] or 0 for r in incidents_list)
-    current_year = 2025
+    # Superlicence points are counted over a rolling season, so this has to
+    # follow the calendar rather than sit pinned to the year the endpoint was
+    # written — pinned at 2025 it reported every 2026 driver as being on zero.
+    # Taking the newest season present in the driver's own rows keeps it right
+    # through the winter, when the latest season in the corpus is still the one
+    # that just finished.
+    current_year = max((r["season"] for r in incidents_list if r["season"]), default=None)
     season_pts = sum(
         r["penalty_points"] or 0
         for r in incidents_list
@@ -409,7 +422,7 @@ async def get_driver_stats(driver_code: str) -> dict:
 
     return {
         "code":                   code,
-        "full_name":              code,   # resolver will fill this once driver table is seeded
+        "full_name":              full_name or code,
         "total_incidents":        len(incidents_list),
         "total_penalty_points":   total_pts,
         "current_season_points":  season_pts,

@@ -91,7 +91,7 @@ async def semantic_search(
         conditions.append("i.infraction_category = :infraction")
         params["infraction"] = infraction
     if driver:
-        conditions.append("i.drivers @> :driver_filter::jsonb")
+        conditions.append("i.drivers @> CAST(:driver_filter AS jsonb)")
         params["driver_filter"] = f'[{{"code":"{driver.upper()}"}}]'
 
     where = " AND ".join(conditions)
@@ -102,11 +102,11 @@ async def semantic_search(
     sql = text(f"""
         SELECT
             i.incident_id,
-            1 - (i.embedding <=> :embedding::vector) AS score
+            1 - (i.embedding <=> CAST(:embedding AS vector)) AS score
         FROM incidents i
         LEFT JOIN decisions d ON i.doc_id = d.doc_id
         WHERE {where}
-        ORDER BY i.embedding <=> :embedding::vector
+        ORDER BY i.embedding <=> CAST(:embedding AS vector)
         LIMIT :top_k
     """)
 

@@ -36,6 +36,33 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s %(m
 log = logging.getLogger(__name__)
 
 PARSED_JSONL = ROOT / "data" / "parsed" / "decisions.jsonl"
+RAW_PDF_DIR = ROOT / "data" / "raw_pdfs"
+
+
+def _local_pdf(rec: dict) -> Path | None:
+    """Locate the source PDF for a decision, for the extractor's OCR fallback.
+
+    The extractor only reaches layers 2 and 3 when it is handed a path, and this
+    script never passed one — so a scanned decision had no way to recover, it
+    just landed with empty fields.
+
+    Only text-poor documents get a path. The extractor also escalates when layer
+    1 finds fewer than two fields, but that condition does not mean the text
+    failed to parse: it fires on the 85 administrative documents in the corpus
+    ("RNCs used per driver up to now" and friends), which carry ~1,400 clean
+    characters and simply have no incident to report. Re-reading those through
+    OCR cannot invent fields that were never written, so handing them a path
+    only buys a slow no-op. No decision currently in the corpus has a thin text
+    layer, so this returns None throughout today's data — it is here for the
+    scanned document that eventually turns up.
+    """
+    if not rec.get("needs_ocr") and (rec.get("char_count") or 0) >= 100:
+        return None
+    key = rec.get("r2_key") or ""
+    if not key:
+        return None
+    path = RAW_PDF_DIR / key.replace("pdfs/", "", 1)
+    return path if path.exists() else None
 
 
 def _load_decisions(season: int | None) -> list[dict]:
@@ -119,7 +146,7 @@ async def run_backfill(season: int | None, dry_run: bool, force: bool) -> None:
 
     if dry_run:
         for rec in records:
-            result = extractor.extract(rec)
+            result = extractor.extract(rec, _local_pdf(rec))
             stats["total"] += 1
             if result.penalty_type:
                 stats["inserted"] += 1
@@ -149,7 +176,7 @@ async def run_backfill(season: int | None, dry_run: bool, force: bool) -> None:
                 stats["skipped"] += 1
                 continue
 
-            result = extractor.extract(rec)
+            result = extractor.extract(rec, _local_pdf(rec))
             inc_id = await _insert_incident(db, result)
             if inc_id:
                 stats["inserted"] += 1

@@ -24,9 +24,25 @@ from packages.pipeline.parsers.decision_parser import (
     ("#63 George Russell", 63),
     ("Car no.16 track limits", 16),
     ("no car number here", None),
+    # Verbatim corpus phrasings the singular/"no." form used to miss.
+    ("the engine intake air pressure of car number 05 was checked", 5),
+    ("a completed scrutineering declaration form for car number 88", 88),
+    ("Summons - Drivers of Cars 10 18 23 55", 10),
+    ("Summons - Drivers of Cars 6 8 11 44", 6),
 ])
 def test_extract_car_number(text, expected):
     assert extract_car_number(text) == expected
+
+
+def test_subject_header_beats_a_title_naming_the_other_car():
+    # Verbatim shape of a real ruling: the title names the driver who was
+    # impeded, the header names the driver being judged. The header wins.
+    text = ("Decision - Alleged impeding of Car 20\n"
+            "Driver 1 - Max Verstappen\n"
+            "Competitor Oracle Red Bull Racing\n"
+            "Fact Impeded car 20 at turn 3.")
+    assert extract_car_number(text) == 1
+    assert extract_driver_name(text) == "Max Verstappen"
 
 
 # ---------------------------------------------------------------------------

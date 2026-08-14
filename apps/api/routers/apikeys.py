@@ -246,7 +246,7 @@ async def revoke_key(
                 text("""
                     UPDATE api_keys
                     SET is_active = FALSE, revoked_at = NOW()
-                    WHERE key_id = :kid::uuid AND user_id = :uid AND revoked_at IS NULL
+                    WHERE key_id = CAST(:kid AS uuid) AND user_id = :uid AND revoked_at IS NULL
                     RETURNING key_id::text
                 """),
                 {"kid": key_id, "uid": user_id},

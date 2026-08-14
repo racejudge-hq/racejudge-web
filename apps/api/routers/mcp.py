@@ -281,7 +281,7 @@ async def _tool_get_incident(p: dict[str, Any]) -> dict[str, Any]:
                        d.pdf_url
                 FROM incidents i
                 JOIN decisions d ON i.doc_id = d.doc_id
-                WHERE i.incident_id = :iid::uuid
+                WHERE i.incident_id = :iid
             """),
             {"iid": incident_id},
         )).fetchone()
