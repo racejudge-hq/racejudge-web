@@ -79,6 +79,11 @@ class Decision(Base):
     pdf_url:        Mapped[str]      = mapped_column(Text, nullable=False)
     r2_key:         Mapped[str | None] = mapped_column(Text)
     season:         Mapped[int]      = mapped_column(SmallInteger, nullable=False)
+    # The race weekend this decision was issued at, read from the document's own
+    # header. Season alone cannot attribute a ruling to the panel that made it.
+    event_id:       Mapped[str | None] = mapped_column(
+        Text, ForeignKey("events.event_id", ondelete="SET NULL"), index=True
+    )
     published_at:   Mapped[str | None] = mapped_column(Text)
     raw_text:       Mapped[str]      = mapped_column(Text, nullable=False, default="")
     char_count:     Mapped[int]      = mapped_column(Integer, nullable=False, default=0)
@@ -144,7 +149,9 @@ class Incident(Base):
         # all and stored NULL. The regex arm admits any "Ns" time penalty — the
         # FIA issues 15s/20s/30s as well as 5s/10s. Widened in migration 0010.
         CheckConstraint(
-            "penalty_type IN ('NFA','REP','WARN','FINE','SG','DT','GRID','DSQ')"
+            # PIT = required to start from the pit lane, the standard sanction
+            # for a parc fermé breach or an out-of-allocation power unit.
+            "penalty_type IN ('NFA','REP','WARN','FINE','SG','DT','GRID','DSQ','PIT')"
             " OR penalty_type ~ '^[0-9]{1,2}s$'",
             name="ck_incidents_penalty_type",
         ),

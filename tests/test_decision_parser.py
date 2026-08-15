@@ -6,6 +6,8 @@ from packages.pipeline.parsers.decision_parser import (
     batch_extract,
     extract_car_number,
     extract_driver_name,
+    extract_event_header,
+    extract_grid_positions,
     extract_incident,
     extract_infraction_type,
     extract_involved_cars,
@@ -562,3 +564,133 @@ def test_suspension_is_read_even_without_a_decision_heading():
         "e. €350,000 of the fine is suspended until December 31 2026.\n"
     )
     assert extract_suspension(text) == "partial"
+
+
+# ── Event header ─────────────────────────────────────────────────────────────
+
+def test_event_header_reads_name_and_dates() -> None:
+    text = (
+        "2024 AUSTRIAN GRAND PRIX\n"
+        "28 - 30 June 2024\n"
+        "From The Stewards Document 71\n"
+    )
+    assert extract_event_header(text) == {
+        "season": 2024,
+        "event_name": "AUSTRIAN GRAND PRIX",
+        "start_date": "2024-06-28",
+        "end_date": "2024-06-30",
+    }
+
+
+def test_event_header_handles_a_weekend_crossing_two_months() -> None:
+    text = "2019 ABU DHABI GRAND PRIX\n28 November - 1 December 2019\nFrom The Stewards\n"
+    h = extract_event_header(text)
+    assert h["start_date"] == "2019-11-28"
+    assert h["end_date"] == "2019-12-01"
+
+
+def test_event_header_reassembles_drop_capped_titles() -> None:
+    # Some PDFs render each word's initial as a separate drop cap, so the text
+    # layer emits the capitals on one line and the remainders on the next.
+    text = "2024 U S G P\nNITED TATES RAND RIX\n18 – 20 October 2024\nFrom The Stewards\n"
+    h = extract_event_header(text)
+    assert h["event_name"] == "UNITED STATES GRAND PRIX"
+    assert h["season"] == 2024
+
+
+def test_event_header_accepts_the_one_event_printed_without_a_year() -> None:
+    # The 2020 70th Anniversary GP carries no year above its dates.
+    text = "70TH ANNIVERSARY GRAND PRIX\n6 – 9 August 2020\nFrom The FIA Technical Delegate\n"
+    h = extract_event_header(text)
+    assert h == {
+        "season": 2020,
+        "event_name": "70TH ANNIVERSARY GRAND PRIX",
+        "start_date": "2020-08-06",
+        "end_date": "2020-08-09",
+    }
+
+
+def test_event_header_survives_a_missing_date_line() -> None:
+    h = extract_event_header("2023 SINGAPORE GRAND PRIX\nFrom The Stewards Document 12\n")
+    assert h["event_name"] == "SINGAPORE GRAND PRIX"
+    assert h["start_date"] is None and h["end_date"] is None
+
+
+def test_event_header_ignores_a_race_named_in_the_body() -> None:
+    # A right-of-review decision discusses an earlier round; only the header
+    # states which weekend the document itself belongs to.
+    text = (
+        "2024 QATAR GRAND PRIX\n29 November - 1 December 2024\nFrom The Stewards\n"
+        + "x" * 500
+        + "\n2024 AUSTRIAN GRAND PRIX\n"
+    )
+    assert extract_event_header(text)["event_name"] == "QATAR GRAND PRIX"
+
+
+def test_event_header_returns_none_when_there_is_no_header() -> None:
+    assert extract_event_header("Competitors are reminded of Article 15.") is None
+
+
+# ── Grid penalties and the pit lane start ────────────────────────────────────
+
+@pytest.mark.parametrize("decision,expected", [
+    ("Decision Drop of 5 grid positions for the next Race.", 5),
+    ("Decision Drop of 10 grid positions for the next Race.", 10),
+    ("Decision 5 grid place penalty for the Race.", 5),
+    ("Decision 10 place grid penalty for the Race.", 10),
+    ("Decision Drop of 1 grid position for the next Race.", 1),
+    # The FIA spells the number out at least as often as it prints a digit.
+    ("Decision A drop of three grid positions for the next race.", 3),
+    ("Decision We impose a one position grid penalty.", 1),
+    ("Decision 10 second time penalty.", None),
+])
+def test_extract_grid_positions(decision, expected):
+    assert extract_grid_positions(decision + "\nReason The car was impeded.") == expected
+
+
+def test_grid_size_is_not_read_from_a_penalty_the_stewards_declined():
+    # The Reason routinely names the standard penalty in order to depart from
+    # it. Reading the whole document records the number they did NOT impose.
+    text = (
+        "Decision Warning.\n"
+        "Reason The standard penalty for impeding during Qualifying in the "
+        "Penalty Guidelines is a 3 grid position penalty, however in mitigation "
+        "the Stewards issue a warning instead.\n"
+    )
+    assert extract_grid_positions(text) is None
+    assert extract_outcome(text) == "warning"
+
+
+def test_a_starting_grid_position_in_the_narrative_is_not_a_penalty():
+    text = (
+        "Decision No further action.\n"
+        "Reason Car 27 was slower than expected, starting from its grid "
+        "position for what would be a third formation lap.\n"
+    )
+    assert extract_grid_positions(text) is None
+
+
+def test_a_pit_lane_start_is_its_own_penalty():
+    text = (
+        "Fact Changes were made to the car during parc ferme.\n"
+        "Decision Required to start the Race from the pit lane.\n"
+        "Reason This replaces the grid penalty that would otherwise apply.\n"
+    )
+    assert extract_outcome(text) == "pit lane start"
+    # ...and must not be read as the grid penalty its Reason mentions.
+    assert extract_grid_positions(text) is None
+
+
+def test_outcome_comes_from_the_decision_not_the_reason():
+    # A failure-to-serve whose Decision is a time penalty, whose Reason weighs
+    # and rejects disqualification. The Reason used to win.
+    text = (
+        "Decision 10 second time penalty.\n"
+        "Reason The Stewards considered disqualification but determined that a "
+        "time penalty was the appropriate sanction.\n"
+    )
+    assert extract_outcome(text) == "10s time penalty"
+
+
+def test_outcome_falls_back_to_the_whole_document_without_a_decision_heading():
+    assert extract_outcome("The Stewards impose a reprimand on the driver.") == "reprimand"

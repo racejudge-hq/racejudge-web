@@ -167,6 +167,9 @@ _PENALTY_TYPE_MAP: dict[str, str] = {
     # a penalty_type, so those rulings stored NULL despite a clear decision.
     "warning":              "WARN",
     "fine":                 "FINE",
+    # A pit lane start is its own penalty, not a grid drop. It is the standard
+    # sanction for a parc fermé breach or an out-of-allocation power unit.
+    "pit lane start":       "PIT",
 }
 
 # Time penalties are resolved numerically, before the substring map. The map
@@ -287,6 +290,7 @@ class IncidentExtractor:
         from packages.pipeline.parsers.decision_parser import (
             extract_car_number,
             extract_driver_name,
+            extract_grid_positions,
             extract_infraction_type,
             extract_involved_cars,
             extract_lap_number,
@@ -326,6 +330,7 @@ class IncidentExtractor:
             "outcome":         extract_outcome(combined),
             # Read from the body: the Decision section states it, titles never do.
             "suspended":       extract_suspension(cleaned),
+            "grid_positions":  extract_grid_positions(cleaned),
             "penalty_points":  extract_penalty_points(combined) or 0,
             "lap_number":      extract_lap_number(cleaned),
             "session_type":    extract_session_type(combined),
@@ -342,6 +347,7 @@ class IncidentExtractor:
         from packages.pipeline.parsers.decision_parser import (
             extract_car_number,
             extract_driver_name,
+            extract_grid_positions,
             extract_infraction_type,
             extract_involved_cars,
             extract_lap_number,
@@ -375,6 +381,7 @@ class IncidentExtractor:
             "infraction_type": extract_infraction_type(cleaned),
             "outcome":         extract_outcome(cleaned),
             "suspended":       extract_suspension(cleaned),
+            "grid_positions":  extract_grid_positions(cleaned),
             "penalty_points":  extract_penalty_points(cleaned) or 0,
             "lap_number":      extract_lap_number(cleaned),
             "session_type":    extract_session_type(cleaned),
@@ -504,6 +511,7 @@ class IncidentExtractor:
             penalty_seconds     = _parse_penalty_seconds(best.get("outcome")),
             penalty_points      = best.get("penalty_points") or 0,
             penalty_suspended   = best.get("suspended"),
+            grid_positions      = best.get("grid_positions"),
             lap_number          = best.get("lap_number"),
             session_type        = best.get("session_type"),
             corner              = best.get("corner"),

@@ -153,6 +153,57 @@ _SUSPENDED_LICENCE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# ── Event header ────────────────────────────────────────────────────────────
+# Every decision opens with the event it belongs to and the dates it ran:
+#
+#     2024 AUSTRIAN GRAND PRIX
+#     28 - 30 June 2024
+#
+# This is the document's own statement of which race weekend it came from —
+# the only reliable way to attach a ruling to an event, since the filename
+# carries only the season.
+_EVENT_NAME_RE = re.compile(
+    r"^[ \t]*(20\d\d)[ \t]+([A-Z][A-Z0-9'’À-Ž .\-]*?(?:GRAND[ \t]+PRIX|TESTING|TEST))[ \t]*$",
+    re.MULTILINE,
+)
+
+# The 2020 70th Anniversary Grand Prix is printed with no year in front of it,
+# being the only event of its name. The season then comes from the date line.
+_EVENT_NAME_NO_YEAR_RE = re.compile(
+    r"^[ \t]*([A-Z0-9][A-Z0-9'’À-Ž .\-]*?(?:GRAND[ \t]+PRIX|TESTING|TEST))[ \t]*$",
+    re.MULTILINE,
+)
+
+# Some PDFs render the first letter of each word as a separate drop cap, which
+# the text layer emits as two lines: "2024 U S G P" then "NITED TATES RAND RIX".
+# Re-joining them letter to remainder recovers "UNITED STATES GRAND PRIX".
+_DROPCAP_RE = re.compile(
+    r"^[ \t]*(20\d\d)[ \t]+((?:[A-Z][ \t]+){1,5}[A-Z])[ \t]*\n[ \t]*([A-Z][A-Z'’À-Ž ]*)[ \t]*$",
+    re.MULTILINE,
+)
+
+# "28 - 30 June 2024", "28 November - 1 December 2019", "6 – 9 August 2020".
+# The month is stated once when the weekend does not cross a month boundary.
+_EVENT_DATE_RE = re.compile(
+    r"^[ \t]*(\d{1,2})(?:[ \t]+([A-Z][a-z]+))?[ \t]*[-–—][ \t]*"
+    r"(\d{1,2})[ \t]+([A-Z][a-z]+)[ \t]+(20\d\d)[ \t]*$",
+    re.MULTILINE,
+)
+
+_MONTHS = {
+    m: i
+    for i, m in enumerate(
+        ["january", "february", "march", "april", "may", "june", "july",
+         "august", "september", "october", "november", "december"],
+        start=1,
+    )
+}
+
+# Only the first part of a document can carry the header; searching further
+# risks matching an event named in the body of a right-of-review decision.
+_HEADER_WINDOW = 400
+
+
 # Driver names — common F1 name endings after "driver" keyword
 _DRIVER_RE = re.compile(
     r"(?:driver|competitor)\s+([A-Z][a-z]+(?: [A-Z][a-z]+)+)",
@@ -174,9 +225,55 @@ _PEN_POINTS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# ── Grid penalties ──────────────────────────────────────────────────────────
+# A grid drop is the one penalty whose severity lives entirely in a number:
+# a one-place drop and a ten-place drop are wholly different precedents, and
+# "GRID" alone cannot tell them apart.
+#
+# The FIA writes the same ruling four ways, and spells the number out as often
+# as it prints a digit:
+#     "Drop of 5 grid positions for the next Race"
+#     "a drop of three grid positions"
+#     "5 grid place penalty for the Race"
+#     "10 place grid penalty"
+_GRID_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "fifteen": 15, "twenty": 20,
+}
+_GRID_NUM = r"(\d{1,2}|" + "|".join(_GRID_WORDS) + r")"
+_GRID_POSITIONS_RE = re.compile(
+    r"(?:"
+    rf"drops?\s+of\s+{_GRID_NUM}\s+(?:grid\s+)?(?:position|place)"
+    rf"|{_GRID_NUM}\s+(?:grid\s+)?(?:position|place)s?\s+(?:grid\s+)?(?:penalty|drop)"
+    rf"|{_GRID_NUM}\s+grid\s+(?:position|place)s?"
+    r")",
+    re.IGNORECASE,
+)
+
+# Any wording that means "the grid penalty is the ruling", used for classifying
+# the penalty type rather than reading its size.
+_GRID_PENALTY_RE = re.compile(
+    r"(?:"
+    r"drops?\s+of\s+(?:\d{1,2}|" + "|".join(_GRID_WORDS) + r")\s+(?:grid\s+)?(?:position|place)"
+    r"|grid\s+(?:position|place)\s+penalty"
+    r"|(?:position|place)\s+grid\s+penalty"
+    r"|grid\s+penalty"
+    r")",
+    re.IGNORECASE,
+)
+
 # Outcome detection: ordered by specificity
 _OUTCOME_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"disqualif", re.IGNORECASE),               "disqualification"),
+    # A pit lane start is the standard penalty for a parc fermé breach or a
+    # power-unit change, and is a penalty in its own right — not a grid drop
+    # and not a drive-through. 81 rulings impose one; before this pattern
+    # existed 71 of them were stored with no penalty type at all.
+    (re.compile(r"(?:required|permitted)\s+to\s+start\s+(?:the\s+\w+\s+)?"
+                r"from\s+the\s+pit\s+lane"
+                r"|start\s+the\s+race\s+from\s+the\s+pit\s+lane", re.IGNORECASE),
+                                                            "pit lane start"),
     # Must precede the generic "N second ... penalty" rules: the FIA writes
     # "10 Second Stop-and-Go penalty", where the words between the number and
     # "penalty" made every stop-go ruling fall through to no outcome at all.
@@ -185,7 +282,10 @@ _OUTCOME_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"pit\s*lane\s*(?:through|drive)", re.IGNORECASE), "pit lane penalty"),
     (re.compile(r"(\d+)\s*second[s]?\s*time\s*penalty", re.IGNORECASE), "{n}s time penalty"),
     (re.compile(r"(\d+)\s*second[s]?\s*penalty", re.IGNORECASE),        "{n}s time penalty"),
-    (re.compile(r"grid\s+(?:position\s+)?penalty", re.IGNORECASE),      "grid penalty"),
+    # "Drop of 5 grid positions" is how most grid penalties are actually
+    # worded; matching only the literal phrase "grid penalty" left the majority
+    # of them classified as nothing at all.
+    (_GRID_PENALTY_RE,                                      "grid penalty"),
     (re.compile(r"reprimand", re.IGNORECASE),               "reprimand"),
     (re.compile(r"no\s+further\s+action", re.IGNORECASE),  "no further action"),
     (re.compile(r"warning", re.IGNORECASE),                 "warning"),
@@ -428,6 +528,64 @@ def extract_suspension(text: str) -> str | None:
     return "partial" if _SUSPENDED_PARTIAL_RE.search(scope) else "full"
 
 
+def extract_event_header(text: str) -> dict[str, Any] | None:
+    """The race weekend a decision belongs to, as the document states it.
+
+    Returns {"season", "event_name", "start_date", "end_date"} or None. Dates
+    are ISO strings and may be absent even when the name is found.
+
+    Needed because a decision's season is all that reaches the database
+    otherwise, which is far too coarse to attribute a ruling to the panel that
+    issued it — a season has two dozen panels.
+    """
+    head = text[:_HEADER_WINDOW]
+    dm = _EVENT_DATE_RE.search(head)
+
+    name: str | None = None
+    season: int | None = None
+    m = _EVENT_NAME_RE.search(head)
+    if m:
+        season, name = int(m.group(1)), _collapse_spaces(m.group(2))
+    else:
+        d = _DROPCAP_RE.search(head)
+        if d:
+            season = int(d.group(1))
+            caps, rest = d.group(2).split(), d.group(3).split()
+            if len(caps) == len(rest):
+                name = " ".join(c + r for c, r in zip(caps, rest, strict=True))
+        elif dm:
+            n = _EVENT_NAME_NO_YEAR_RE.search(head)
+            if n:
+                season, name = int(dm.group(5)), _collapse_spaces(n.group(1))
+    if not name or season is None:
+        return None
+
+    out: dict[str, Any] = {
+        "season": season,
+        "event_name": name,
+        "start_date": None,
+        "end_date": None,
+    }
+
+    if dm:
+        d1, m1, d2, m2, year = dm.groups()
+        end_month = _MONTHS.get(m2.lower())
+        # The start month is only printed when the weekend crosses one.
+        start_month = _MONTHS.get((m1 or m2).lower())
+        if start_month and end_month:
+            y = int(year)
+            # A weekend running December into January belongs to the earlier year.
+            start_year = y - 1 if start_month > end_month else y
+            out["start_date"] = f"{start_year:04d}-{start_month:02d}-{int(d1):02d}"
+            out["end_date"] = f"{y:04d}-{end_month:02d}-{int(d2):02d}"
+
+    return out
+
+
+def _collapse_spaces(s: str) -> str:
+    return " ".join(s.split())
+
+
 def extract_session_type(text: str) -> str | None:
     m = _SESSION_RE.search(text)
     return m.group(1).lower() if m else None
@@ -448,9 +606,45 @@ def extract_penalty_points(text: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def extract_grid_positions(text: str) -> int | None:
+    """How many places a grid penalty drops the driver.
+
+    Read from the Decision section only. The Reason routinely names grid
+    penalties that were *not* imposed — "the usual penalty for this is a 3 grid
+    position penalty, however in mitigation…" — and reading the whole document
+    would record the number the stewards declined to apply. "Starting grid
+    position" in the narrative is a third, unrelated use of the same words.
+    """
+    m = _DECISION_RE.search(text)
+    scope = m.group(1) if m and m.group(1).strip() else text
+
+    g = _GRID_POSITIONS_RE.search(scope)
+    if not g:
+        return None
+    raw = next(v for v in g.groups() if v)
+    n = _GRID_WORDS.get(raw.lower()) if not raw.isdigit() else int(raw)
+    # Article 28.3 accumulations reach 20; anything larger is a misread.
+    return n if n is not None and 1 <= n <= 20 else None
+
+
 def extract_outcome(text: str) -> str | None:
+    """The penalty the stewards actually imposed.
+
+    Read from the Decision section, because the Reason argues about penalties
+    that were *not* imposed and used to win. Three examples from the corpus,
+    all previously stored wrong: a parc fermé breach whose Decision reads
+    "Required to start the Race from the pit lane" was recorded as a grid
+    penalty, because its Reason explains the grid penalty it replaced; a
+    failure-to-serve whose Decision reads "10 second time penalty" was recorded
+    as a disqualification, that being the outcome the Reason weighed and
+    rejected; and a weighing breach whose Decision reads "Warning." was
+    likewise recorded as a disqualification. Scoping corrects 46 rulings.
+    """
+    m = _DECISION_RE.search(text)
+    scope = m.group(1) if m and m.group(1).strip() else text
+
     for pattern, label in _OUTCOME_PATTERNS:
-        m = pattern.search(text)
+        m = pattern.search(scope)
         if m:
             if "{n}" in label:
                 # Extract the number
