@@ -1,12 +1,25 @@
-# RACEJUDGE — Final Completion Report v14
+# RACEJUDGE — Final Completion Report v15
 
-> **Updated: 15 August 2026**
-> Tests: 367 passing | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
+> **Updated: 16 August 2026**
+> Tests: 395 passing | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
 > **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **32,120 precedent links materialised (v10).**
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
 > ✅ **v10's biggest open defect is closed:** classified incidents went **357 → 1,181 (22.2% → 73.5%)** across 24 categories. Nothing was deleted. Section 2C.
 > ✅ **v12: the `/consistency` 500 is fixed at its real cause** (route-declaration order, not Vercel — v11 misdiagnosed it) and the 4 conflicting rows are adjudicated and corrected. Section 10 row 1e.
+
+## What changed in v15 (16 August 2026)
+
+Three defects, all found by pulling on the one judgement call v14 left open.
+
+- **A suspended penalty is no longer indistinguishable from a served one.** `penalty_type` records what the stewards imposed and says nothing about whether it was enforced. Hulkenberg's 2026 Canadian GP stop-and-go (document 99) was suspended for the rest of the season and never served, yet was stored as a bare `SG` — identical to a driver who served one. Migration **`0012`** adds `penalty_suspended`.
+- **It is three-state, not a boolean, because the corpus is.** **22 decisions carry a suspended penalty** — not the 2 an earlier scan suggested. Only **6** are suspended in full; the other **16** are part-fines ("fined €50,000, €25,000 of which is suspended"), where half the penalty really was paid. A boolean would have to assert one of those two things about both, so the column is `'full'`, `'partial'`, or NULL.
+- **Read from the Decision section only.** The surrounding prose uses the same word for unrelated things — a red-flagged *"session, which was suspended"*, and a 2020 protest arguing at length whether DAS is a *"suspension system"*. Both sit in the Reason section and both would otherwise have registered as suspended penalties. A Super Licence suspension is excluded by name: that is a race ban, where the suspension *is* the penalty rather than a reprieve from one. Validated against **all 26 documents in the corpus containing the word, each verdict checked by hand against the verbatim ruling: 26/26**.
+- **43 documents were filed under the wrong season.** The whole 2026 Canadian GP was stored as 2025. The FIA lists a new year's opening events on the outgoing year's filter page, and the scraper stamped each document with the season of the page it was found on rather than the one the document states. Confirmed by two independent signals — the year in the FIA's own filename and the year printed on the document. The scraper now reads the year off the document; the 43 rows and `data/parsed/decisions.jsonl` are both corrected. **Driver resolution was unaffected** — re-resolving every subject and counterparty against the corrected season changes nothing, because the subject header states name and number together — but the rows were in the wrong bucket for every season-scoped variance endpoint.
+- **BM25 search was returning nothing on every query.** The full-text conditions matched against `query`, the name of the CTE, rather than `query.q`, its column; Postgres read the bare name as a whole-row record and rejected `tsvector @@ record`. A surrounding `try/except` logged it and returned an empty list, so it never surfaced: **hybrid search has been running on vector similarity alone**, with the keyword half contributing nothing to the reciprocal-rank fusion. "collision turn 1" now returns 5 ranked hits where it returned 0.
+- **Tests: 367 → 395.**
+
+---
 
 ## What changed in v14 (15 August 2026)
 
@@ -46,7 +59,7 @@ Your two calls, both done and pushed (`cd85c28`, `91cc877`). Neither turned out 
 - **The live API is serving a stale build**, so the consistency fix cannot yet be verified in production. `racejudge-api.vercel.app/openapi.json` has no `/v1/push/*` routes — added in `1e009ed` — so the deployment predates today's push and does not rebuild on push to `main`. That old build also 500s on `/v1/incidents/{id}` for *every* id, including well-formed UUIDs that return 200/404 correctly against current code. Verified locally instead: **200, 108 rows, all summing to 100%.** Live re-check happens at the Fly deploy, as you asked.
 - **Tests: 309 → 323.** Includes the app-wide route-shadowing guard and regression tests written from verbatim corpus text for all three pattern bugs.
 - **Sections 1 and 2 re-audited end to end (new Section 2D).** Every checkable claim re-executed rather than re-read: Alembic head `0010`, 0 ORM drift across 158 columns, 32,120 precedent links, 1,606/1,606 embedded, both security-audit halves clean, every cited file present. **Nothing is left undone that is not card-gated.** Four stale/wrong claims corrected — including "categories 11 → 24", which is actually **10 → 24** (the pre-fix snapshot has 10 categories summing to exactly 357), and a Section 1A block still presenting the completed IP India search as open work.
-- ⚠️ **One judgement call for you — `7caff04e`.** Recorded as `SG`, but the decision reads *"A mandatory Stop-and-Go penalty… This penalty is **suspended**… In addition the driver is Reprimanded."* Both penalties are real and the stop-go was suspended, so the reprimand is arguably the only sanction served. A single `penalty_type` column cannot express both. Say the word and it becomes `REP`.
+- ~~⚠️ **One judgement call for you — `7caff04e`.**~~ **Closed in v15.** The row keeps `penalty_type = 'SG'` — what the stewards imposed — and now also carries `penalty_suspended = 'full'`, recording that it was never served. Both facts are preserved rather than one being chosen over the other. 21 further suspended rulings were found and populated in the same pass. See "What changed in v15".
 
 ---
 
@@ -196,7 +209,7 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 | Dockerfile (non-root `racejudge` uid 1001) | ✅ | `Dockerfile` — statically validated (v10): `requirements-api.txt` present, `.dockerignore` excludes `.env`/`.venv`/`node_modules`. Its dep set is a **superset** of `pyproject.toml`, which the live Vercel API already boots on, so the import surface is proven. Image build itself unverified (no Docker daemon locally; Fly is 💳) |
 | `.dockerignore` / `.vercelignore` | ✅ | Keep secrets + data out of build/bundle |
 | Vercel Python runtime entrypoint | ✅ | `pyproject.toml [tool.vercel] entrypoint = "apps.api.main:app"` |
-| Migrations 0001–0010 | ✅ | `packages/db/migrations/versions/` — **`0009` added in v10** (`steward_panels.created_at`, see 2B), **`0010` in v11** (widen `ck_incidents_penalty_type` for WARN/FINE/SG + `Ns`, see 2C). Neon confirmed at head `0010`; all ten applied |
+| Migrations 0001–0012 | ✅ | `packages/db/migrations/versions/` — **`0009` added in v10** (`steward_panels.created_at`, see 2B), **`0010` in v11** (widen `ck_incidents_penalty_type` for WARN/FINE/SG + `Ns`, see 2C). **`0011` in v14** (`incidents.involved_drivers` + GIN index), **`0012` in v15** (`incidents.penalty_suspended` + check constraint + partial index). Neon confirmed at head `0012`; all twelve applied |
 | SQLAlchemy ORM models (incl. `StewardPanel`) | ✅ | `packages/db/models.py` — **all 158 columns diffed against live Neon (v10); 3 classes of drift found and fixed, now 0 mismatches** |
 | Prefect deployment manifest | ⚠️ | **`prefect.yaml` written in v10** — the 3 flows were code-only and had never been registered (see 2B). Applying it needs a worker host → 💳 Fly |
 | Async engine + URL normaliser (asyncpg) | ✅ | `packages/db/database.py` — strips libpq `sslmode`/`channel_binding` |
@@ -346,9 +359,9 @@ The v11 list did not survive contact with the documents. `07d03f4f` (`race_direc
 | `b5e74ba9…` | `infraction_category` | `erratic_driving` → `impeding` | Title: *"Doc 44 - Infringement - Car 81 - Impeding of Car 27"* |
 | `31fe2c5a…` `3a24d269…` `6b2250f2…` `872ecd88…` `f0f0cb72…` | `infraction_category` | `race_director_instructions` → `practice_start` | Facts read *"performed a practice start outside the designated practice start area"*, *"undertook a practice start at pit exit"*, *"Completed a practice start before taking the end of session signal"*. "Failure to follow Race Director's Instructions" is only the article cited (12.2.1 i) — the catch-all — so the specific offence is the better classification |
 | `2b65e212…` `4048aa67…` `d0a9d047…` | `infraction_category` | `driver_obligation` → `safety_car` | Fact: *"Near collision behind the safety car"*, Article 55.5 |
-| `7caff04e…` | `penalty_type` | `REP` → `SG` | See the judgement call below |
+| `7caff04e…` | `penalty_type` | `REP` → `SG` | Resolved in v15 — kept as `SG`, with `penalty_suspended = 'full'` alongside it |
 
-⚠️ **`7caff04e` is a judgement call you may want to revisit.** The Decision reads: *"A mandatory Stop-and-Go penalty imposed after the Race. This penalty is suspended… In addition the driver is Reprimanded."* **Both penalties are real, and the stop-and-go is suspended** — so the reprimand is arguably the only sanction actually served. `SG` was written because it is the headline penalty, but a single `penalty_type` column cannot express "suspended SG + reprimand". If the precedent engine should reflect what was *served*, this row should read `REP`.
+✅ **`7caff04e` was a judgement call, and it is now resolved (v15).** The Decision reads: *"A mandatory Stop-and-Go penalty imposed after the Race. This penalty is suspended… In addition the driver is Reprimanded."* Rather than choose between what was *imposed* and what was *served*, the row now records both: `penalty_type = 'SG'` with `penalty_suspended = 'full'`. Migration `0012` added the column; 22 rulings across the corpus carry a suspension.
 
 #### Three pattern bugs found while adjudicating
 
@@ -436,6 +449,7 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 | `drivers[]` | 1,149 (71.5%) | Was 997 before v13. **100% agreement with every decision that states its own subject.** v14: 2 rows now hold 4 drivers each (joint summonses). |
 | `involved_drivers` | 297 (18.5%) | **New in v14.** The other cars in the incident — 308 references, 307 resolved to a named driver. Empty by design for the ~80% of rulings that concern one car only. |
 | `penalty_type` | 935 (58.2%) | Tracks the classified set; administrative documents carry no penalty. |
+| `penalty_suspended` | 22 (1.4%) | **New in v15.** 6 `full`, 16 `partial`. NULL means the penalty was served in the ordinary way, which is the overwhelming majority. |
 | `session_key` | 651 (40.5%) | **Not an extractor gap.** OpenF1 has no data before 2023, so 2019–22 is structurally 0/377. Within 2023+ it is 651/1,229 (53%) — that part is improvable. |
 | `corner` | 429 (26.7%) | **Source reality.** Of 400 sampled rows with no corner, **0** name a turn anywhere in the text. |
 | `contact` | 460 (28.6%) | Inferred from infraction type; only meaningful for collision-type rulings. |
@@ -446,11 +460,12 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 
 **What this says.** The fields the FIA actually writes down are extracted at 97–100%. The weak numbers are almost entirely documents that do not contain the fact, which is worth stating plainly because "7.5% lap coverage" reads like a broken extractor and is not one.
 
-**Three things worth revisiting** (none blocking, all recorded in Section 10):
+**Four things worth revisiting** (none blocking, all recorded in Section 10):
 
 1. **`reasoning_text` truncation.** 289 rows are cut at exactly 2,000 characters, mid-sentence, and that text is what the embeddings and the precedent search read. The longest reasoning belongs to the most-argued cases — precisely the precedents that matter most. Raising the cap means re-embedding 1,606 rows.
 2. **The three dead columns.** `grid_positions`, `position_change` and `video_refs` are schema that no code path fills. Either populate them or drop them; leaving them invites a future query to trust an always-empty field.
 3. ~~**One driver per incident.**~~ **Closed in v14.** `drivers[]` now holds every driver a ruling is issued against (the two joint summonses in the corpus carry all four each), and the other cars in an incident are recorded separately in `involved_drivers` — 297 rows, 308 references. See "What changed in v14".
+4. **The `events` table is empty — 0 rows.** `/v1/incidents/variance/by-panel` joins incidents to events to attribute rulings to the steward panel that made them, so it returns `{"chairs": []}` on every call. The endpoint is correct; it has no data to read. Found in v15 while tracing what the season correction affected. Populating it needs a source for per-event steward panels, which the decision PDFs do carry in their signature block.
 
 ---
 
@@ -473,7 +488,7 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 | Item | Status | File |
 |---|---|---|
 | `semantic_search.py` (pgvector HNSW) | ✅ | |
-| `bm25_search.py` (tsvector) | ✅ | |
+| `bm25_search.py` (tsvector) | ✅ | **Was returning 0 hits on every query until v15** — the full-text conditions matched `query` (the CTE name) instead of `query.q` (its column), so Postgres rejected `tsvector @@ record` and a surrounding `try/except` swallowed it. Hybrid search had been running on vector similarity alone. Fixed and verified against the live corpus. |
 | `rrf.py` (Reciprocal Rank Fusion, k=60) | ✅ | |
 | `precedents.py` router | ✅ | `POST /v1/precedents/search` (live, responds 200) |
 | `embedder.py` / `modal_embed.py` / `train_embedder.py` | ✅ | BGE-M3 batch + fine-tune |
@@ -602,8 +617,8 @@ Almost everything v4 listed here is now done. What genuinely remains:
 
 | Season | Records | Status |
 |---|---|---|
-| 2026 | 135 | ✅ |
-| 2025 | 429 | ✅ |
+| 2026 | 178 | ✅ |
+| 2025 | 386 | ✅ |
 | 2024 | 367 | ✅ |
 | 2023 | 298 | ✅ |
 | 2022 | 125 | ✅ |
