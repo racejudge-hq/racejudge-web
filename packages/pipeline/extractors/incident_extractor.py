@@ -35,6 +35,10 @@ class ExtractionResult:
     penalty_type:        str | None = None  # NFA/REP/5s/10s/DT/GRID/DSQ
     penalty_seconds:     int | None = None
     penalty_points:      int = 0
+    # "full" / "partial" / None — a penalty imposed but not enforced unless the
+    # party reoffends. Kept apart from penalty_type, which records what was
+    # imposed; this records whether any of it was actually served.
+    penalty_suspended:   str | None = None
     grid_positions:      int | None = None
     lap_number:          int | None = None
     session_type:        str | None = None
@@ -62,6 +66,7 @@ class ExtractionResult:
             "penalty_type":        self.penalty_type,
             "penalty_seconds":     self.penalty_seconds,
             "penalty_points":      self.penalty_points,
+            "penalty_suspended":   self.penalty_suspended,
             "grid_positions":      self.grid_positions,
             "lap_number":          self.lap_number,
             "session_type":        self.session_type,
@@ -289,6 +294,7 @@ class IncidentExtractor:
             extract_penalty_points,
             extract_session_type,
             extract_subjects,
+            extract_suspension,
             extract_turn_number,
         )
         from packages.pipeline.parsers.text_cleaner import (
@@ -318,6 +324,8 @@ class IncidentExtractor:
             "involved_cars":   extract_involved_cars(cleaned, _subject_numbers(cleaned, car_number)),
             "infraction_type": extract_infraction_type(combined),
             "outcome":         extract_outcome(combined),
+            # Read from the body: the Decision section states it, titles never do.
+            "suspended":       extract_suspension(cleaned),
             "penalty_points":  extract_penalty_points(combined) or 0,
             "lap_number":      extract_lap_number(cleaned),
             "session_type":    extract_session_type(combined),
@@ -341,6 +349,7 @@ class IncidentExtractor:
             extract_penalty_points,
             extract_session_type,
             extract_subjects,
+            extract_suspension,
             extract_turn_number,
         )
         from packages.pipeline.parsers.tesseract_fallback import ocr_pdf
@@ -365,6 +374,7 @@ class IncidentExtractor:
             "involved_cars":   extract_involved_cars(cleaned, _subject_numbers(cleaned, car_number)),
             "infraction_type": extract_infraction_type(cleaned),
             "outcome":         extract_outcome(cleaned),
+            "suspended":       extract_suspension(cleaned),
             "penalty_points":  extract_penalty_points(cleaned) or 0,
             "lap_number":      extract_lap_number(cleaned),
             "session_type":    extract_session_type(cleaned),
@@ -493,6 +503,7 @@ class IncidentExtractor:
             penalty_type        = _normalise_penalty_type(best.get("outcome")),
             penalty_seconds     = _parse_penalty_seconds(best.get("outcome")),
             penalty_points      = best.get("penalty_points") or 0,
+            penalty_suspended   = best.get("suspended"),
             lap_number          = best.get("lap_number"),
             session_type        = best.get("session_type"),
             corner              = best.get("corner"),

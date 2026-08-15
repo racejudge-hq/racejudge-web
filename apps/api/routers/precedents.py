@@ -57,6 +57,7 @@ class PrecedentResult(BaseModel):
     involved_drivers: list[dict] = []
     infraction_category: str | None = None
     penalty_type: str | None = None
+    penalty_suspended: str | None = None
     penalty_seconds: int | None = None
     penalty_points: int = 0
     article_cited: list[str] | None = None
@@ -94,6 +95,7 @@ def _fallback_search(query: str, season: int | None, limit: int) -> list[dict]:
             "involved_drivers": [],
             "infraction_category": r.get("infraction_type"),
             "penalty_type": r.get("outcome"),
+            "penalty_suspended": None,
             "penalty_seconds": None,
             "penalty_points": 0,
             "article_cited": None,
@@ -171,6 +173,7 @@ async def search_precedents(body: PrecedentQuery) -> dict[str, Any]:
             "involved_drivers":   c.get("involved_drivers") or [],
             "infraction_category": c.get("infraction_category"),
             "penalty_type":       c.get("penalty_type"),
+            "penalty_suspended":  c.get("penalty_suspended"),
             "penalty_seconds":    c.get("penalty_seconds"),
             "penalty_points":     c.get("penalty_points") or 0,
             "article_cited":      c.get("article_cited") or [],
@@ -221,6 +224,7 @@ async def get_similar_incidents(
             i.involved_drivers,
             i.infraction_category,
             i.penalty_type,
+            i.penalty_suspended,
             i.penalty_seconds,
             i.penalty_points,
             i.article_cited,
@@ -260,6 +264,7 @@ async def get_similar_incidents(
             "involved_drivers":   r["involved_drivers"] or [],
             "infraction_category": r["infraction_category"],
             "penalty_type":       r["penalty_type"],
+            "penalty_suspended":  r["penalty_suspended"],
             "penalty_seconds":    r["penalty_seconds"],
             "penalty_points":     r["penalty_points"] or 0,
             "article_cited":      list(r["article_cited"]) if r["article_cited"] else [],

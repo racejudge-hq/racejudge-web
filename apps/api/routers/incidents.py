@@ -57,6 +57,9 @@ class Incident(BaseModel):
     article_cited: list[str] = []
     infraction_category: str | None = None
     penalty_type: str | None = None
+    # "full" / "partial" / None. A suspended penalty was imposed but not
+    # served unless the driver reoffends — materially different precedent.
+    penalty_suspended: str | None = None
     penalty_seconds: int | None = None
     penalty_points: int = 0
     contact: bool | None = None
@@ -216,6 +219,7 @@ def _incident_to_dict(row: Any, detail: bool = False) -> dict:
         "article_cited":       row.article_cited or [],
         "infraction_category": row.infraction_category,
         "penalty_type":        row.penalty_type,
+        "penalty_suspended":   getattr(row, "penalty_suspended", None),
         "penalty_seconds":     row.penalty_seconds,
         "penalty_points":      row.penalty_points or 0,
         "contact":             row.contact,
@@ -515,6 +519,7 @@ async def extract_incident(body: ExtractRequest) -> dict:
             penalty_type        = result.penalty_type,
             penalty_seconds     = result.penalty_seconds,
             penalty_points      = result.penalty_points,
+            penalty_suspended   = result.penalty_suspended,
             contact             = result.contact,
             reasoning_text      = result.reasoning_text,
             extractor_version   = result.extractor_version,

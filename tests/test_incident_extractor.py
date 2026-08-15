@@ -335,3 +335,67 @@ def test_to_dict_carries_involved_drivers(extractor):
     record = {"doc_id": "qat55", "season": 2023, "raw_text": THREE_CAR_COLLISION}
     d = extractor.extract(record).to_dict()
     assert [x["number"] for x in d["involved_drivers"]] == [11, 27]
+
+
+# ---------------------------------------------------------------------------
+# penalty_suspended — imposed vs served
+# ---------------------------------------------------------------------------
+
+SUSPENDED_SG = {
+    "doc_id": "susp-sg-001",
+    "season": 2026,
+    "title": "Doc 99 - Infringement - Car 27 - Starting procedure infringement",
+    "raw_text": (
+        "2026 CANADIAN GRAND PRIX\n"
+        "No / Driver 27 - Nico Hulkenberg\n"
+        "Competitor Audi Revolut F1 Team\n"
+        "Fact Cars 27 and 30 were out of position at Safety Car Line 1 during the\n"
+        "formation lap. Car 27 did not enter the Pit Lane as required.\n"
+        "InfringementBreach of Article B5.6.4 of the FIA F1 Regulations.\n"
+        "Decision A mandatory Stop-and-Go penalty imposed after the Race. This\n"
+        "penalty is suspended for the period ending at the final race of the 2026\n"
+        "Championship on condition that no further similar breach occurs.\n"
+        "Reason The Stewards heard from the driver of Car 27.\n"
+    ),
+}
+
+SUSPENDED_PART = {
+    "doc_id": "susp-part-001",
+    "season": 2025,
+    "title": "Doc 59 - Infringement - Oracle Red Bull Racing - Failure to follow",
+    "raw_text": (
+        "2025 MIAMI GRAND PRIX\n"
+        "Fact The team closed Gate 1 after the formation lap had commenced.\n"
+        "InfringementBreach of Article 12.2.1.h of the ISC.\n"
+        "Decision The competitor (Oracle Red Bull Racing) is fined €50,000,\n"
+        "€25,000 of which is suspended for the remainder of the 2025 season on\n"
+        "condition that there is no breach of a similar nature.\n"
+        "Reason The Stewards heard from the team representative.\n"
+    ),
+}
+
+
+def test_a_suspended_stop_and_go_is_not_recorded_as_a_served_one():
+    result = IncidentExtractor(enable_layoutlm=False).extract(SUSPENDED_SG)
+    # What the stewards imposed is preserved...
+    assert result.penalty_type == "SG"
+    # ...and the fact that it was never served is preserved alongside it.
+    assert result.penalty_suspended == "full"
+
+
+def test_a_part_suspended_fine_is_marked_partial():
+    result = IncidentExtractor(enable_layoutlm=False).extract(SUSPENDED_PART)
+    assert result.penalty_type == "FINE"
+    assert result.penalty_suspended == "partial"
+
+
+def test_an_ordinary_penalty_carries_no_suspension():
+    record = {"doc_id": "qat55", "season": 2023, "raw_text": THREE_CAR_COLLISION}
+    result = IncidentExtractor(enable_layoutlm=False).extract(record)
+    assert result.penalty_suspended is None
+
+
+def test_to_dict_carries_penalty_suspended():
+    d = IncidentExtractor(enable_layoutlm=False).extract(SUSPENDED_SG).to_dict()
+    assert d["penalty_suspended"] == "full"
+    assert d["penalty_type"] == "SG"

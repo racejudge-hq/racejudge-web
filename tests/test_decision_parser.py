@@ -14,6 +14,7 @@ from packages.pipeline.parsers.decision_parser import (
     extract_penalty_points,
     extract_session_type,
     extract_subjects,
+    extract_suspension,
 )
 
 # ---------------------------------------------------------------------------
@@ -450,3 +451,114 @@ def test_near_collision_behind_the_safety_car():
         "Offence Alleged breach of Article 55.5 of the FIA Formula One Sporting Regulations."
     )
     assert extract_infraction_type(text) == "safety car violation"
+
+
+# ---------------------------------------------------------------------------
+# extract_suspension — imposed vs actually served
+# ---------------------------------------------------------------------------
+
+# Verbatim from 2026 Canadian GP document 99. The stop-and-go was never served;
+# storing it as a bare "SG" made it identical to one that was.
+_SUSPENDED_SG = """
+2026 CANADIAN GRAND PRIX
+No / Driver 27 - Nico Hulkenberg
+Fact Cars 27 and 30 were out of position at Safety Car Line 1 during the
+formation lap. Car 27 did not enter the Pit Lane as required by the Regulations.
+InfringementBreach of Article B5.6.4 of the FIA F1 Regulations.
+Decision A mandatory Stop-and-Go penalty imposed after the Race. This penalty is
+suspended for the period ending at the final race of the 2026 Championship on
+condition that no further similar breach, by this driver, occurs. In addition the
+driver is Reprimanded for failure to start the formation lap in the correct order.
+Reason The Stewards heard from the driver of Car 27.
+"""
+
+# Verbatim from 2025 Miami GP document 59 — half the fine really was paid.
+_SUSPENDED_PART = """
+Decision The competitor (Oracle Red Bull Racing) is fined €50,000, €25,000 of which
+is suspended for the remainder of the 2025 season on condition that there is no
+breach of a similar nature.
+Reason The Stewards heard from the team representative.
+"""
+
+# A red-flagged session is "suspended" in an entirely unrelated sense, and this
+# document imposed no penalty at all.
+_SUSPENDED_NOISE = """
+Decision No further action.
+Reason The Stewards reviewed video evidence. During the Qualifying session, which
+was suspended due to a red flag incident, and while the cars were lined up to
+leave the pit lane, Car 12 was waiting to blend into the fast lane.
+"""
+
+# A Super Licence suspension IS the penalty — a race ban, not a reprieve.
+_SUSPENDED_LICENCE = """
+Decision The Super Licence of the driver of Car 20 is suspended for the next
+Competition of the 2024 FIA Formula One World Championship.
+Reason The driver has accrued 12 penalty points.
+"""
+
+
+def test_a_wholly_suspended_penalty_is_recorded_as_full():
+    assert extract_suspension(_SUSPENDED_SG) == "full"
+
+
+def test_a_part_suspended_fine_is_recorded_as_partial():
+    assert extract_suspension(_SUSPENDED_PART) == "partial"
+
+
+def test_a_suspended_session_is_not_a_suspended_penalty():
+    assert extract_suspension(_SUSPENDED_NOISE) is None
+
+
+def test_a_suspended_super_licence_is_a_ban_not_a_reprieve():
+    assert extract_suspension(_SUSPENDED_LICENCE) is None
+
+
+def test_an_ordinary_penalty_is_not_suspended():
+    text = "Decision 10 second time penalty and 2 penalty points.\nReason Collision."
+    assert extract_suspension(text) is None
+
+
+@pytest.mark.parametrize(
+    ("decision", "expected"),
+    [
+        # Single amount immediately followed by "suspended" — the whole fine.
+        ("The driver is fined €5.000, suspended for a period of 12 months.", "full"),
+        ("Fine of €25,000 - Suspended.", "full"),
+        ("The competitor is fined €5,000. This fine is suspended for 12 months.", "full"),
+        # Two amounts, or an explicit connector — only part of it.
+        ("is fined €30,000, €20,000 of which is suspended for a period of 12 months.",
+         "partial"),
+        ("is fined €25,000 of which €15,000 is suspended for a period of 12 months.",
+         "partial"),
+        ("is fined €50,000 - with €40,000 suspended.", "partial"),
+        ("A fine of €500,000 is imposed. €350,000 of the fine is suspended.", "partial"),
+        ("In addition to imposing a significant fine (which is suspended in parts).",
+         "partial"),
+    ],
+)
+def test_full_versus_partial_suspension(decision, expected):
+    assert extract_suspension(f"Decision {decision}\nReason Because.") == expected
+
+
+def test_line_broken_connector_still_reads_as_partial():
+    """The PDF text layer breaks these sentences mid-phrase.
+
+    "20,000 of\nwhich is suspended" must not read as a total suspension — it
+    would claim a fine went unpaid when half of it was paid.
+    """
+    text = "Decision The competitor is fined €30,000, €20,000 of\nwhich is suspended.\nReason X."
+    assert extract_suspension(text) == "partial"
+
+
+def test_suspension_is_read_even_without_a_decision_heading():
+    """Some rulings have no Decision heading at all.
+
+    The 2024 Austin track-invasion fine is laid out as numbered clauses, and the
+    suspension would otherwise be missed entirely.
+    """
+    text = (
+        "Description Infringement - Organiser and Promoter - Track Invasion\n"
+        "d. A fine of €500,000 is imposed on the Promoter.\n"
+        "e. €350,000 of the fine is suspended until December 31 2026.\n"
+    )
+    assert extract_suspension(text) == "partial"

@@ -94,6 +94,65 @@ _CAR_LIST_RE = re.compile(
 )
 _NUM_RE = re.compile(r"\d{1,2}")
 
+# The Decision section is the operative ruling — the sentence that says what the
+# stewards actually ordered. Suspension is read from here and nowhere else,
+# because the surrounding prose is full of the same word used to mean other
+# things: a red-flagged "session, which was suspended", and a 2020 protest
+# arguing at length about whether DAS is a "suspension system". Both sit in the
+# Reason section and both would otherwise register as suspended penalties.
+_DECISION_RE = re.compile(
+    r"\bDecision\b\s*(.*?)(?=\bReason\b|\Z)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# A penalty is suspended when it is imposed but not enforced unless the party
+# reoffends. Two distinct shapes, and the difference is not cosmetic:
+#
+#   full     "Fine of €25,000 – Suspended."          → nothing was served
+#   partial  "fined €50,000, €25,000 of which is
+#             suspended for the remainder of 2025"   → half really was paid
+#
+# Recording both as a plain boolean would claim Leclerc's €50,000 fine went
+# unserved when he in fact paid €25,000 of it.
+#
+# Every space here is \s+ on purpose: the PDF text layer breaks these sentences
+# across lines mid-phrase ("€20,000 of\nwhich is suspended"), so a literal space
+# silently reads a partial suspension as a total one.
+_SUSPENDED_PARTIAL_RE = re.compile(
+    r"(?:"
+    # "€20,000 of which is suspended", "€350,000 of the fine is suspended".
+    # The connector is mandatory — without it this also swallows the *full*
+    # form "fined €5.000, suspended for 12 months", which has a single amount.
+    r"[€$£][\d.,]+\s+(?:of\s+which|of\s+the\s+(?:fine|penalty))"
+    r"(?:\s+(?:is|was|be|would\s+be))?\s+suspend"
+    r"|of\s+which\s+[€$£]?[\d.,]+(?:\s+(?:is|was|be|would\s+be))?\s+suspend"
+    r"|with\s+[€$£][\d.,]+\s+suspend"
+    r"|suspended?\s+in\s+parts?"
+    r"|partly\s+suspend"
+    r")",
+    re.IGNORECASE,
+)
+_SUSPENDED_RE = re.compile(r"\bsuspend(?:ed|s)?\b", re.IGNORECASE)
+
+# Some rulings carry no "Decision" heading at all — the 2024 Austin track-invasion
+# fine is laid out as numbered clauses under "Description". Those still have to be
+# read, so the fallback scans the whole document but demands that the suspension
+# sit next to the thing being suspended. That proximity is what keeps out the two
+# unrelated senses of the word: a "suspension system" in the 2020 DAS protest, and
+# a "session, which was suspended due to a red flag".
+_SUSPENDED_PENALTY_NEAR_RE = re.compile(
+    r"(?:\bfine\b|\bpenalty\b|[€$£][\d.,]+)[^.]{0,80}?\bsuspend",
+    re.IGNORECASE,
+)
+
+# "The Super Licence of the driver of Car 20 is suspended for the next
+# Competition" is a race ban — the suspension *is* the penalty, not a reprieve
+# from one. It appears in the Decision section, so it has to be excluded by name.
+_SUSPENDED_LICENCE_RE = re.compile(
+    r"\b(?:super\s+)?licen[cs]e\b[^.]{0,80}?\bsuspend",
+    re.IGNORECASE,
+)
+
 # Driver names — common F1 name endings after "driver" keyword
 _DRIVER_RE = re.compile(
     r"(?:driver|competitor)\s+([A-Z][a-z]+(?: [A-Z][a-z]+)+)",
@@ -335,6 +394,38 @@ def extract_involved_cars(text: str, exclude: set[int] | None = None) -> list[in
             if number not in skip and number not in others:
                 others.append(number)
     return others
+
+
+def extract_suspension(text: str) -> str | None:
+    """Whether the penalty was suspended, and if so how much of it.
+
+    Returns "full" when the whole penalty was suspended, "partial" when only a
+    stated portion was, and None when it was served in the ordinary way.
+
+    This matters because a suspended penalty is indistinguishable from a served
+    one once it is reduced to a penalty_type. Hulkenberg's 2026 Canadian GP
+    stop-and-go was suspended in its entirety and never served, but was stored
+    as a plain "SG" — identical to a driver who actually served one. For a
+    precedent engine that difference is the whole point of the ruling.
+
+    Read from the Decision section where there is one; see _DECISION_RE for why.
+    """
+    m = _DECISION_RE.search(text)
+    scope = m.group(1) if m else ""
+
+    if scope.strip():
+        if not _SUSPENDED_RE.search(scope):
+            return None
+    else:
+        # No Decision heading — fall back to the whole document, but only accept
+        # a suspension stated next to a fine or penalty.
+        if not _SUSPENDED_PENALTY_NEAR_RE.search(text):
+            return None
+        scope = text
+
+    if _SUSPENDED_LICENCE_RE.search(scope):
+        return None
+    return "partial" if _SUSPENDED_PARTIAL_RE.search(scope) else "full"
 
 
 def extract_session_type(text: str) -> str | None:

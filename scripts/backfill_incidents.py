@@ -119,6 +119,7 @@ async def _insert_incident(db, result) -> str | None:
             penalty_type        = result.penalty_type,
             penalty_seconds     = result.penalty_seconds,
             penalty_points      = result.penalty_points or 0,
+            penalty_suspended   = result.penalty_suspended,
             contact             = result.contact,
             reasoning_text      = result.reasoning_text or "",
             extractor_version   = result.extractor_version,

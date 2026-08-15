@@ -113,6 +113,12 @@ class Incident(Base):
     penalty_type:        Mapped[str | None] = mapped_column(Text)  # see ck_incidents_penalty_type
     penalty_seconds:     Mapped[int | None] = mapped_column(SmallInteger)
     penalty_points:      Mapped[int]        = mapped_column(SmallInteger, default=0)
+    # 'full', 'partial', or NULL when the penalty was served normally. Without
+    # this a suspended penalty is indistinguishable from one that was actually
+    # served: Hulkenberg's 2026 Canadian stop-and-go was suspended in full and
+    # never served, yet was stored as a bare 'SG'. 'partial' is a separate state
+    # because most suspensions are half a fine — the other half really was paid.
+    penalty_suspended:   Mapped[str | None] = mapped_column(Text)  # see ck_incidents_penalty_suspended
     grid_positions:      Mapped[int | None] = mapped_column(SmallInteger)
     contact:             Mapped[bool | None] = mapped_column(Boolean)
     position_change:     Mapped[int | None] = mapped_column(SmallInteger)
@@ -141,6 +147,10 @@ class Incident(Base):
             "penalty_type IN ('NFA','REP','WARN','FINE','SG','DT','GRID','DSQ')"
             " OR penalty_type ~ '^[0-9]{1,2}s$'",
             name="ck_incidents_penalty_type",
+        ),
+        CheckConstraint(
+            "penalty_suspended IS NULL OR penalty_suspended IN ('full','partial')",
+            name="ck_incidents_penalty_suspended",
         ),
     )
 
