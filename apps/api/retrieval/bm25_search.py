@@ -32,8 +32,12 @@ async def bm25_search(
     """
     from sqlalchemy import text
 
-    conditions = ["(to_tsvector('english', i.reasoning_text) @@ query OR "
-                  " d.search_vector @@ query)"]
+    # query.q, not query: bare `query` names the CTE, so Postgres reads it as a
+    # whole-row record and rejects `tsvector @@ record`. Every call raised
+    # UndefinedFunctionError and was swallowed by the except below, so BM25
+    # silently returned nothing and hybrid search ran on vectors alone.
+    conditions = ["(to_tsvector('english', i.reasoning_text) @@ query.q OR "
+                  " d.search_vector @@ query.q)"]
     params: dict[str, Any] = {"q": query, "top_k": top_k}
 
     if season:
