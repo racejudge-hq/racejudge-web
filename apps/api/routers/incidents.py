@@ -48,6 +48,9 @@ class Incident(BaseModel):
     incident_id: str
     doc_id: str
     drivers: list[DriverRef] = []
+    # The other cars in the incident. Empty for the ~80% of rulings that
+    # concern one car only.
+    involved_drivers: list[DriverRef] = []
     session_key: int | None = None
     lap: int | None = None
     corner: str | None = None
@@ -122,7 +125,11 @@ async def _pg_list(
             stmt = stmt.where(IncidentModel.infraction_category == infraction)
         if driver:
             stmt = stmt.where(
-                text("drivers @> :d::jsonb").bindparams(d=f'[{{"code":"{driver.upper()}"}}]')
+                # CAST(), not `:d::jsonb` — asyncpg rejects a cast written
+                # directly after a bind parameter inside text().
+                text("drivers @> CAST(:d AS jsonb)").bindparams(
+                    d=f'[{{"code":"{driver.upper()}"}}]'
+                )
             )
         if article:
             stmt = stmt.where(
@@ -187,20 +194,22 @@ async def _pg_get(incident_id: str) -> dict | None:
         return d
 
 
-def _incident_to_dict(row: Any, detail: bool = False) -> dict:
-    drivers = row.drivers or []
-    if isinstance(drivers, list):
-        driver_list = [
-            {"code": d.get("code"), "full_name": d.get("full_name"), "number": d.get("number")}
-            for d in drivers
-        ]
-    else:
-        driver_list = []
+def _driver_refs(value: Any) -> list[dict]:
+    if not isinstance(value, list):
+        return []
+    return [
+        {"code": d.get("code"), "full_name": d.get("full_name"), "number": d.get("number")}
+        for d in value
+        if isinstance(d, dict)
+    ]
 
+
+def _incident_to_dict(row: Any, detail: bool = False) -> dict:
     d = {
         "incident_id":         row.incident_id,
         "doc_id":              row.doc_id,
-        "drivers":             driver_list,
+        "drivers":             _driver_refs(row.drivers),
+        "involved_drivers":    _driver_refs(getattr(row, "involved_drivers", None)),
         "session_key":         row.session_key,
         "lap":                 row.lap,
         "corner":              row.corner,
@@ -483,6 +492,11 @@ async def extract_incident(body: ExtractRequest) -> dict:
         record = {
             "doc_id":    decision.doc_id,
             "season":    decision.season,
+            # The backfill passes the title and layer 1 classifies against it —
+            # for many rulings it is the only place the offence is named. Without
+            # it the same document extracted through this endpoint came out with
+            # a different infraction_category than the one already stored.
+            "title":     decision.title,
             "raw_text":  decision.raw_text or "",
             "char_count": decision.char_count,
         }
@@ -493,6 +507,7 @@ async def extract_incident(body: ExtractRequest) -> dict:
         incident = IncidentModel(
             doc_id              = body.doc_id,
             drivers             = result.drivers,
+            involved_drivers    = result.involved_drivers,
             lap                 = result.lap_number,
             corner              = result.corner,
             article_cited       = result.article_cited,

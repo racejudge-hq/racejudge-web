@@ -100,6 +100,11 @@ class Incident(Base):
     incident_id:         Mapped[str]       = mapped_column(Text, primary_key=True, default=_uuid)
     doc_id:              Mapped[str]        = mapped_column(ForeignKey("decisions.doc_id"), nullable=False)
     drivers:             Mapped[list[Any]]  = mapped_column(JSONB, nullable=False, default=list)
+    # The other cars in the incident — impeded, hit, or forced off the track.
+    # Deliberately not merged into `drivers`: every driver-scoped query in the
+    # API filters on that column to mean "was penalised", so a counterparty
+    # stored there would count someone else's penalty against the victim.
+    involved_drivers:    Mapped[list[Any]]  = mapped_column(JSONB, nullable=False, default=list)
     session_key:         Mapped[int | None] = mapped_column(Integer)
     lap:                 Mapped[int | None] = mapped_column(SmallInteger)
     corner:              Mapped[str | None] = mapped_column(Text)

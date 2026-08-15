@@ -1,12 +1,26 @@
-# RACEJUDGE — Final Completion Report v13
+# RACEJUDGE — Final Completion Report v14
 
-> **Updated: 14 August 2026**
-> Tests: 351 passing | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
+> **Updated: 15 August 2026**
+> Tests: 367 passing | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
 > **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **32,120 precedent links materialised (v10).**
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
 > ✅ **v10's biggest open defect is closed:** classified incidents went **357 → 1,181 (22.2% → 73.5%)** across 24 categories. Nothing was deleted. Section 2C.
 > ✅ **v12: the `/consistency` 500 is fixed at its real cause** (route-declaration order, not Vercel — v11 misdiagnosed it) and the 4 conflicting rows are adjudicated and corrected. Section 10 row 1e.
+
+## What changed in v14 (15 August 2026)
+
+The one-driver-per-incident limitation recorded in v13 is closed. An incident row can now hold every driver a ruling is issued against, and — separately — the other cars in the incident.
+
+- **Counterparties are recorded for the first time.** A collision was stored as a ruling against one car with no trace of the car it hit, so "who else was in this incident" was unanswerable and collision precedent had nothing to match on. The stewards state the parties in the decision's Fact line ("Turn 2 incident between Cars 11, 27 and 31"); that line is now parsed. **297 of 1,606 incidents carry 308 counterparty references** — every impeding, unsafe-release, forcing-off and collision ruling in the corpus. 307 of the 308 resolve to a named driver.
+- **They are stored in a new column, `involved_drivers`, not merged into `drivers[]`.** Every driver-scoped query in the API reads `drivers @> [{"code": …}]` and means by it *was penalised*. Merging the two would have added someone else's penalty to the record of the driver they drove into — a driver's stats page would count the incidents where they were the victim. Migration `0011` adds the column with a GIN index mirroring the one on `drivers`.
+- **Joint summonses now name every driver they are issued to.** The FIA lists them under one header, the first on the "No / Driver" line and the rest on bare continuation lines; only the first was ever read. Both such documents in the corpus (2020 Italian GP, documents 23 and 24) now carry all four drivers. The backfill only ever *grows* `drivers[]`, so the hand-verified single-driver rows from v13 were not touched.
+- **A tenth `:param::type` statement was found and fixed.** `GET /v1/incidents?driver=…` — the main incident list filter, the most-used driver query in the product — used `drivers @> :d::jsonb` and 500'd on every call. v13 fixed nine of these; this one was in a `text()` fragment attached to a SQLAlchemy `select()` rather than a raw query, which is why the earlier sweep missed it. Verified 200 against the live database.
+- **`POST /v1/incidents/extract` no longer disagrees with the backfill.** It never passed the decision title to the extractor, and layer 1 classifies against the title — for many rulings it is the only place the offence is named. The same document extracted through the endpoint came out with a different `infraction_category` than the one already stored.
+- **Tests: 351 → 367**, covering the joint summons, the two- and three-car Fact forms, the Fact/Reason section boundary, and the invariant that the accused is never filed as their own counterparty (verified 0/1,606 in the database).
+- **Not guessed:** one counterparty, car 46 at the 2025 Bahrain GP, is stored with its number and a null driver. The corpus names that car exactly once and never says who drove it.
+
+---
 
 ## What changed in v13 (14 August 2026)
 
@@ -401,12 +415,12 @@ The plan specifies **Fly.io multi-region** persistent containers; the interim Ve
 | `text_cleaner.py` | ✅ | `packages/pipeline/parsers/text_cleaner.py` |
 | `guidelines_parser.py` | ✅ | `packages/pipeline/parsers/guidelines_parser.py` |
 | `layoutlm_extractor.py` / `tesseract_fallback.py` | ✅ | 3-layer fallback chain — both in `packages/pipeline/parsers/` (v13 path correction). **Reachable as of v13**: the backfill never passed a PDF path, so layers 2–3 could not fire. No document in the corpus needs them (`needs_ocr` false for all 1,606; shortest text 284 chars), so all 1,606 rows are legitimately `v2.0-layer1`. |
-| `incident_extractor.py` | ✅ | `packages/pipeline/extractors/incident_extractor.py` |
+| `incident_extractor.py` | ✅ | `packages/pipeline/extractors/incident_extractor.py`. **v14:** resolves every subject of a ruling, not just the first, and resolves the incident's counterparties into the new `involved_drivers` field. |
 | `driver_resolver.py` (per-season car numbers) | ✅ | **Fixed in v13.** `#1` champion handover was right (2022–25 VER, 2026 NOR), but every *other* number was the driver's present-day one repeated across all seasons — car 33 and car 4 resolved to nobody, car 3 to the wrong driver. Real history curated from the decisions; **164/164 season/number pairs stated in the corpus now resolve correctly.** |
 | `article_resolver.py` | ✅ | |
 | `backfill_incidents.py` | ✅ | **Run** — 1,606 incidents populated, live |
 | `seed_drivers.py` / `seed_guidelines.py` | ✅ | Run; 40 drivers / **43 teams (17 active)** / **45 guideline articles** live (33 curated FIA + 12 empirical). v13 correction: earlier reports said "17 teams", which counted only the active ones. |
-| Incident + consistency + driver-stats endpoints | ✅ | `apps/api/routers/incidents.py`. **Driver stats 500'd on every call until v13** — a `:param::jsonb` cast that asyncpg rejects, plus the current season pinned to `2025` and `full_name` stubbed to the driver code. All three fixed; the same cast bug was found and fixed in 8 further statements across review, MCP, key revocation and both search paths. |
+| Incident + consistency + driver-stats endpoints | ✅ | `apps/api/routers/incidents.py`. **Driver stats 500'd on every call until v13** — a `:param::jsonb` cast that asyncpg rejects, plus the current season pinned to `2025` and `full_name` stubbed to the driver code. All three fixed; the same cast bug was found and fixed in 8 further statements across review, MCP, key revocation and both search paths. **v14 found a tenth**, on `GET /v1/incidents?driver=…` — the main list filter — which had 500'd on every call for the same reason; and `POST /v1/incidents/extract` was not passing the decision title to the extractor, so it classified the same document differently than the backfill did. |
 | Expand the guideline set | ✅ | **Done with real data (v7):** added **12 empirical penalty-norm articles** (one per offence type, each aggregating 21–383 real 2019–2026 decisions) → **45 total**. Labeled `RaceJudge Empirical Penalty Norms` to distinguish from official FIA text. The literal full official FIA article set still needs the real FIA Penalty Guidelines PDF (not fabricated). |
 | 300-pair similarity annotation campaign | ✅ | **Done** — 359 AI-adjudicated pairs via `generate_candidates.py` → `adjudicate_pairs.py` → `review_pairs.py`. Fed the BGE-M3 LoRA fine-tune. |
 
@@ -419,7 +433,8 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 | `article_cited` | 1,564 (97.4%) | Healthy. |
 | `reasoning_text` | 1,606 (100%) | Healthy, but **289 rows are truncated at exactly 2,000 characters** — a hard slice in `_extract_reasoning`. See below. |
 | `infraction_category` | 1,181 (73.5%) | The 425 gaps are the administrative documents (Section 10 row 1c). |
-| `drivers[]` | 1,149 (71.5%) | Was 997 before v13. **100% agreement with every decision that states its own subject.** |
+| `drivers[]` | 1,149 (71.5%) | Was 997 before v13. **100% agreement with every decision that states its own subject.** v14: 2 rows now hold 4 drivers each (joint summonses). |
+| `involved_drivers` | 297 (18.5%) | **New in v14.** The other cars in the incident — 308 references, 307 resolved to a named driver. Empty by design for the ~80% of rulings that concern one car only. |
 | `penalty_type` | 935 (58.2%) | Tracks the classified set; administrative documents carry no penalty. |
 | `session_key` | 651 (40.5%) | **Not an extractor gap.** OpenF1 has no data before 2023, so 2019–22 is structurally 0/377. Within 2023+ it is 651/1,229 (53%) — that part is improvable. |
 | `corner` | 429 (26.7%) | **Source reality.** Of 400 sampled rows with no corner, **0** name a turn anywhere in the text. |
@@ -435,7 +450,7 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 
 1. **`reasoning_text` truncation.** 289 rows are cut at exactly 2,000 characters, mid-sentence, and that text is what the embeddings and the precedent search read. The longest reasoning belongs to the most-argued cases — precisely the precedents that matter most. Raising the cap means re-embedding 1,606 rows.
 2. **The three dead columns.** `grid_positions`, `position_change` and `video_refs` are schema that no code path fills. Either populate them or drop them; leaving them invites a future query to trust an always-empty field.
-3. **One driver per incident.** `drivers[]` is an array but only ever holds a single entry, so a ruling against four cars ("Summons - Drivers of Cars 10 18 23 55") records only the first. The multi-car case is real but uncommon.
+3. ~~**One driver per incident.**~~ **Closed in v14.** `drivers[]` now holds every driver a ruling is issued against (the two joint summonses in the corpus carry all four each), and the other cars in an incident are recorded separately in `involved_drivers` — 297 rows, 308 references. See "What changed in v14".
 
 ---
 

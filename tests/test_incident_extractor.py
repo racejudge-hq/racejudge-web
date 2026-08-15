@@ -257,3 +257,81 @@ def test_normalise_infraction_category_recovered(raw, expected):
 ])
 def test_normalise_penalty_type_recovered(raw, expected):
     assert _normalise_penalty_type(raw) == expected
+
+
+# ---------------------------------------------------------------------------
+# Multi-driver incidents
+# ---------------------------------------------------------------------------
+
+# Verbatim shape of 2023 Qatar GP document 55: one ruling, three cars in the
+# incident, one of them the accused.
+THREE_CAR_COLLISION = (
+    "No / Driver 31 - Esteban Ocon\n"
+    "Competitor BWT Alpine F1 Team\n"
+    "Session Sprint\n"
+    "Fact Turn 2 incident between Cars 11, 27 and 31 at 20:52.\n"
+    "Infringement Alleged breach of Appendix L, Chapter IV, Article 2 d).\n"
+    "Decision No further action.\n"
+    "Reason The Stewards heard from the driver of Car 11 (Sergio Perez), the "
+    "driver of Car 27 (Nico Hulkenberg) and reviewed video evidence.\n"
+)
+
+# Verbatim shape of 2020 Italian GP document 24: one summons, four drivers.
+JOINT_SUMMONS = (
+    "The drivers are required to report to the Stewards at 14:10 in relation to "
+    "the incident below.\n"
+    "No / Driver 6 - Nicholas Latifi\n"
+    "8 - Romain Grosjean\n"
+    "11 - Sergio Perez\n"
+    "44 - Lewis Hamilton\n"
+    "Reason Alleged driving unnecessarily slowly in turn 11 at 12:58.\n"
+)
+
+
+def test_counterparties_are_recorded_and_resolved(extractor):
+    record = {"doc_id": "qat55", "season": 2023, "raw_text": THREE_CAR_COLLISION}
+    result = extractor.extract(record)
+
+    assert [d["number"] for d in result.drivers] == [31]
+    assert [d["number"] for d in result.involved_drivers] == [11, 27]
+    # Resolved to real drivers, not left as bare numbers.
+    assert [d["code"] for d in result.involved_drivers] == ["PER", "HUL"]
+
+
+def test_the_accused_is_never_also_a_counterparty(extractor):
+    # Car 31 is named in its own Fact line; filing it as its own victim would
+    # make the incident look like a four-car one.
+    record = {"doc_id": "qat55", "season": 2023, "raw_text": THREE_CAR_COLLISION}
+    result = extractor.extract(record)
+    numbers = {d["number"] for d in result.involved_drivers}
+    assert 31 not in numbers
+
+
+def test_joint_summons_records_all_four_drivers(extractor):
+    record = {"doc_id": "ita24", "season": 2020, "raw_text": JOINT_SUMMONS}
+    result = extractor.extract(record)
+
+    assert [d["number"] for d in result.drivers] == [6, 8, 11, 44]
+    assert [d["full_name"] for d in result.drivers][-1] == "Lewis Hamilton"
+    # The single-driver fields still describe the first, for callers that read
+    # them (the race-control linker takes drivers[0]).
+    assert result.car_number == 6
+    assert result.drivers[0]["number"] == 6
+
+
+def test_single_car_ruling_has_no_counterparties(extractor):
+    text = ("No / Driver 10 - Pierre Gasly\n"
+            "Fact Leaving the track without a justifiable reason multiple times\n"
+            "Infringement Breach of Article 33.3.\n"
+            "Decision 5 second time penalty\n")
+    record = {"doc_id": "aut63", "season": 2023, "raw_text": text}
+    result = extractor.extract(record)
+
+    assert [d["number"] for d in result.drivers] == [10]
+    assert result.involved_drivers == []
+
+
+def test_to_dict_carries_involved_drivers(extractor):
+    record = {"doc_id": "qat55", "season": 2023, "raw_text": THREE_CAR_COLLISION}
+    d = extractor.extract(record).to_dict()
+    assert [x["number"] for x in d["involved_drivers"]] == [11, 27]

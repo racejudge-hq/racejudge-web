@@ -43,6 +43,9 @@ class ExtractionResult:
     article_cited:       list[str] = field(default_factory=list)
     reasoning_text:      str = ""
     drivers:             list[dict] = field(default_factory=list)
+    # The other cars in the incident — impeded, hit, or forced off. Held apart
+    # from `drivers` because they are not what this document rules on.
+    involved_drivers:    list[dict] = field(default_factory=list)
     extractor_version:   str = "v1.0-regex"
     confidence:          float = 0.0
     layer_used:          int = 1
@@ -67,6 +70,7 @@ class ExtractionResult:
             "article_cited":       self.article_cited,
             "reasoning_text":      self.reasoning_text,
             "drivers":             self.drivers,
+            "involved_drivers":    self.involved_drivers,
             "extractor_version":   self.extractor_version,
         }
 
@@ -208,6 +212,22 @@ def _extract_reasoning(text: str) -> str:
     return text[:2000].strip()
 
 
+def _subject_numbers(cleaned: str, car_number: int | None) -> set[int]:
+    """Every car this document rules on, for excluding from the counterparties.
+
+    The header list and the single-car fallback can disagree — the fallback also
+    reads the title, which is sometimes a neighbouring document's — so both are
+    excluded. Over-excluding costs at most one counterparty; under-excluding
+    files the accused driver as their own victim.
+    """
+    from packages.pipeline.parsers.decision_parser import extract_subjects
+
+    numbers = {n for n, _ in extract_subjects(cleaned)}
+    if car_number is not None:
+        numbers.add(car_number)
+    return numbers
+
+
 def _field_count(d: dict) -> int:
     """Count how many fields are non-None."""
     key_fields = ["driver_name", "car_number", "infraction_type", "outcome",
@@ -263,10 +283,12 @@ class IncidentExtractor:
             extract_car_number,
             extract_driver_name,
             extract_infraction_type,
+            extract_involved_cars,
             extract_lap_number,
             extract_outcome,
             extract_penalty_points,
             extract_session_type,
+            extract_subjects,
             extract_turn_number,
         )
         from packages.pipeline.parsers.text_cleaner import (
@@ -287,10 +309,13 @@ class IncidentExtractor:
         title = record.get("title") or ""
         combined = f"{title}\n{cleaned}" if title else cleaned
 
+        car_number = extract_car_number(combined)
         return {
             "raw_text":        cleaned,
-            "car_number":      extract_car_number(combined),
+            "car_number":      car_number,
             "driver_name":     extract_driver_name(cleaned),
+            "subjects":        extract_subjects(cleaned),
+            "involved_cars":   extract_involved_cars(cleaned, _subject_numbers(cleaned, car_number)),
             "infraction_type": extract_infraction_type(combined),
             "outcome":         extract_outcome(combined),
             "penalty_points":  extract_penalty_points(combined) or 0,
@@ -310,10 +335,12 @@ class IncidentExtractor:
             extract_car_number,
             extract_driver_name,
             extract_infraction_type,
+            extract_involved_cars,
             extract_lap_number,
             extract_outcome,
             extract_penalty_points,
             extract_session_type,
+            extract_subjects,
             extract_turn_number,
         )
         from packages.pipeline.parsers.tesseract_fallback import ocr_pdf
@@ -329,10 +356,13 @@ class IncidentExtractor:
             return {}
 
         cleaned = clean_decision_text(text)
+        car_number = extract_car_number(cleaned)
         return {
             "raw_text":        cleaned,
-            "car_number":      extract_car_number(cleaned),
+            "car_number":      car_number,
             "driver_name":     extract_driver_name(cleaned),
+            "subjects":        extract_subjects(cleaned),
+            "involved_cars":   extract_involved_cars(cleaned, _subject_numbers(cleaned, car_number)),
             "infraction_type": extract_infraction_type(cleaned),
             "outcome":         extract_outcome(cleaned),
             "penalty_points":  extract_penalty_points(cleaned) or 0,
@@ -361,20 +391,44 @@ class IncidentExtractor:
     # Resolve drivers + articles
     # ------------------------------------------------------------------
 
-    def _resolve_drivers(self, fields: dict, season: int | None) -> list[dict]:
-        name   = fields.get("driver_name")
-        number = fields.get("car_number")
-        rec    = self._driver_resolver.resolve(name=name, number=number, season=season)
+    def _driver_entry(
+        self, name: str | None, number: int | None, season: int | None
+    ) -> dict | None:
+        rec = self._driver_resolver.resolve(name=name, number=number, season=season)
         if rec:
-            return [{
+            return {
                 "code":      rec.get("code"),
                 "full_name": rec.get("full_name"),
                 "number":    number or rec.get("number"),
-            }]
+            }
         # Fallback: use extracted name/number as-is
         if name or number is not None:
-            return [{"code": None, "full_name": name, "number": number}]
-        return []
+            return {"code": None, "full_name": name, "number": number}
+        return None
+
+    def _resolve_drivers(self, fields: dict, season: int | None) -> list[dict]:
+        # The header list carries every driver a joint summons is issued to; the
+        # single-car fields are the fallback for the documents that have no
+        # header, and they reproduce the first header entry when there is one.
+        subjects: list[tuple[int | None, str | None]] = [
+            (n, nm) for n, nm in (fields.get("subjects") or [])
+        ]
+        if not subjects:
+            subjects = [(fields.get("car_number"), fields.get("driver_name"))]
+        resolved = [self._driver_entry(nm, n, season) for n, nm in subjects]
+        return [d for d in resolved if d]
+
+    def _resolve_involved(self, fields: dict, season: int | None) -> list[dict]:
+        """Resolve the counterparty car numbers. Names are never stated for these."""
+        out: list[dict] = []
+        for number in fields.get("involved_cars") or []:
+            rec = self._driver_resolver.resolve_number(number, season)
+            out.append({
+                "code":      rec.get("code") if rec else None,
+                "full_name": rec.get("full_name") if rec else None,
+                "number":    number,
+            })
+        return out
 
     # ------------------------------------------------------------------
     # Main extract
@@ -418,7 +472,8 @@ class IncidentExtractor:
                 confidence = min(1.0, _field_count(best) / 5.0 + 0.1)
 
         # Resolve drivers
-        drivers = self._resolve_drivers(best, season)
+        drivers  = self._resolve_drivers(best, season)
+        involved = self._resolve_involved(best, season)
 
         # Resolve articles — normalize raw text to article numbers only
         articles_raw = best.get("article_cited", [])
@@ -445,6 +500,7 @@ class IncidentExtractor:
             article_cited       = articles_raw,
             reasoning_text      = best.get("reasoning_text", ""),
             drivers             = drivers,
+            involved_drivers    = involved,
             extractor_version   = f"v2.0-layer{layer_used}",
             confidence          = confidence,
             layer_used          = layer_used,

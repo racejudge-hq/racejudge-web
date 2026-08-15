@@ -8,10 +8,12 @@ from packages.pipeline.parsers.decision_parser import (
     extract_driver_name,
     extract_incident,
     extract_infraction_type,
+    extract_involved_cars,
     extract_lap_number,
     extract_outcome,
     extract_penalty_points,
     extract_session_type,
+    extract_subjects,
 )
 
 # ---------------------------------------------------------------------------
@@ -43,6 +45,82 @@ def test_subject_header_beats_a_title_naming_the_other_car():
             "Fact Impeded car 20 at turn 3.")
     assert extract_car_number(text) == 1
     assert extract_driver_name(text) == "Max Verstappen"
+
+
+# ---------------------------------------------------------------------------
+# extract_subjects — every driver the document rules against
+# ---------------------------------------------------------------------------
+
+# Verbatim from 2020 Italian GP document 24. Four drivers summoned over one
+# incident; only the first was ever recorded.
+_JOINT_SUMMONS = (
+    "The drivers are required to report to the Stewards at 14:10 in relation to "
+    "the incident below.\n"
+    "No / Driver 6 – Nicholas Latifi\n"
+    "8 – Romain Grosjean\n"
+    "11 – Sergio Perez\n"
+    "44 – Lewis Hamilton\n"
+    "Reason Alleged driving unnecessarily slowly in turn 11 at 12:58 by cars 55, "
+    "10, 23, 18, 11, 6, 8, alleged breach of Article 31.5\n"
+)
+
+
+def test_joint_summons_names_every_driver_it_is_issued_to():
+    assert extract_subjects(_JOINT_SUMMONS) == [
+        (6, "Nicholas Latifi"),
+        (8, "Romain Grosjean"),
+        (11, "Sergio Perez"),
+        (44, "Lewis Hamilton"),
+    ]
+    # The single-subject extractors still return the first, unchanged.
+    assert extract_car_number(_JOINT_SUMMONS) == 6
+    assert extract_driver_name(_JOINT_SUMMONS) == "Nicholas Latifi"
+
+
+def test_single_subject_document_yields_exactly_one_subject():
+    text = ("No / Driver 31 - Esteban Ocon\n"
+            "Competitor BWT Alpine F1 Team\n"
+            "Time 20:52\n")
+    assert extract_subjects(text) == [(31, "Esteban Ocon")]
+
+
+def test_no_subject_header_yields_no_subjects():
+    # The caller falls back to the title/body extractors; it must not get a
+    # half-parsed subject here.
+    assert extract_subjects("Decision - Car 23 - Failing to set a lap time") == []
+
+
+# ---------------------------------------------------------------------------
+# extract_involved_cars — the counterparties
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("fact,subject,expected", [
+    # Two- and three-car incidents, verbatim separators from the corpus.
+    ("Fact Car 18 unnecessarily impeded Car 31 in turn 8. Infringement Breach", 18, [31]),
+    ("Fact Turn 2 incident between Cars 11, 27 and 31 at 20:52. Infringement x", 31, [11, 27]),
+    ("Fact Incident between cars 14, 18, 4 & 44 in Turn 1. Infringement x", 44, [14, 18, 4]),
+    ("Fact Car 12 was released into the path of Car 22. Infringement x", 12, [22]),
+    # One-car rulings must stay empty rather than inventing a counterparty.
+    ("Fact Leaving the track without a justifiable reason. Infringement x", 10, []),
+    ("Fact Car 10 exceeded the pit lane speed limit. Infringement x", 10, []),
+])
+def test_extract_involved_cars(fact, subject, expected):
+    assert extract_involved_cars(fact, {subject}) == expected
+
+
+def test_counterparties_come_from_the_fact_section_only():
+    # The Reason discusses other cars at length; only the Fact states the
+    # parties. Reading past the section boundary drags the whole narrative in.
+    text = ("Fact Car 5 overtook Car 30 in a yellow flag zone.\n"
+            "Infringement Breach of Appendix H.\n"
+            "Decision 5 second time penalty.\n"
+            "Reason The Stewards heard from the driver of Car 11 and the driver "
+            "of Car 27 and reviewed video evidence of Cars 63 and 81.\n")
+    assert extract_involved_cars(text, {5}) == [30]
+
+
+def test_no_fact_section_yields_no_counterparties():
+    assert extract_involved_cars("Summons - Car 4 - Alleged technical breach", {4}) == []
 
 
 # ---------------------------------------------------------------------------

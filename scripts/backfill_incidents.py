@@ -109,6 +109,7 @@ async def _insert_incident(db, result) -> str | None:
         inc = Incident(
             doc_id              = result.doc_id,
             drivers             = result.drivers,
+            involved_drivers    = result.involved_drivers,
             lap                 = result.lap_number,
             # extractor may yield an int turn number; column is Text and
             # asyncpg does not coerce int → varchar

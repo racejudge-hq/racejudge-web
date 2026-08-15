@@ -51,6 +51,49 @@ _SUBJECT_RE = re.compile(
     r"([A-Z][A-Za-zÀ-ÿ'’.\-]+(?:\s+[A-Z][A-Za-zÀ-ÿ'’.\-]+){1,3})",
 )
 
+# A summons issued to several drivers over one incident carries them all under
+# the same header, the first on the "No / Driver" line and the rest on bare
+# continuation lines:
+#
+#     No / Driver 6 – Nicholas Latifi
+#     8 – Romain Grosjean
+#     11 – Sergio Perez
+#     44 – Lewis Hamilton
+#
+# _SUBJECT_RE sees only the first, so the other three were dropped entirely.
+# The continuation form is deliberately anchored to the whole line and requires
+# a capitalised name: a bare "number – text" pattern occurs all over the body
+# (dates, article references, lap tables) and matches nothing here because the
+# scan stops at the first line that is not a driver.
+_SUBJECT_CONT_RE = re.compile(
+    r"^[ \t]*(\d{1,2})[ \t]*[-–][ \t]*"
+    r"([A-Z][A-Za-zÀ-ÿ'’.\-]+(?:\s+[A-Z][A-Za-zÀ-ÿ'’.\-]+){1,3})[ \t]*$",
+)
+
+# The Fact section is the stewards' own one-line statement of what happened, and
+# it is the only place the *other* cars in an incident are named reliably. The
+# title also often names them ("Decision - Car 31 - T2 incident with Cars 11 and
+# 27") but the title cannot be trusted for this: some are duplicated from a
+# neighbouring document, and a 2026 summons titled "Car 4" is really Norris, who
+# now runs #1 — reading counterparties from the title invents a second driver
+# out of the subject's own stale number. The section ends at the next heading;
+# the PDF text layer glues that heading to the sentence ("InfringementAlleged
+# breach of..."), which is why the terminators are not anchored to a line start.
+_FACT_RE = re.compile(
+    r"\bFacts?\b\s*(.*?)(?=\b(?:Infring[e]?ment|Infringment|Offence|Decision|Reason)\b)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# "Cars 11, 27 and 31", "cars 14, 18, 4 & 44", "Cars 6 8 11 44". _CAR_RE stops
+# at the first number, so a three-car collision recorded only the one car the
+# regex happened to reach first.
+_CAR_LIST_RE = re.compile(
+    r"\bcars?\s*(?:nos?\.?|numbers?)?\s*"
+    r"(\d{1,2}(?:\s*(?:,|and|&|/)\s*\d{1,2}|\s+\d{1,2})*)",
+    re.IGNORECASE,
+)
+_NUM_RE = re.compile(r"\d{1,2}")
+
 # Driver names — common F1 name endings after "driver" keyword
 _DRIVER_RE = re.compile(
     r"(?:driver|competitor)\s+([A-Z][a-z]+(?: [A-Z][a-z]+)+)",
@@ -239,6 +282,59 @@ def extract_driver_name(text: str) -> str | None:
         # Collapse the newline the PDF puts before the next header field.
         return " ".join(m.group(2).split("\n")[0].split())
     return _first_match(_DRIVER_RE, text)
+
+
+def extract_subjects(text: str) -> list[tuple[int, str]]:
+    """Every driver the document is a ruling *against*, as (car number, name).
+
+    Normally one. A summons over a single incident can name several, each on its
+    own line under the header, and those extra drivers were previously lost.
+
+    Returns an empty list when the document has no subject header at all — the
+    caller falls back to extract_car_number()/extract_driver_name(), which read
+    the title and body. Order is the order the document lists them in, so the
+    first entry is always the one the single-subject extractors return.
+    """
+    m = _SUBJECT_RE.search(text)
+    if not m:
+        return []
+    subjects = [(int(m.group(1)), " ".join(m.group(2).split("\n")[0].split()))]
+
+    # Continue down the block. m.end() lands mid-line whenever the name is
+    # followed by more text on the same line, so drop that remainder first.
+    rest = text[m.end():].split("\n")[1:]
+    for line in rest:
+        cont = _SUBJECT_CONT_RE.match(line)
+        if not cont:
+            break
+        number = int(cont.group(1))
+        if number not in {n for n, _ in subjects}:
+            subjects.append((number, " ".join(cont.group(2).split())))
+    return subjects
+
+
+def extract_involved_cars(text: str, exclude: set[int] | None = None) -> list[int]:
+    """Car numbers named in the Fact section other than the ones being judged.
+
+    These are the counterparties to the incident — the car that was impeded, hit
+    or forced off. They are not accused of anything by this document, so they are
+    kept apart from the subject list rather than merged into it: a driver's
+    penalty record must not grow because someone else drove into them.
+
+    Order follows the document. Returns an empty list when the document states
+    no other car, which is the common case — most rulings involve one car only.
+    """
+    m = _FACT_RE.search(text)
+    if not m:
+        return []
+    skip = exclude or set()
+    others: list[int] = []
+    for group in _CAR_LIST_RE.finditer(m.group(1)):
+        for raw in _NUM_RE.findall(group.group(1)):
+            number = int(raw)
+            if number not in skip and number not in others:
+                others.append(number)
+    return others
 
 
 def extract_session_type(text: str) -> str | None:
