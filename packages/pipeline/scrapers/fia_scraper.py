@@ -172,6 +172,25 @@ def _season_filter_url(season: int) -> str:
 # HTML parsing helpers
 # ---------------------------------------------------------------------------
 
+def _season_from_url(pdf_url: str) -> int | None:
+    """Read the championship year off the FIA's own filename.
+
+    The FIA names every decision PDF `<year>_<event>_-_<type>_-_<subject>.pdf`,
+    so the document states its own season. Trusting the `--season` flag instead
+    is what mis-filed the 2026 Canadian GP: that event appears on the 2025
+    filter page, so all 43 of its documents were stamped 2025. The year in the
+    filename is the document's own claim and beats the page we found it on.
+
+    Returns None when the filename carries no plausible year, leaving the
+    caller's requested season as the fallback.
+    """
+    m = re.search(r"/(\d{4})_[a-z]", pdf_url.lower())
+    if not m:
+        return None
+    year = int(m.group(1))
+    return year if 2015 <= year <= 2030 else None
+
+
 def _parse_decision_links(soup: BeautifulSoup, season: int) -> list[dict]:
     """Extract stewards' decision PDF links from a rendered FIA page."""
     docs: list[dict] = []
@@ -192,7 +211,7 @@ def _parse_decision_links(soup: BeautifulSoup, season: int) -> list[dict]:
             "title": title,
             "pdf_url": full_url,
             "published_at": _extract_date_near_link(a),
-            "season": season,
+            "season": _season_from_url(full_url) or season,
         })
     return docs
 
@@ -349,8 +368,7 @@ def ingest_season(
     Returns a list of parsed document records (appended to PARSED_DIR/decisions.jsonl).
     """
     records: list[dict] = []
-    season_dir = RAW_PDF_DIR / str(season)
-    season_dir.mkdir(exist_ok=True)
+    RAW_PDF_DIR.mkdir(exist_ok=True)
 
     docs = _find_decision_links(season, use_playwright=use_playwright)
     if not docs:
@@ -378,6 +396,13 @@ def ingest_season(
             log.debug("Skipping already-ingested: %s", doc["title"])
             continue
 
+        # File the document under the season it states, not the season whose
+        # filter page surfaced it — the two differ whenever the FIA lists a new
+        # year's event on the outgoing year's page.
+        doc_season = doc.get("season") or season
+        season_dir = RAW_PDF_DIR / str(doc_season)
+        season_dir.mkdir(exist_ok=True)
+
         slug = _slugify(doc["title"])
         pdf_path = season_dir / f"{slug}.pdf"
         pdf_path.write_bytes(pdf_bytes)
@@ -394,10 +419,10 @@ def ingest_season(
             "doc_id": file_hash[:16],
             "title": _clean_title(doc["title"]),
             "pdf_url": pdf_url,
-            "r2_key": f"pdfs/{season}/{slug}.pdf",
+            "r2_key": f"pdfs/{doc_season}/{slug}.pdf",
             "sha256_hash": file_hash,
             "raw_text": raw_text,
-            "season": season,
+            "season": doc_season,
             "published_at": doc.get("published_at"),
             "parser_version": "v1.1-pdfplumber",
             "parsed_at": datetime.now(UTC).isoformat(),

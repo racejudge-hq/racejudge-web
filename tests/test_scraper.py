@@ -8,7 +8,9 @@ import pytest
 
 from packages.pipeline.scrapers.fia_scraper import (
     _clean_title,
+    _parse_decision_links,
     _season_filter_url,
+    _season_from_url,
     _slugify,
     sha256_of_bytes,
 )
@@ -118,3 +120,59 @@ def test_load_hash_db_missing_file(tmp_path, monkeypatch):
 
     monkeypatch.setattr(fia_scraper, "DEDUP_DB", tmp_path / "nonexistent.json")
     assert fia_scraper._load_hash_db() == set()
+
+
+# ---------------------------------------------------------------------------
+# _season_from_url — a document states its own season
+# ---------------------------------------------------------------------------
+
+FIA_FILES = "https://www.fia.com/system/files/decision-document"
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        # The real URL that exposed the bug: this document was filed as 2025.
+        (f"{FIA_FILES}/2026_canadian_grand_prix_-_decision_-_race_"
+         "reconnaissance_laps_sc2_-_sc1_.pdf", 2026),
+        (f"{FIA_FILES}/2025_canadian_grand_prix_-_infringement_-_car_27.pdf", 2025),
+        (f"{FIA_FILES}/2019_british_grand_prix_-_decision_-_car_5.pdf", 2019),
+        # No year in the filename — caller's season stands.
+        (f"{FIA_FILES}/doc_12_-_decision_-_car_44.pdf", None),
+        # Implausible years are not seasons.
+        (f"{FIA_FILES}/1998_some_grand_prix_-_decision.pdf", None),
+        (f"{FIA_FILES}/2099_some_grand_prix_-_decision.pdf", None),
+        # A four-digit run that is not a year prefix must not be read as one.
+        (f"{FIA_FILES}/car_2026_decision.pdf", None),
+    ],
+)
+def test_season_from_url(url, expected):
+    assert _season_from_url(url) == expected
+
+
+def test_document_year_overrides_the_page_it_was_found_on():
+    """The 2026 Canadian GP is listed on the 2025 filter page.
+
+    Scraping season 2025 must still file those documents as 2026, which is the
+    regression that mis-seasoned 43 rows.
+    """
+    from bs4 import BeautifulSoup
+
+    html = (
+        f'<a href="{FIA_FILES}/2026_canadian_grand_prix_-_decision_-_car_27.pdf">'
+        "Doc 99 - Infringement - Car 27</a>"
+        f'<a href="{FIA_FILES}/2025_canadian_grand_prix_-_decision_-_car_16.pdf">'
+        "Doc 12 - Infringement - Car 16</a>"
+    )
+    docs = _parse_decision_links(BeautifulSoup(html, "html.parser"), 2025)
+
+    assert [d["season"] for d in docs] == [2026, 2025]
+
+
+def test_season_falls_back_to_the_requested_year_when_url_is_silent():
+    from bs4 import BeautifulSoup
+
+    html = f'<a href="{FIA_FILES}/doc_5_-_decision_-_car_1.pdf">Doc 5 - Decision</a>'
+    docs = _parse_decision_links(BeautifulSoup(html, "html.parser"), 2024)
+
+    assert [d["season"] for d in docs] == [2024]
