@@ -49,7 +49,12 @@ _NOT_A_NAME_RE = re.compile(
     r"\b(?:FIA|Article|Chapter|Code|Rules|Steward|Stewards|Regulations|Decision"
     r"|Reason|Competitor|Delegate|Document|Grand|Prix|Formula|Sporting|Judicial"
     r"|Disciplinary|Appeal|Penalty|Team|Manager|Race|Director|Session|Date|Car"
-    r"|Driver|Time|Limits|Evidence|Guidelines)\b",
+    r"|Driver|Time|Limits|Evidence|Guidelines"
+    # Headings that sit in the left margin at the same x0 as a signature and
+    # so land in the grid. "Operating Procedure" was read as a fifth panel
+    # member on a 2023 decision.
+    r"|Operating|Procedure|Standing|Classification|Practice|Qualifying|Sprint"
+    r"|Championship|Technical|Scrutineering|Report|Notes|Annex|Appendix)\b",
     re.IGNORECASE,
 )
 

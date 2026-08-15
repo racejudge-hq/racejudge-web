@@ -141,6 +141,7 @@ def sha256_of_bytes(data: bytes) -> str:
 # ---------------------------------------------------------------------------
 
 _PUBLISHED_ON_RE = re.compile(r"Published\s+on\s*\d.*$", re.IGNORECASE)
+_BARE_PERCENT_RE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 
 
 def _clean_title(title: str) -> str:
@@ -151,6 +152,22 @@ def _clean_title(title: str) -> str:
 def _slugify(title: str) -> str:
     safe = "".join(c if c.isalnum() or c in " -_" else "_" for c in title)
     return safe.strip().replace(" ", "_")[:80]
+
+
+def _storage_name(title: str, file_hash: str) -> str:
+    """Build the on-disk / R2 filename for a document.
+
+    Titles are nowhere near unique. The FIA reissues the same one all season —
+    "PU elements used per driver up to now" alone covers 23 distinct documents
+    in 2023 — so a title-derived name makes every reissue overwrite the last.
+    That is exactly what happened: 254 of 1,606 local PDFs were not the
+    decision they were recorded against, across 72 colliding names.
+
+    The hash prefix is the doc_id, so the name is unique whenever the bytes
+    differ and identical whenever they do not — a re-download of the same
+    document is idempotent rather than a second copy.
+    """
+    return f"{_slugify(title)}-{file_hash[:16]}.pdf"
 
 
 # ---------------------------------------------------------------------------
@@ -337,9 +354,21 @@ def _find_decision_links(season: int, *, use_playwright: bool = True) -> list[di
 # Download + parse
 # ---------------------------------------------------------------------------
 
+def _fix_bare_percent(url: str) -> str:
+    """Escape a '%' the FIA left unencoded in its own filename.
+
+    Several decisions are titled "...failing to set a lap time within 107%",
+    and the '%' survives into the URL as a literal. A '%' not followed by two
+    hex digits is not a valid escape, so the request is rejected with 400
+    before it ever reaches the file. Three 2023 decisions were unreachable
+    for this reason alone.
+    """
+    return _BARE_PERCENT_RE.sub("%25", url)
+
+
 def _download_pdf(pdf_url: str) -> bytes:
     log.info("Downloading: %s", pdf_url)
-    resp = _polite_get(pdf_url, stream=True)
+    resp = _polite_get(_fix_bare_percent(pdf_url), stream=True)
     return resp.content
 
 
@@ -403,8 +432,8 @@ def ingest_season(
         season_dir = RAW_PDF_DIR / str(doc_season)
         season_dir.mkdir(exist_ok=True)
 
-        slug = _slugify(doc["title"])
-        pdf_path = season_dir / f"{slug}.pdf"
+        filename = _storage_name(doc["title"], file_hash)
+        pdf_path = season_dir / filename
         pdf_path.write_bytes(pdf_bytes)
         log.info("Saved: %s", pdf_path.name)
 
@@ -419,7 +448,7 @@ def ingest_season(
             "doc_id": file_hash[:16],
             "title": _clean_title(doc["title"]),
             "pdf_url": pdf_url,
-            "r2_key": f"pdfs/{doc_season}/{slug}.pdf",
+            "r2_key": f"pdfs/{doc_season}/{filename}",
             "sha256_hash": file_hash,
             "raw_text": raw_text,
             "season": doc_season,

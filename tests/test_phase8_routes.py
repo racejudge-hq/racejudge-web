@@ -167,10 +167,12 @@ def test_mean_severity_nfa():
 
 
 def test_mean_severity_weighted():
-    from apps.api.routers.stewards import _mean_severity
-    # NFA=0, DSQ=6 with equal counts → mean = 3.0
+    from apps.api.routers.stewards import _mean_severity, _severity
+    # An even split sits midway between the two rungs. Asserted against the
+    # ladder rather than a hardcoded number, so extending the ladder — as
+    # adding WARN, FINE, SG and PIT did — does not break the test.
     result = _mean_severity({"NFA": 5, "DSQ": 5})
-    assert result == 3.0
+    assert result == pytest.approx((_severity("NFA") + _severity("DSQ")) / 2)
 
 
 def test_modal_returns_highest_count():

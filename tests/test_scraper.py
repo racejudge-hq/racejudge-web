@@ -8,10 +8,12 @@ import pytest
 
 from packages.pipeline.scrapers.fia_scraper import (
     _clean_title,
+    _fix_bare_percent,
     _parse_decision_links,
     _season_filter_url,
     _season_from_url,
     _slugify,
+    _storage_name,
     sha256_of_bytes,
 )
 
@@ -176,3 +178,58 @@ def test_season_falls_back_to_the_requested_year_when_url_is_silent():
     docs = _parse_decision_links(BeautifulSoup(html, "html.parser"), 2024)
 
     assert [d["season"] for d in docs] == [2024]
+
+
+# ---------------------------------------------------------------------------
+# _storage_name — the filename must not collide
+# ---------------------------------------------------------------------------
+
+# The FIA reissues this title at every event of the season; 23 distinct 2023
+# documents share it. Under a title-only filename each download overwrote the
+# last, and 254 of 1,606 local PDFs ended up being some other decision.
+_REISSUED = "PU elements used per driver up to now"
+
+
+def test_same_title_different_bytes_gets_different_names():
+    a = _storage_name(_REISSUED, "a" * 64)
+    b = _storage_name(_REISSUED, "b" * 64)
+    assert a != b
+    assert a.endswith(".pdf") and b.endswith(".pdf")
+
+
+def test_same_document_gets_the_same_name_twice():
+    # Re-scraping must overwrite the identical file, not accumulate copies.
+    h = hashlib.sha256(b"pdf bytes").hexdigest()
+    assert _storage_name("Decision - Car 4", h) == _storage_name("Decision - Car 4", h)
+
+
+def test_storage_name_carries_the_doc_id():
+    h = hashlib.sha256(b"pdf bytes").hexdigest()
+    assert h[:16] in _storage_name("Decision - Car 4", h)
+
+
+def test_storage_name_has_no_path_separators():
+    name = _storage_name("Decision / Car 4 - 30% throttle", "c" * 64)
+    assert "/" not in name and "\\" not in name
+
+
+# ---------------------------------------------------------------------------
+# _fix_bare_percent
+# ---------------------------------------------------------------------------
+
+def test_bare_percent_is_escaped():
+    # "...within 107%.pdf" — a '%' with no hex digits after it is not a valid
+    # escape and the FIA's own server answers 400.
+    url = "https://www.fia.com/f/2023%20Japanese%20-%20within%20107%.pdf"
+    assert _fix_bare_percent(url) == (
+        "https://www.fia.com/f/2023%20Japanese%20-%20within%20107%25.pdf")
+
+
+def test_valid_escapes_are_left_alone():
+    url = "https://www.fia.com/f/2024%20Chinese%20Grand%20Prix.pdf"
+    assert _fix_bare_percent(url) == url
+
+
+def test_an_already_escaped_percent_is_not_double_escaped():
+    url = "https://www.fia.com/f/within%20107%25.pdf"
+    assert _fix_bare_percent(url) == url

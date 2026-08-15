@@ -168,8 +168,10 @@ class Event(Base):
     event_id:           Mapped[str]      = mapped_column(Text, primary_key=True, default=_uuid)
     season:             Mapped[int]      = mapped_column(SmallInteger, nullable=False)
     round_number:       Mapped[int]      = mapped_column(SmallInteger, nullable=False)
-    circuit:            Mapped[str]      = mapped_column(Text, nullable=False)
-    country:            Mapped[str]      = mapped_column(Text, nullable=False)
+    # Null until a venue source covers the season: OpenF1 has no meetings
+    # before 2023, so 2019-2022 events carry the name and dates but no circuit.
+    circuit:            Mapped[str | None] = mapped_column(Text)
+    country:            Mapped[str | None] = mapped_column(Text)
     event_name:         Mapped[str]      = mapped_column(Text, nullable=False)
     event_date:         Mapped[date | None] = mapped_column(Date)
     openf1_meeting_key: Mapped[int | None] = mapped_column(Integer)

@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -25,7 +26,38 @@ from fastapi import APIRouter, HTTPException, Query
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["stewards"])
 
-PENALTY_ORDER = {"NFA": 0, "REP": 1, "5s": 2, "10s": 3, "DT": 4, "GRID": 5, "DSQ": 6}
+# The ladder in the FIA's own Penalty Guidelines, from no action to
+# disqualification. Time penalties are stored as "5s", "10s", "20s" and so on,
+# so they are scored from the number of seconds rather than enumerated.
+#
+# Everything absent from this map used to score 0, i.e. identical to no action
+# at all: a warning, a fine, a 10-second stop-go and a pit lane start were all
+# treated as the lightest possible outcome, which flattened mean_severity for
+# any chair who favoured them.
+PENALTY_ORDER = {
+    "NFA":  0.0,
+    "WARN": 1.0,
+    "REP":  2.0,
+    "FINE": 3.0,
+    "DT":   6.0,   # a drive-through costs roughly 20 seconds
+    "SG":   7.0,   # a stop-go costs more again
+    "GRID": 8.0,
+    "PIT":  8.0,   # a pit lane start is the parc fermé equivalent of a grid drop
+    "DSQ": 10.0,
+}
+
+# 5s -> 4.0, 10s -> 5.0, 20s and longer -> 5.9. Time penalties sit between a
+# fine and a drive-through, ordered among themselves by length; the clamp keeps
+# even a 30-second penalty below DT, which is where the guidelines put it.
+_TIME_PENALTY_RE = re.compile(r"^(\d{1,2})s$")
+
+
+def _severity(penalty: str) -> float:
+    """Position a penalty code on the ladder. Unknown codes score 0."""
+    m = _TIME_PENALTY_RE.match(penalty or "")
+    if m:
+        return round(min(4.0 + math.log2(int(m.group(1)) / 5 + 1e-9), 5.9), 2)
+    return PENALTY_ORDER.get(penalty, 0.0)
 
 
 def _entropy(counts: dict[str, int]) -> float:
@@ -56,7 +88,7 @@ def _mean_severity(counts: dict[str, int]) -> float:
     total = sum(counts.values())
     if total == 0:
         return 0.0
-    weighted = sum(PENALTY_ORDER.get(k, 0) * v for k, v in counts.items())
+    weighted = sum(_severity(k) * v for k, v in counts.items())
     return round(weighted / total, 2)
 
 
@@ -127,9 +159,13 @@ async def panel_variance(
             i.penalty_type,
             COUNT(*) AS cnt
         FROM incidents i
-        JOIN decisions d ON i.doc_id = d.doc_id
-        JOIN events e    ON d.season = e.season
-        JOIN steward_panels sp ON sp.event_id = e.event_id
+        JOIN decisions d       ON i.doc_id = d.doc_id
+        -- Through decisions.event_id, not decisions.season = events.season.
+        -- The season join matches every event of the season at once, so each
+        -- ruling was counted against all ~22 panels that sat that year and
+        -- every chair was credited with every other chair's decisions. It
+        -- returned nothing only because events was empty, which hid the fault.
+        JOIN steward_panels sp ON sp.event_id = d.event_id
         WHERE i.penalty_type IS NOT NULL
           AND d.season >= (SELECT MAX(season) FROM decisions) - :seasons + 1
         GROUP BY sp.chair, i.penalty_type
