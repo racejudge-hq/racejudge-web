@@ -137,6 +137,11 @@ KNOWN_DRIVERS: list[DriverRecord] = [
     # which is built from race entry lists. Nationality is left out because the
     # decisions do not state it and nothing here should be guessed.
     {"code": "SHW", "full_name": "Robert Shwartzman",     "number": 97},
+    # Practice-only entry, and the corpus never names him: car 46 appears once,
+    # as the car Albon impeded in 2025 Bahrain FP1, with no driver stated.
+    # Taken from OpenF1's entry list for that session (session_key 10007), which
+    # is the authoritative record of who was in the car — not inferred.
+    {"code": "BRO", "full_name": "Luke Browning",         "number": 46},
 ]
 
 
