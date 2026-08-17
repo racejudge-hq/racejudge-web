@@ -21,6 +21,13 @@ from datetime import UTC, datetime
 
 log = logging.getLogger(__name__)
 
+# OpenF1 publishes weather about once a minute, but the feed has gaps and does
+# not always cover the ends of a session. Taking the nearest reading regardless
+# of how far away it is produced matches up to 50 minutes off the incident —
+# long enough for rain to start and stop. Past this, there is no reading for
+# the incident, and saying so is better than offering a different hour's.
+MAX_WEATHER_GAP_S = 600
+
 
 def _parse_dt(s: str) -> datetime:
     # OpenF1 timestamps may carry a +00:00 offset or trailing 'Z' — fromisoformat
@@ -76,7 +83,7 @@ class WeatherLinker:
             except Exception:
                 continue
 
-        if best is None:
+        if best is None or best_delta > MAX_WEATHER_GAP_S:
             return None
 
         return {
@@ -99,7 +106,7 @@ class WeatherLinker:
         """
         from sqlalchemy import select
 
-        from packages.db.models import Decision, Incident, RaceControlMessage
+        from packages.db.models import Incident, RaceControlMessage
 
         # Get incidents for session without weather context
         result = await db.execute(
@@ -124,16 +131,17 @@ class WeatherLinker:
             )
             rc_row = rc_result.first()
 
-            if rc_row and rc_row[0]:
-                incident_time = rc_row[0]
-            else:
-                # Fall back to decision published_at
-                dec_result = await db.execute(
-                    select(Decision.published_at)
-                    .where(Decision.doc_id == incident.doc_id)
-                )
-                dec_row = dec_result.first()
-                incident_time = dec_row[0] if dec_row else None
+            # Failing a linked race control message, the time the decision
+            # itself prints — already converted to UTC and checked against the
+            # session window (migration 0017).
+            #
+            # This used to fall back to Decision.published_at, which is when the
+            # FIA released the document: routinely hours after the flag, and for
+            # a post-race technical infringement the following day. The nearest
+            # weather reading to that is either the last minute of the session
+            # or nothing like the session at all, so the fallback was
+            # manufacturing weather rather than finding it.
+            incident_time = rc_row[0] if rc_row and rc_row[0] else incident.incident_time
 
             if incident_time is None:
                 continue

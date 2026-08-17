@@ -8,7 +8,7 @@ Relationships are lazy-loaded by default (async-safe: use selectinload).
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import (
@@ -21,6 +21,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Interval,
     SmallInteger,
     Text,
     UniqueConstraint,
@@ -121,6 +122,10 @@ class Incident(Base):
     # the whole column pointed at nothing at all while sessions was empty.
     session_key:         Mapped[int | None] = mapped_column(
         ForeignKey("sessions.session_key", ondelete="SET NULL"))
+    # When the incident happened, in UTC, read from the Time field the decision
+    # prints above its Session field. Distinct from the letterhead time, which
+    # is when the document was published — often hours after the flag.
+    incident_time:       Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     lap:                 Mapped[int | None] = mapped_column(SmallInteger)
     corner:              Mapped[str | None] = mapped_column(Text)
     article_cited:       Mapped[list[str] | None] = mapped_column(ARRAY(Text))
@@ -204,6 +209,10 @@ class Session(Base):
     session_key:  Mapped[int | None] = mapped_column(Integer, unique=True)
     start_time:   Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     end_time:     Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Local circuit time minus UTC. The FIA prints incident times in local time
+    # and nothing else records the offset, so without this an incident time is
+    # a number of hours away from an instant. See migration 0017.
+    gmt_offset:   Mapped[timedelta | None] = mapped_column(Interval)
     created_at:   Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     event: Mapped[Event] = relationship("Event", back_populates="sessions")

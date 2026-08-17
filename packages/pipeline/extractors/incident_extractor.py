@@ -279,6 +279,7 @@ class IncidentExtractor:
     def _layer1(self, record: dict) -> dict:
         from packages.pipeline.parsers.decision_parser import (
             extract_car_number,
+            extract_contact,
             extract_driver_name,
             extract_grid_positions,
             extract_infraction_type,
@@ -325,6 +326,7 @@ class IncidentExtractor:
             "lap_number":      extract_lap_number(cleaned),
             "session_type":    extract_session_type(combined),
             "corner":          extract_turn_number(cleaned),
+            "contact":         extract_contact(cleaned),
             "article_cited":   extract_article_citations(cleaned),
             "reasoning_text":  _extract_reasoning(cleaned),
         }
@@ -336,6 +338,7 @@ class IncidentExtractor:
     def _layer2(self, pdf_path: str | Path) -> dict:
         from packages.pipeline.parsers.decision_parser import (
             extract_car_number,
+            extract_contact,
             extract_driver_name,
             extract_grid_positions,
             extract_infraction_type,
@@ -376,6 +379,7 @@ class IncidentExtractor:
             "lap_number":      extract_lap_number(cleaned),
             "session_type":    extract_session_type(cleaned),
             "corner":          extract_turn_number(cleaned),
+            "contact":         extract_contact(cleaned),
             "article_cited":   extract_article_citations(cleaned),
             "reasoning_text":  _extract_reasoning(cleaned),
         }
@@ -505,7 +509,11 @@ class IncidentExtractor:
             lap_number          = best.get("lap_number"),
             session_type        = best.get("session_type"),
             corner              = best.get("corner"),
-            contact             = _infer_contact(best.get("infraction_type")),
+            # The Fact section when the layer read one; the category label only
+            # as a last resort, because the label is applied after the fact and
+            # disagrees with the document in both directions. See extract_contact.
+            contact             = (best["contact"] if best.get("contact") is not None
+                                   else _infer_contact(best.get("infraction_type"))),
             article_cited       = articles_raw,
             reasoning_text      = best.get("reasoning_text", ""),
             drivers             = drivers,
@@ -567,8 +575,11 @@ def _parse_penalty_seconds(outcome: str | None) -> int | None:
 
 
 def _infer_contact(infraction: str | None) -> bool | None:
+    """Last-resort guess from the infraction label, used only when the document
+    states no Fact section. "collision" was matched as a literal substring, so
+    the label "collided" — the word the FIA actually writes — did not count."""
     if not infraction:
         return None
-    contact_keywords = ["collision", "contact", "hit", "crash", "impact"]
+    contact_keywords = ["collid", "collision", "contact", "hit", "crash", "impact"]
     lower = infraction.lower()
     return any(kw in lower for kw in contact_keywords)

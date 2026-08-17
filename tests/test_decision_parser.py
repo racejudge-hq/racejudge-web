@@ -5,10 +5,12 @@ import pytest
 from packages.pipeline.parsers.decision_parser import (
     batch_extract,
     extract_car_number,
+    extract_contact,
     extract_driver_name,
     extract_event_header,
     extract_grid_positions,
     extract_incident,
+    extract_incident_time,
     extract_infraction_type,
     extract_involved_cars,
     extract_lap_number,
@@ -823,3 +825,87 @@ def test_a_runaway_reason_is_cut_at_a_sentence_end():
 
 def test_reason_of_empty_text_is_empty():
     assert extract_reason("") == ""
+
+
+# ---------------------------------------------------------------------------
+# extract_contact — did the cars actually touch
+# ---------------------------------------------------------------------------
+
+def _fact(text: str) -> str:
+    return f"Fact {text} InfringementBreach of Appendix L. Decision 5 second penalty."
+
+
+@pytest.mark.parametrize("fact,expected", [
+    ("Car 63 collided with Car 1 at Turn 12.",                       True),
+    ("Cars 44 and 33 collided in Turn 10.",                          True),
+    ("Collision with Car 11 after Turn 2.",                          True),
+    ("Unsafe release of Car 31 and collision with Car 16.",          True),
+    ("Car 5 made contact with Car 30 on the exit of Turn 4.",        True),
+    # No contact involved in the offence at all.
+    ("Exceeding track limits at Turn 9.",                            False),
+    ("Speeding in the pit lane during Practice 1.",                  False),
+    ("Unnecessarily impeding car 2 between Turns 17 and 18.",        False),
+    ("Left and rejoined the track in an unsafe manner at turn 5.",   False),
+    # Same word, opposite meaning.
+    ("Near collision behind the safety car.",                        False),
+    ("The Stewards determined there was no contact between the cars.", False),
+])
+def test_extract_contact(fact, expected):
+    assert extract_contact(_fact(fact)) is expected
+
+
+def test_incident_between_cars_settles_nothing():
+    """The FIA's neutral opener covers a crash and a near miss equally. It is
+    not evidence of contact, and it is not evidence of none."""
+    assert extract_contact(_fact("Incident between cars 14 & 55 in Turn 9.")) is None
+
+
+def test_contact_needs_a_fact_section():
+    assert extract_contact("Decision - Car 4 - Collision. Reason The Stewards.") is None
+
+
+# ---------------------------------------------------------------------------
+# extract_incident_time — the second Time, not the letterhead's
+# ---------------------------------------------------------------------------
+
+_TIMED_DOC = """2026 MONACO GRAND PRIX
+From The Stewards Document 89
+To The Team Manager, Date 07 June 2026
+Audi Revolut F1 Team
+Time 20:24
+The Stewards, having received a report from the Race Director, have considered
+the following matter and determine the following:
+No / Driver 27 - Nico Hulkenberg
+Competitor Audi Revolut F1 Team
+Time 17:17
+Session Race
+Fact Car 27 collided with Car 55 in Turn 8
+"""
+
+
+def test_incident_time_is_not_the_publication_time():
+    """20:24 is when the FIA published; 17:17 is when the incident happened.
+    Taking the first Time dates every incident to hours after the flag."""
+    assert extract_incident_time(_TIMED_DOC) == (17, 17)
+
+
+def test_a_notice_with_only_a_publication_time_yields_none():
+    """An 'All Teams' notice carries the letterhead time and no incident block.
+    Reading that as the incident time puts the incident after the session."""
+    notice = ("2024 UNITED STATES GRAND PRIX\n"
+              "From The Stewards Document 53\n"
+              "To All Teams, All Officials Date 19 October 2024\n"
+              "Time 18:42\n"
+              "Session Qualifying\n"
+              "Fact The cars below exceeded the 1:55.0 time limit.\n")
+    assert extract_incident_time(notice) == (18, 42)
+    # …which is why the caller checks it against the session window before
+    # storing it. The parser reports what is printed; it does not vouch for it.
+
+
+def test_no_session_field_means_no_anchor_for_the_time():
+    assert extract_incident_time("From The Stewards\nTime 18:42\nDecision X") is None
+
+
+def test_impossible_clock_readings_are_rejected():
+    assert extract_incident_time("Time 47:99\nSession Race\n") is None

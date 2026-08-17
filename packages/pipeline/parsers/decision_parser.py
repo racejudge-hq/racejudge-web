@@ -593,6 +593,55 @@ def extract_involved_cars(text: str, exclude: set[int] | None = None) -> list[in
     return others
 
 
+# Whether the cars actually touched. The Fact line says so in the stewards'
+# own words; the infraction category — which is where this used to be inferred
+# from — is a label applied afterwards and gets it wrong in both directions.
+# Eight documents categorised "collision" describe impeding, an unsafe release
+# or a car rejoining the track, and two describing a plain collision were
+# stored as no contact.
+_CONTACT_POS_RE = re.compile(
+    r"collid|collision|made contact|contact (?:with|between)"
+    r"|\bhit\b|rear[- ]end",
+    re.IGNORECASE,
+)
+# "Near collision" and "near miss" are the opposite of contact, and say so
+# using the same word.
+_CONTACT_NEG_RE = re.compile(
+    r"\bnear\s+(?:collision|miss)"
+    r"|\b(?:no|without|not any)\s+(?:further\s+)?(?:contact|collision)"
+    r"|did not (?:collide|make contact)",
+    re.IGNORECASE,
+)
+# The FIA's deliberately neutral opener. It covers a collision and a near miss
+# equally, so on its own it settles nothing.
+_CONTACT_NEUTRAL_RE = re.compile(
+    r"\bincident\s+(?:between|involving|with)\b",
+    re.IGNORECASE,
+)
+
+
+def extract_contact(text: str) -> bool | None:
+    """Whether the cars made contact, as stated in the Fact section.
+
+    True when the stewards say they touched, False when the Fact describes an
+    offence that involves no contact at all — track limits, speeding, impeding
+    — and None when the document states no Fact, or states only that there was
+    an "incident between" two cars, which is how the FIA writes both a crash
+    and a near miss.
+    """
+    m = _FACT_RE.search(text or "")
+    if not m:
+        return None
+    fact = m.group(1)
+    if _CONTACT_NEG_RE.search(fact):
+        return False
+    if _CONTACT_POS_RE.search(fact):
+        return True
+    if _CONTACT_NEUTRAL_RE.search(fact):
+        return None
+    return False
+
+
 def extract_suspension(text: str) -> str | None:
     """Whether the penalty was suspended, and if so how much of it.
 
@@ -681,6 +730,37 @@ def extract_event_header(text: str) -> dict[str, Any] | None:
 
 def _collapse_spaces(s: str) -> str:
     return " ".join(s.split())
+
+
+# A decision prints Time twice. The first is in the letterhead, next to the
+# document number and date, and is when the FIA published — often hours after
+# the flag. The second sits in the incident block, directly above the Session
+# field, and is when the incident happened. Take the last one before Session.
+_TIME_FIELD_RE = re.compile(r"^[ \t]*Time[ \t:]+(\d{1,2}):(\d{2})", re.IGNORECASE | re.MULTILINE)
+
+
+def extract_incident_time(text: str) -> tuple[int, int] | None:
+    """Local circuit time of the incident, as (hour, minute).
+
+    Local, not UTC — the FIA prints circuit time and never says so. Turning it
+    into an instant needs the session's GMT offset, which is why this returns
+    the clock reading rather than pretending to a timezone it does not know.
+
+    Returns None when the document has no Session field to anchor on, or no
+    Time above it: an "All Teams" notice carries only the publication time, and
+    reading that as the incident time would put the incident after the race.
+    """
+    text = text or ""
+    session = _SESSION_FIELD_RE.search(text)
+    if not session:
+        return None
+    before = [m for m in _TIME_FIELD_RE.finditer(text) if m.start() < session.start()]
+    if not before:
+        return None
+    hour, minute = int(before[-1].group(1)), int(before[-1].group(2))
+    if hour > 23 or minute > 59:
+        return None
+    return hour, minute
 
 
 def _canon_session(raw: str) -> str | None:
