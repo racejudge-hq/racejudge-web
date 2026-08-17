@@ -23,12 +23,23 @@ EMBED_MODEL  = os.environ.get("EMBED_MODEL", "BAAI/bge-m3")
 EMBED_DIM    = 1024
 DEFAULT_BATCH = 64
 
+# EMBED_MODEL is a local directory when the fine-tuned model is in use, so
+# storing it verbatim wrote an absolute path from whichever machine ran the
+# backfill into every row. That is not a model identity: the same weights got
+# one name locally and would get another on the deployed worker, and comparing
+# embedding_model across rows — which is how you tell whether two vectors are
+# even in the same space — stopped working.
+EMBED_MODEL_NAME = (
+    os.path.basename(EMBED_MODEL.rstrip("/")) if os.path.sep in EMBED_MODEL
+    else EMBED_MODEL
+)
+
 
 def _get_model():
     try:
         from sentence_transformers import SentenceTransformer
         model = SentenceTransformer(EMBED_MODEL)
-        log.info("Loaded %s", EMBED_MODEL)
+        log.info("Loaded %s (recorded as %s)", EMBED_MODEL, EMBED_MODEL_NAME)
         return model
     except ImportError as exc:
         raise ImportError(
@@ -102,7 +113,7 @@ def backfill_embeddings(batch_size: int = DEFAULT_BATCH) -> dict[str, Any]:
                     embedding_model = %s,
                     embedded_at     = %s
                 WHERE incident_id = %s
-            """, (str(vec), EMBED_MODEL, now, iid))
+            """, (str(vec), EMBED_MODEL_NAME, now, iid))
 
         conn.commit()
         embedded += len(valid)

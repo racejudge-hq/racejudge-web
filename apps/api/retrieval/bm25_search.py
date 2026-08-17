@@ -37,7 +37,10 @@ async def bm25_search(
     # UndefinedFunctionError and was swallowed by the except below, so BM25
     # silently returned nothing and hybrid search ran on vectors alone.
     conditions = ["(to_tsvector('english', i.reasoning_text) @@ query.q OR "
-                  " d.search_vector @@ query.q)"]
+                  " d.search_vector @@ query.q)",
+                  # Same exclusion as the vector leg — a hybrid search is only
+                  # as clean as its dirtiest branch. See semantic_search.
+                  "d.is_precedent IS NOT FALSE"]
     params: dict[str, Any] = {"q": query, "top_k": top_k}
 
     if season:

@@ -105,6 +105,58 @@ _DECISION_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+# The Reason section is the stewards' actual argument: what they weighed, what
+# they accepted in mitigation, and why the penalty is the one they chose. It is
+# the only part of a decision worth searching for precedent, so it is what the
+# embeddings are built from.
+_REASON_RE = re.compile(r"\bReason\b\s*(.*)\Z", re.IGNORECASE | re.DOTALL)
+
+# Every decision closes with the same two paragraphs about the right of appeal
+# and the independence of the stewards, followed by the signature block. None
+# of it is reasoning, and leaving it in makes every document look alike to a
+# similarity search.
+_TAIL_BOILERPLATE_RE = re.compile(
+    r"\n\s*(?:Competitors\s+are\s+reminded"
+    r"|Decisions?\s+of\s+the\s+Stewards\s+are\s+taken\s+independently"
+    r"|The\s+Stewards\s*$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# bge-m3 accepts 8192 tokens, so this is nowhere near the model's limit; it is
+# a guard against a malformed document, not a content decision. Cut at a
+# sentence end so a truncated reason never stops mid-word.
+_MAX_REASON_CHARS = 6000
+
+
+def extract_reason(text: str) -> str:
+    """Return the Reason section, stripped of the closing boilerplate.
+
+    Falls back to the whole document when there is no Reason heading, which is
+    the case for administrative sheets that carry no argument at all.
+
+    The previous implementation searched for the first of several loose markers,
+    one of which was "the stewards" — a phrase that appears in the *header* of
+    every decision ("The Stewards, having received a report from the Race
+    Director..."). It therefore started at the top of the document and kept a
+    flat 2,000 characters, so on 289 incidents the stored reasoning was the
+    header, the facts and the ruling, cut off mid-word before the argument
+    began. On the 2024 Mexican GP misconduct case that meant losing the
+    mitigation and the €10,000 fine entirely.
+    """
+    m = _REASON_RE.search(text or "")
+    body = m.group(1) if m else (text or "")
+
+    cut = _TAIL_BOILERPLATE_RE.search(body)
+    if cut:
+        body = body[: cut.start()]
+    body = body.strip()
+
+    if len(body) <= _MAX_REASON_CHARS:
+        return body
+    head = body[:_MAX_REASON_CHARS]
+    stop = max(head.rfind(". "), head.rfind(".\n"))
+    return (head[: stop + 1] if stop > _MAX_REASON_CHARS // 2 else head).strip()
+
 # A penalty is suspended when it is imposed but not enforced unless the party
 # reoffends. Two distinct shapes, and the difference is not cosmetic:
 #

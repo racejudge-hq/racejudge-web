@@ -205,19 +205,9 @@ def _normalise_infraction_category(infraction: str | None) -> str | None:
 
 def _extract_reasoning(text: str) -> str:
     """Extract the stewards' reasoning section from raw text."""
-    lower = text.lower()
-    markers = [
-        "having considered",
-        "the stewards",
-        "decision:",
-        "the competitors were",
-        "after hearing",
-    ]
-    for marker in markers:
-        idx = lower.find(marker)
-        if idx != -1:
-            return text[idx: idx + 2000].strip()
-    return text[:2000].strip()
+    from packages.pipeline.parsers.decision_parser import extract_reason
+
+    return extract_reason(text)
 
 
 def _subject_numbers(cleaned: str, car_number: int | None) -> set[int]:

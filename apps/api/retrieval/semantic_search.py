@@ -74,7 +74,12 @@ async def semantic_search(
     from sqlalchemy import text
 
     # Build WHERE clause for structured filters
-    conditions = ["i.embedding IS NOT NULL"]
+    # Administrative sheets — power-unit tallies, drivers' meeting notes — are
+    # published through the same FIA feed and were being returned as precedent.
+    # They decide nothing, so a hit on one is a wrong answer, not a weak one.
+    # IS NOT FALSE, not = TRUE: a document whose signature block has not been
+    # read yet is unknown, and dropping it silently is the worse mistake.
+    conditions = ["i.embedding IS NOT NULL", "d.is_precedent IS NOT FALSE"]
     params: dict[str, Any] = {
         "embedding": str(embedding),
         "top_k":     top_k,

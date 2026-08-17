@@ -14,6 +14,7 @@ from packages.pipeline.parsers.decision_parser import (
     extract_lap_number,
     extract_outcome,
     extract_penalty_points,
+    extract_reason,
     extract_session_type,
     extract_subjects,
     extract_suspension,
@@ -694,3 +695,78 @@ def test_outcome_comes_from_the_decision_not_the_reason():
 
 def test_outcome_falls_back_to_the_whole_document_without_a_decision_heading():
     assert extract_outcome("The Stewards impose a reprimand on the driver.") == "reprimand"
+
+
+# ── The Reason section ────────────────────────────────────────────────────────
+
+_APPEAL_BOILERPLATE = (
+    "Competitors are reminded that they have the right to appeal certain "
+    "decisions of the Stewards, in accordance with Article 15 of the FIA "
+    "International Sporting Code and Chapter 4 of the FIA Judicial and "
+    "Disciplinary Rules, within the applicable time limits.\n"
+    "Decisions of the Stewards are taken independently of the FIA and are "
+    "based solely on the relevant regulations, guidelines and evidence "
+    "presented.\n"
+    "Gerd Ennser Andrew Mallalieu\n"
+    "Johnny Herbert Luciano Burti\n"
+    "The Stewards"
+)
+
+
+def test_reason_starts_at_the_reason_heading_not_the_header():
+    # "The Stewards, having received a report..." opens every decision. The old
+    # marker search found it and began there, so the stored reasoning was the
+    # header and the facts rather than the argument.
+    text = (
+        "The Stewards, having received a report from the Race Director, have "
+        "considered the following matter.\n"
+        "Fact Car 16 used unsuitable language.\n"
+        "Decision Fine of €10,000.\n"
+        "Reason The Stewards considered the mitigation that Leclerc "
+        "apologised immediately.\n"
+    )
+    reason = extract_reason(text)
+    assert reason.startswith("The Stewards considered the mitigation")
+    assert "Race Director" not in reason
+    assert "Fact Car 16" not in reason
+
+
+def test_the_appeal_boilerplate_and_signatures_are_stripped():
+    text = "Reason The driver was found to be at fault.\n" + _APPEAL_BOILERPLATE
+    reason = extract_reason(text)
+    assert reason == "The driver was found to be at fault."
+
+
+def test_the_operative_reasoning_survives_in_full():
+    # The 2024 Mexican GP misconduct case: the old 2,000-char cut lost the
+    # mitigation and the fine, which is the entire point of the document.
+    text = (
+        "The Stewards, having received a report from the Race Director.\n"
+        + "Fact Filler sentence about the matter. " * 60
+        + "\nDecision Fine of €10,000.\n"
+        "Reason The Stewards considered the mitigation factor that Leclerc was "
+        "immediately apologetic and chose to levy a fine of €10,000 with "
+        "€5,000 suspended pending no repeat within 12 months.\n"
+        + _APPEAL_BOILERPLATE
+    )
+    reason = extract_reason(text)
+    assert "€10,000 with €5,000 suspended" in reason
+    assert "Filler sentence" not in reason
+
+
+def test_a_document_with_no_reason_heading_falls_back_to_its_text():
+    # Administrative sheets carry no argument; returning nothing would drop
+    # them from the corpus silently.
+    text = "PU elements used per driver up to now.\nCar 1 Engine 3 of 4."
+    assert "PU elements" in extract_reason(text)
+
+
+def test_a_runaway_reason_is_cut_at_a_sentence_end():
+    text = "Reason " + ("The stewards reviewed the video evidence carefully. " * 300)
+    reason = extract_reason(text)
+    assert len(reason) <= 6000
+    assert reason.endswith(".")
+
+
+def test_reason_of_empty_text_is_empty():
+    assert extract_reason("") == ""

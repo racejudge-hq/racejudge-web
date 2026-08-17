@@ -84,6 +84,12 @@ class Decision(Base):
     event_id:       Mapped[str | None] = mapped_column(
         Text, ForeignKey("events.event_id", ondelete="SET NULL"), index=True
     )
+    # True when the document is a stewards' ruling, false for the administrative
+    # sheets published through the same feed (PU tallies, drivers' meeting
+    # notes). Read from the signature block: a ruling is panel-signed, a sheet
+    # is signed by one delegate. NULL means not yet determined, and retrieval
+    # keeps those — excluding must be something we established, not assumed.
+    is_precedent:   Mapped[bool | None] = mapped_column(Boolean, index=True)
     published_at:   Mapped[str | None] = mapped_column(Text)
     raw_text:       Mapped[str]      = mapped_column(Text, nullable=False, default="")
     char_count:     Mapped[int]      = mapped_column(Integer, nullable=False, default=0)
