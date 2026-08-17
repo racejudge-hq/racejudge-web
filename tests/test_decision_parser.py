@@ -149,12 +149,65 @@ def test_extract_driver_name(text, expected):
     ("during the Race on lap 5", "race"),
     ("Qualifying session infringement", "qualifying"),
     ("Sprint race penalty", "sprint"),
-    ("FP1 Practice incident", "practice"),
+    ("FP1 Practice incident", "practice_1"),
     ("Formation lap violation", "formation lap"),
     ("nothing relevant", None),
 ])
 def test_extract_session_type(text, expected):
     assert extract_session_type(text) == expected
+
+
+# The document states its session on a line of its own. Read that line — and
+# only that line, because the preamble above it says "Race Director" on nearly
+# every decision the FIA publishes. Reading the whole document instead was
+# wrong on 42.5% of the 1,144 corpus documents that state a session: every
+# practice, qualifying and sprint document became a race.
+_SESSION_FIELD_DOC = """2025 SÃO PAULO GRAND PRIX
+From The Stewards Document 23
+The Stewards, having received a report from the Race Director, summoned
+(document 15) and heard from the driver, have considered the following matter:
+No / Driver 44 - Lewis Hamilton
+Session {session}
+Fact Failing to slow under double yellow flags
+Decision Driver: Reprimand (Driving).
+"""
+
+
+@pytest.mark.parametrize("stated,expected", [
+    ("Race",                "race"),
+    ("Qualifying",          "qualifying"),
+    ("Sprint",              "sprint"),
+    ("Sprint Qualifying",   "sprint_qualifying"),
+    ("Sprint Shootout",     "sprint_qualifying"),
+    ("Practice 1",          "practice_1"),
+    ("Free Practice 2",     "practice_2"),
+    ("Practice 3",          "practice_3"),
+    ("Reconnaissance Laps", "reconnaissance"),
+    ("Pre-Race",            "race"),
+])
+def test_session_field_beats_the_race_director(stated, expected):
+    doc = _SESSION_FIELD_DOC.format(session=stated)
+    assert "Race Director" in doc          # the trap is present
+    assert extract_session_type(doc) == expected
+
+
+def test_sprint_qualifying_is_not_the_sprint():
+    """'Sprint' is a prefix of 'Sprint Qualifying'. Order the tests wrong and
+    every sprint-qualifying impeding case is filed under the sprint race."""
+    assert extract_session_type("Session Sprint Qualifying") == "sprint_qualifying"
+    assert extract_session_type("Session Sprint") == "sprint"
+
+
+def test_no_stated_session_does_not_invent_one_from_the_preamble():
+    """A protest or a right of review names no session. 'Race Director' is an
+    official, not a session, and must not become one."""
+    protest = (
+        "2023 AUSTRALIAN GRAND PRIX\n"
+        "From The Stewards Document 54\n"
+        "Title Decision - Haas Protest\n"
+        "The Stewards received a protest from the Race Director's report.\n"
+    )
+    assert extract_session_type(protest) is None
 
 
 # ---------------------------------------------------------------------------

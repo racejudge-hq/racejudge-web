@@ -261,10 +261,55 @@ _DRIVER_RE = re.compile(
     r"(?:driver|competitor)\s+([A-Z][a-z]+(?: [A-Z][a-z]+)+)",
 )
 
-# Session type
-_SESSION_RE = re.compile(
-    r"\b(race|qualifying|sprint|practice|formation lap|reconnaissance)\b",
+# Session type.
+#
+# The document states it outright, on its own line: "Session Race",
+# "Session Sprint Qualifying". Read that line and nothing else. Scanning the
+# whole document instead returns the first of these words to appear anywhere,
+# and the standard preamble — "having received a report from the Race
+# Director" — sits above the field on nearly every decision. Measured against
+# the stated field across the corpus, the loose scan was wrong on 42.5% of the
+# 1,144 documents that state one: every practice, qualifying and sprint
+# document it could reach was being recorded as a race.
+_SESSION_FIELD_RE = re.compile(
+    r"^[ \t]*Session[ \t:]*(\S[^\n]{0,50})$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Fallback for the ~460 documents with no Session field — protests, rights of
+# review, 107% requests, and the administrative sheets. Officials and offices
+# named after a session are not sessions, so they come out first.
+_NOT_A_SESSION_RE = re.compile(
+    r"\brace\s+(?:director|control|steward|number|engineer|officials?)\b",
     re.IGNORECASE,
+)
+# The match keeps whatever number trails the session name — the fallback reads
+# the first session mentioned, so it has to capture "Practice 1" whole rather
+# than find "practice" and lose which one.
+_SESSION_RE = re.compile(
+    r"\b(sprint\s+(?:qualifying|shootout)|race|qualifying|sprint"
+    r"|(?:free\s+)?practice\s*[123]?|fp\s*[123]?"
+    r"|formation lap|reconnaissance)\b",
+    re.IGNORECASE,
+)
+
+# Canonical session names, matching the vocabulary the sessions table accepts
+# (see migration 0003) so a parsed session and a timing-feed session compare
+# directly. Ordered: the longer name has to be tested before the shorter one it
+# contains, or every sprint qualifying becomes a sprint.
+_SESSION_CANON: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"shootout|sprint\W+qualif", re.IGNORECASE), "sprint_qualifying"),
+    (re.compile(r"sprint", re.IGNORECASE),                   "sprint"),
+    (re.compile(r"qualif", re.IGNORECASE),                   "qualifying"),
+    (re.compile(r"practice\W*(?:session\W*)?1|\bfp\W*1", re.IGNORECASE), "practice_1"),
+    (re.compile(r"practice\W*(?:session\W*)?2|\bfp\W*2", re.IGNORECASE), "practice_2"),
+    (re.compile(r"practice\W*(?:session\W*)?3|\bfp\W*3", re.IGNORECASE), "practice_3"),
+    (re.compile(r"practice", re.IGNORECASE),                 "practice"),
+    (re.compile(r"race|grid procedure", re.IGNORECASE),      "race"),
+    # Neither is a session in its own right, but both are where the incident
+    # happened, so they are kept apart rather than folded into the race.
+    (re.compile(r"reconnaissance", re.IGNORECASE),           "reconnaissance"),
+    (re.compile(r"formation", re.IGNORECASE),                "formation lap"),
 )
 
 # Lap number — prefer "lap N" over "Turn N" (turn = corner, lap = race lap)
@@ -638,9 +683,28 @@ def _collapse_spaces(s: str) -> str:
     return " ".join(s.split())
 
 
+def _canon_session(raw: str) -> str | None:
+    for pattern, name in _SESSION_CANON:
+        if pattern.search(raw):
+            return name
+    return None
+
+
 def extract_session_type(text: str) -> str | None:
-    m = _SESSION_RE.search(text)
-    return m.group(1).lower() if m else None
+    """Which session the incident happened in, as the document states it.
+
+    Returns one of the names the sessions table uses — race, qualifying,
+    sprint, sprint_qualifying, practice_1..3 — or None when the document
+    names no session at all, which is the honest answer for a protest or a
+    right of review.
+    """
+    text = text or ""
+    field = _SESSION_FIELD_RE.search(text)
+    if field:
+        return _canon_session(field.group(1))
+    # No stated field: read the body, minus the offices named after sessions.
+    m = _SESSION_RE.search(_NOT_A_SESSION_RE.sub(" ", text))
+    return _canon_session(m.group(1)) if m else None
 
 
 def extract_lap_number(text: str) -> int | None:

@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -28,7 +29,14 @@ from typing import Any
 PENALTY_CLASSES = ["NFA", "REP", "5s", "10s", "DT", "GRID", "DSQ"]
 PENALTY_CLASS_TO_IDX = {c: i for i, c in enumerate(PENALTY_CLASSES)}
 
-SESSION_TYPES = ["sprint", "qualifying", "race", "practice", "formation lap"]
+# Longest first: "sprint" is a prefix of "sprint_qualifying", and _norm_session
+# returns the first entry that matches. Sprint qualifying is a flying-lap
+# session where impeding and yellow flags dominate; the sprint is a race. They
+# were sharing a feature value.
+SESSION_TYPES = [
+    "sprint_qualifying", "sprint", "qualifying", "race", "practice",
+    "formation lap",
+]
 CORNER_TYPES = ["hairpin", "chicane", "medium", "high_speed", "unknown"]
 WEATHER_TYPES = ["dry", "wet", "mixed", "unknown"]
 TYRE_COMPOUNDS = ["soft", "medium", "hard", "intermediate", "wet", "unknown"]
@@ -41,9 +49,11 @@ TYRE_COMPOUNDS = ["soft", "medium", "hard", "intermediate", "wet", "unknown"]
 def _norm_session(s: str | None) -> str:
     if not s:
         return "unknown"
-    s = s.lower()
+    # Callers have written this as "Sprint Qualifying", "sprint-qualifying"
+    # and "sprint_qualifying"; the separator is not the signal.
+    s = re.sub(r"[\s\-]+", "_", s.lower().strip())
     for t in SESSION_TYPES:
-        if t in s:
+        if t.replace(" ", "_") in s:
             return t
     return "unknown"
 

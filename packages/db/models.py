@@ -116,7 +116,11 @@ class Incident(Base):
     # API filters on that column to mean "was penalised", so a counterparty
     # stored there would count someone else's penalty against the victim.
     involved_drivers:    Mapped[list[Any]]  = mapped_column(JSONB, nullable=False, default=list)
-    session_key:         Mapped[int | None] = mapped_column(Integer)
+    # FK added in 0016. It was a bare integer for long enough that 23 incidents
+    # ended up pointing at the same circuit's sessions from the wrong year, and
+    # the whole column pointed at nothing at all while sessions was empty.
+    session_key:         Mapped[int | None] = mapped_column(
+        ForeignKey("sessions.session_key", ondelete="SET NULL"))
     lap:                 Mapped[int | None] = mapped_column(SmallInteger)
     corner:              Mapped[str | None] = mapped_column(Text)
     article_cited:       Mapped[list[str] | None] = mapped_column(ARRAY(Text))

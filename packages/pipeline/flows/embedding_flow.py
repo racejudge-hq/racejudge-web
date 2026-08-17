@@ -63,11 +63,16 @@ def refresh_precedent_links_task(top_k: int = 20) -> dict:
     cur  = conn.cursor()
 
     # Find incidents embedded today or without any precedent links
+    # Administrative documents — power-unit tallies, drivers' meeting notes —
+    # are not rulings and must not be stored as anyone's precedent, on either
+    # side of the link. See migration 0015.
     cur.execute("""
         SELECT DISTINCT i.incident_id
         FROM incidents i
+        JOIN decisions d ON i.doc_id = d.doc_id
         LEFT JOIN precedent_links pl ON i.incident_id = pl.incident_id
         WHERE i.embedding IS NOT NULL
+          AND d.is_precedent IS NOT FALSE
           AND (
               pl.incident_id IS NULL
               OR i.embedded_at > NOW() - INTERVAL '2 days'
@@ -85,11 +90,13 @@ def refresh_precedent_links_task(top_k: int = 20) -> dict:
                    1 - (i.embedding <=> candidate.embedding) AS score
             FROM incidents i
             CROSS JOIN LATERAL (
-                SELECT incident_id, embedding
-                FROM incidents
-                WHERE incident_id != %s
-                  AND embedding IS NOT NULL
-                ORDER BY embedding <=> i.embedding
+                SELECT c.incident_id, c.embedding
+                FROM incidents c
+                JOIN decisions cd ON c.doc_id = cd.doc_id
+                WHERE c.incident_id != %s
+                  AND c.embedding IS NOT NULL
+                  AND cd.is_precedent IS NOT FALSE
+                ORDER BY c.embedding <=> i.embedding
                 LIMIT %s
             ) AS candidate
             WHERE i.incident_id = %s
