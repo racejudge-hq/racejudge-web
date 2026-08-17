@@ -20,6 +20,7 @@ from packages.pipeline.parsers.decision_parser import (
     extract_session_type,
     extract_subjects,
     extract_suspension,
+    extract_table_subjects,
 )
 
 # ---------------------------------------------------------------------------
@@ -909,3 +910,69 @@ def test_no_session_field_means_no_anchor_for_the_time():
 
 def test_impossible_clock_readings_are_rejected():
     assert extract_incident_time("Time 47:99\nSession Race\n") is None
+
+
+# ---------------------------------------------------------------------------
+# extract_table_subjects — rulings that name their drivers in a table
+# ---------------------------------------------------------------------------
+
+# Verbatim shape of a deleted-lap-times ruling. The columns collapse together
+# in the PDF text layer, so the driver and the team arrive as one run, and the
+# team is full of digits ("Stake F1 Team") — which is why the name cannot be
+# matched as "everything up to the next number".
+_DELETED_LAPS = """Session Race
+Fact The cars below did not use the track at turns 2, 4 and 12.
+No Turn Car Driver Competitor Time of Day Lap Time
+1 4 24 Zhou Guanyu Stake F1 Team Kick Sauber 12:56:34 1:29.677
+2 2 43 Franco Colapinto Williams Racing 12:57:37 1:27.143
+3 12 44 Lewis Hamilton Mercedes-AMG PETRONAS F1 Team 13:05:45 1:31.858
+4 2 43 Franco Colapinto Williams Racing 13:09:01 1:24.750
+Decision Deletion of the lap times shown.
+"""
+
+
+def test_table_ruling_names_every_driver_once():
+    """The table has one row per deleted lap, so a driver appears repeatedly
+    and must be returned once, in the order the table first names them."""
+    assert extract_table_subjects(_DELETED_LAPS) == [
+        (24, "Zhou Guanyu"),
+        (43, "Franco Colapinto"),
+        (44, "Lewis Hamilton"),
+    ]
+
+
+def test_a_single_row_table_still_names_its_driver():
+    one_row = ("Fact The car below exceeded the 1:14.0-time limit.\n"
+               "No Car Driver Competitor Time of Day Lap\n"
+               "1 18 Lance Stroll Aston Martin Aramco Cognizant F1 Team 15:32:08 8 (Q1)\n")
+    assert extract_table_subjects(one_row) == [(18, "Lance Stroll")]
+
+
+def test_penalty_table_layout_is_read_too():
+    """One document, several drivers, a real penalty each — and no subject
+    header anywhere in it."""
+    penalties = ("Decision Penalties below imposed after the race.\n"
+                 "No No / Driver Competitor Penalty\n"
+                 "1 55 - Carlos Sainz Scuderia Ferrari 10 second time penalty\n"
+                 "2 44 - Lewis Hamilton Mercedes AMG-Petronas F1 Team 10 second time penalty\n"
+                 "3 31 - Esteban Ocon BWT Alpine F1 Team 5 second time penalty\n")
+    assert extract_table_subjects(penalties) == [
+        (55, "Carlos Sainz"),
+        (44, "Lewis Hamilton"),
+        (31, "Esteban Ocon"),
+    ]
+
+
+def test_a_numbered_list_without_a_table_header_is_not_a_table():
+    """The row pattern alone matches ordinary numbered prose. The header is
+    what makes it a table, and without it nothing is claimed."""
+    prose = ("Fact The Stewards considered the following:\n"
+             "1 The driver reported at 14:30 as required.\n"
+             "2 The team confirmed at 15:10 that the car was compliant.\n")
+    assert extract_table_subjects(prose) == []
+
+
+def test_a_lowercase_particle_belongs_to_the_name():
+    text = ("No Turn Car Driver Competitor Time of Day Lap Time\n"
+            "1 4 21 Nyck de Vries Scuderia AlphaTauri 14:02:11 1:31.402\n")
+    assert extract_table_subjects(text) == [(21, "Nyck de Vries")]

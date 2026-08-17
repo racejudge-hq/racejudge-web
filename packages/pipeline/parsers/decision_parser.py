@@ -642,6 +642,90 @@ def extract_contact(text: str) -> bool | None:
     return False
 
 
+# Some rulings name their drivers in a table rather than in the subject header:
+# deleted lap times, safety car delta breaches, reconnaissance-lap offences.
+#
+#   No Turn Car Driver             Competitor                   Time of Day  Lap Time
+#   1  4    24  Zhou Guanyu        Stake F1 Team Kick Sauber    12:56:34     1:29.677
+#
+# 152 documents are laid out this way, and every one of them was stored against
+# nobody at all — a driver's record simply did not include the laps the
+# stewards deleted from it.
+_TABLE_HEADER_RE = re.compile(
+    r"^[ \t]*(?:No\.?[ \t]+)?(?:Turn[ \t]+)?Car[ \t]+Driver\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+# Leading integers are the row number and, when the table has the column, the
+# turn. The last one before the name is the car. The name run has to be matched
+# lazily up to the time of day rather than as non-digits, because the team that
+# follows it is full of them ("Stake F1 Team", "Visa Cash App RB F1 Team").
+_TABLE_ROW_RE = re.compile(
+    r"^[ \t]*\d{1,3}\.?[ \t]+(?:\d{1,3}[ \t]+)*(\d{1,3})[ \t]+"
+    r"([A-Z].*?)[ \t]+\d{1,2}:\d{2}:\d{2}",
+    re.MULTILINE,
+)
+# A second layout, used when one document imposes a penalty on several drivers
+# at once. There is no time of day; the car and the driver are joined by a dash.
+#
+#   No  No / Driver           Competitor            Penalty
+#   1   55 - Carlos Sainz     Scuderia Ferrari      10 second time penalty
+_PENALTY_TABLE_HEADER_RE = re.compile(
+    r"^[ \t]*No\.?[ \t]+No[ \t]*/[ \t]*Driver\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+_PENALTY_TABLE_ROW_RE = re.compile(
+    r"^[ \t]*\d{1,3}\.?[ \t]+(\d{1,3})[ \t]*[-–—][ \t]*"
+    r"([A-Z][A-Za-zÀ-ÿ'’.\-]+(?:[ \t]+[A-Za-zÀ-ÿ'’.\-]+){1,2})",
+    re.MULTILINE,
+)
+# "Nyck de Vries", "Jean-Eric Vergne" — a lowercase particle belongs to the
+# name, so the run does not stop at it.
+_NAME_PARTICLES = {"de", "van", "von", "da", "del", "di", "la", "le"}
+
+
+def extract_table_subjects(text: str) -> list[tuple[int, str]]:
+    """Drivers named in a tabular ruling, as (car number, name).
+
+    One entry per driver, in the order the table first names them — the table
+    lists one row per deleted lap, so the same driver appears several times and
+    is returned once.
+
+    Returns an empty list unless the document actually has such a table: the
+    header is required, because the row pattern on its own also matches a
+    stray numbered list. Requiring it costs one document in the corpus and
+    rules out every false positive. A table with a single row still counts —
+    one car exceeding the safety car delta is still a ruling about that car.
+    """
+    text = text or ""
+    seen: dict[int, str] = {}
+    for header, row in ((_TABLE_HEADER_RE, _TABLE_ROW_RE),
+                        (_PENALTY_TABLE_HEADER_RE, _PENALTY_TABLE_ROW_RE)):
+        if not header.search(text):
+            continue
+        for match in row.finditer(text):
+            number = int(match.group(1))
+            if number in seen:
+                continue
+            seen[number] = _leading_name(match.group(2))
+    return list(seen.items())
+
+
+def _leading_name(cell: str) -> str:
+    """The driver's name from a table cell that runs on into the team name.
+
+    The columns collapse together in the text layer — "Zhou Guanyu Stake F1
+    Team Kick Sauber" is one run — so the name is taken as the first two words,
+    extended over a lowercase particle: "Nyck de Vries", "Jean-Eric Vergne".
+    """
+    words = cell.split()
+    name = words[:1]
+    for word in words[1:3]:
+        name.append(word)
+        if word.lower() not in _NAME_PARTICLES:
+            break
+    return " ".join(name)
+
+
 def extract_suspension(text: str) -> str | None:
     """Whether the penalty was suspended, and if so how much of it.
 

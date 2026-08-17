@@ -290,6 +290,7 @@ class IncidentExtractor:
             extract_session_type,
             extract_subjects,
             extract_suspension,
+            extract_table_subjects,
             extract_turn_number,
         )
         from packages.pipeline.parsers.text_cleaner import (
@@ -316,6 +317,7 @@ class IncidentExtractor:
             "car_number":      car_number,
             "driver_name":     extract_driver_name(cleaned),
             "subjects":        extract_subjects(cleaned),
+            "table_subjects":  extract_table_subjects(cleaned),
             "involved_cars":   extract_involved_cars(cleaned, _subject_numbers(cleaned, car_number)),
             "infraction_type": extract_infraction_type(combined),
             "outcome":         extract_outcome(combined),
@@ -349,6 +351,7 @@ class IncidentExtractor:
             extract_session_type,
             extract_subjects,
             extract_suspension,
+            extract_table_subjects,
             extract_turn_number,
         )
         from packages.pipeline.parsers.tesseract_fallback import ocr_pdf
@@ -370,6 +373,7 @@ class IncidentExtractor:
             "car_number":      car_number,
             "driver_name":     extract_driver_name(cleaned),
             "subjects":        extract_subjects(cleaned),
+            "table_subjects":  extract_table_subjects(cleaned),
             "involved_cars":   extract_involved_cars(cleaned, _subject_numbers(cleaned, car_number)),
             "infraction_type": extract_infraction_type(cleaned),
             "outcome":         extract_outcome(cleaned),
@@ -424,6 +428,12 @@ class IncidentExtractor:
         subjects: list[tuple[int | None, str | None]] = [
             (n, nm) for n, nm in (fields.get("subjects") or [])
         ]
+        # Tabular rulings — deleted lap times, safety car delta breaches — name
+        # their drivers in a table instead, and have no subject header at all.
+        # 152 of them were stored against nobody, so the laps the stewards
+        # deleted were missing from every one of those drivers' records.
+        if not subjects:
+            subjects = [(n, nm) for n, nm in (fields.get("table_subjects") or [])]
         if not subjects:
             subjects = [(fields.get("car_number"), fields.get("driver_name"))]
         resolved = [self._driver_entry(nm, n, season) for n, nm in subjects]
