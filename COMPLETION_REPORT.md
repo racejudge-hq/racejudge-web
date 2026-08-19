@@ -1,12 +1,28 @@
-# RACEJUDGE — Final Completion Report v15
+# RACEJUDGE — Final Completion Report v16
 
-> **Updated: 16 August 2026**
-> Tests: 395 passing | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
-> **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **32,120 precedent links materialised (v10).**
+> **Updated: 18 August 2026**
+> Tests: **495 passing** | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Migrations: **0001–0017 applied** | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
+> **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **27,133 precedent links materialised** (re-computed after the corpus repair; v10's 32,120 predated it).
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
 > ✅ **v10's biggest open defect is closed:** classified incidents went **357 → 1,181 (22.2% → 73.5%)** across 24 categories. Nothing was deleted. Section 2C.
 > ✅ **v12: the `/consistency` 500 is fixed at its real cause** (route-declaration order, not Vercel — v11 misdiagnosed it) and the 4 conflicting rows are adjudicated and corrected. Section 10 row 1e.
+> ✅ **v16: the extractor now reads the document rather than guessing from it.** Session type was 42.5% wrong and is now 0.1% wrong; `sessions` and `events` are no longer empty; contact, incident time and the drivers named in tables are read from the text. Section 3B.
+
+## What changed in v16 (17–18 August 2026)
+
+Every remaining defect in the extraction layer, found by measuring each stored field against what the document itself says. Six were real; three suspected ones were not.
+
+- **Session type was wrong on 42.5% of the corpus.** Measured against the `Session` line the documents print: 486 disagreements in the 1,144 documents that state one. Practically every practice, qualifying and sprint ruling was filed as a *race*, because the phrase *"having received a report from the Race Director"* sits above the field and the parser scanned the whole document for the first session-like word. It now reads the `Session` field and falls back to a scan only when there is no field, with "Race Director / Race Control / Race Steward" masked out. **486 → 1 disagreement (0.1%)**, and the one remaining is a post-race press conference. `sprint_qualifying` is separated from `sprint` for the first time.
+- **`sessions` was an empty table that 651 incidents pointed into.** `incidents.session_key` was a bare integer referencing nothing, so every Phase 3 join through it was unverifiable. 380 sessions loaded for the 76 events OpenF1 covers; 1,011 post-2023 incidents relinked on *(the event the document names, the session the document states)*. That caught **23 incidents from the 2026 Canadian GP pointing at 2025 Canadian GP sessions**. Now **1,027 / 1,229** post-2023 incidents carry a key, **0 dangling, 0 cross-event**, and migration **`0016`** makes it a real foreign key.
+- **`contact` was inferred from the category label, never read.** A collision-category ruling was stamped `true` and everything else `NULL`, which is a restatement of the category rather than a fact about the incident. It is now read from the **Fact** section only — the Reason argues about contact that did not happen, and *"near collision behind the safety car"* was flagged as contact until that was fixed. **689 rows corrected**; known on **1,142 / 1,606**, up from 460.
+- **The incident time was never extracted.** FIA decisions print two `Time` fields — publication in the letterhead, and the incident itself directly above `Session`. Only the letterhead one was visible to anything, so an incident's only timestamp was when the FIA published the paperwork: routinely hours after the flag, next day for a technical infringement. The incident time is now read, converted from local circuit time to UTC using the session's `gmt_offset`, and **checked against the session window** — **686 stored, 262 rejected** as paperwork times. Migration **`0017`**.
+- **Weather was being manufactured from the publication time.** With no race-control message attached, `weather_linker` fell back to `Decision.published_at` and took the nearest reading *however far away it was* — up to 50 minutes, long enough for rain to start and stop. It now uses the real incident time and refuses anything more than 10 minutes out. Coverage **297 → 673** rows, mean **21.9s** from the incident, worst **577s**; 44 pre-existing readings too distant to mean anything were cleared.
+- **164 rulings named their drivers in a table and were stored against nobody.** Deleted lap times, safety-car delta breaches and one document penalising nine drivers at once list car and driver in columns rather than in a subject header. **1,127 driver entries recovered, every one resolved.** Incidents with no driver at all: **457 → 293**, and what remains is genuinely driverless — protests, team technical infringements, panel substitutions, promoter decisions.
+- **Three suspected defects were checked and are not defects.** `lap` (7.5%) and `corner` (26.7%) are NULL exactly when the document does not state them — perfect agreement on a 400-row sample each, nothing to fix. `position_change` is 0% and is read by the API and the predictor, but `lap_features` carries no position column, so it is **not derivable from anything held** — left empty rather than fabricated.
+- **Tests: 395 → 495.**
+
+---
 
 ## What changed in v15 (16 August 2026)
 
@@ -209,7 +225,7 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 | Dockerfile (non-root `racejudge` uid 1001) | ✅ | `Dockerfile` — statically validated (v10): `requirements-api.txt` present, `.dockerignore` excludes `.env`/`.venv`/`node_modules`. Its dep set is a **superset** of `pyproject.toml`, which the live Vercel API already boots on, so the import surface is proven. Image build itself unverified (no Docker daemon locally; Fly is 💳) |
 | `.dockerignore` / `.vercelignore` | ✅ | Keep secrets + data out of build/bundle |
 | Vercel Python runtime entrypoint | ✅ | `pyproject.toml [tool.vercel] entrypoint = "apps.api.main:app"` |
-| Migrations 0001–0012 | ✅ | `packages/db/migrations/versions/` — **`0009` added in v10** (`steward_panels.created_at`, see 2B), **`0010` in v11** (widen `ck_incidents_penalty_type` for WARN/FINE/SG + `Ns`, see 2C). **`0011` in v14** (`incidents.involved_drivers` + GIN index), **`0012` in v15** (`incidents.penalty_suspended` + check constraint + partial index). Neon confirmed at head `0012`; all twelve applied |
+| Migrations 0001–0017 | ✅ | `packages/db/migrations/versions/` — **`0009` in v10** (`steward_panels.created_at`, see 2B), **`0010` in v11** (widen `ck_incidents_penalty_type` for WARN/FINE/SG + `Ns`, see 2C), **`0011` in v14** (`incidents.involved_drivers` + GIN index), **`0012` in v15** (`incidents.penalty_suspended` + check constraint + partial index), **`0013`–`0015`** with the corpus repair (`decisions.event_id`, `PIT` penalty type, nullable event venue, `decisions.is_precedent`), **`0016` in v16** (`incidents.session_key` becomes a real FK, ON DELETE SET NULL, + index), **`0017` in v16** (`sessions.gmt_offset`, `incidents.incident_time` + index). Neon confirmed at head **`0017`**; all seventeen applied |
 | SQLAlchemy ORM models (incl. `StewardPanel`) | ✅ | `packages/db/models.py` — **all 158 columns diffed against live Neon (v10); 3 classes of drift found and fixed, now 0 mismatches** |
 | Prefect deployment manifest | ⚠️ | **`prefect.yaml` written in v10** — the 3 flows were code-only and had never been registered (see 2B). Applying it needs a worker host → 💳 Fly |
 | Async engine + URL normaliser (asyncpg) | ✅ | `packages/db/database.py` — strips libpq `sslmode`/`channel_binding` |
@@ -219,7 +235,7 @@ This session completed the retrieval ML pipeline (Pre-Work → Phase 4) and turn
 
 | Item | Status | Notes |
 |---|---|---|
-| **Neon Postgres** (eu-west-2 / London) | ✅ | Provisioned, **all 10 migrations applied (head `0010`, re-verified v12 against live Neon)**, data loaded — **live**. 22 tables. All 1,606 incidents embedded (`bge-m3-f1-lora`), HNSW index present. **`precedent_links` materialised in v10 — 32,120 links (was empty; see 2B)** |
+| **Neon Postgres** (eu-west-2 / London) | ✅ | Provisioned, **all 17 migrations applied (head `0017`, re-verified v16 against live Neon)**, data loaded — **live**. 22 tables. All 1,606 incidents embedded (`bge-m3-f1`), HNSW index present, and nothing modified since its embedding. **`precedent_links` materialised — 27,133 links** (32,120 in v10, recomputed after the v15 corpus repair) |
 | **Vercel (API + Web)** — interim host | ⚠️ | Live and serving, but being replaced by Fly.io (Section 2A) |
 | **Fly.io (API + Web)** — target host | 💳 | Config staged + committed; blocked on Fly billing (Fly has no free tier — needs a card or prepaid credit before `fly apps create` succeeds) |
 | Cloudflare R2 (PDF/audio/telemetry buckets) | 💳 | Optional for soft launch — only needed for raw-PDF + audio hosting |
@@ -432,7 +448,7 @@ The plan specifies **Fly.io multi-region** persistent containers; the interim Ve
 | `driver_resolver.py` (per-season car numbers) | ✅ | **Fixed in v13.** `#1` champion handover was right (2022–25 VER, 2026 NOR), but every *other* number was the driver's present-day one repeated across all seasons — car 33 and car 4 resolved to nobody, car 3 to the wrong driver. Real history curated from the decisions; **164/164 season/number pairs stated in the corpus now resolve correctly.** |
 | `article_resolver.py` | ✅ | |
 | `backfill_incidents.py` | ✅ | **Run** — 1,606 incidents populated, live |
-| `seed_drivers.py` / `seed_guidelines.py` | ✅ | Run; 40 drivers / **43 teams (17 active)** / **45 guideline articles** live (33 curated FIA + 12 empirical). v13 correction: earlier reports said "17 teams", which counted only the active ones. |
+| `seed_drivers.py` / `seed_guidelines.py` | ✅ | Run; **42 drivers** / **43 teams (17 active)** / **45 guideline articles** live (33 curated FIA + 12 empirical). v13 correction: earlier reports said "17 teams", which counted only the active ones. **v16: +2 drivers** (Robert Shwartzman, Luke Browning) — the resolver knew them and the `drivers` table did not, so their incidents had no row to join to. **0 driver codes appearing in incidents now lack a `drivers` row.** |
 | Incident + consistency + driver-stats endpoints | ✅ | `apps/api/routers/incidents.py`. **Driver stats 500'd on every call until v13** — a `:param::jsonb` cast that asyncpg rejects, plus the current season pinned to `2025` and `full_name` stubbed to the driver code. All three fixed; the same cast bug was found and fixed in 8 further statements across review, MCP, key revocation and both search paths. **v14 found a tenth**, on `GET /v1/incidents?driver=…` — the main list filter — which had 500'd on every call for the same reason; and `POST /v1/incidents/extract` was not passing the decision title to the extractor, so it classified the same document differently than the backfill did. |
 | Expand the guideline set | ✅ | **Done with real data (v7):** added **12 empirical penalty-norm articles** (one per offence type, each aggregating 21–383 real 2019–2026 decisions) → **45 total**. Labeled `RaceJudge Empirical Penalty Norms` to distinguish from official FIA text. The literal full official FIA article set still needs the real FIA Penalty Guidelines PDF (not fabricated). |
 | 300-pair similarity annotation campaign | ✅ | **Done** — 359 AI-adjudicated pairs via `generate_candidates.py` → `adjudicate_pairs.py` → `review_pairs.py`. Fed the BGE-M3 LoRA fine-tune. |
@@ -444,28 +460,45 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 | Field | Populated | Reading |
 |---|---|---|
 | `article_cited` | 1,564 (97.4%) | Healthy. |
-| `reasoning_text` | 1,606 (100%) | Healthy, but **289 rows are truncated at exactly 2,000 characters** — a hard slice in `_extract_reasoning`. See below. |
+| `reasoning_text` | 1,606 (100%) | Healthy. The 2,000-character hard slice reported in v13 is **gone** — 0 rows sit at the cap, longest is 5,986 characters, and all 1,606 were re-embedded afterwards (no row has been edited since its embedding). |
 | `infraction_category` | 1,181 (73.5%) | The 425 gaps are the administrative documents (Section 10 row 1c). |
-| `drivers[]` | 1,149 (71.5%) | Was 997 before v13. **100% agreement with every decision that states its own subject.** v14: 2 rows now hold 4 drivers each (joint summonses). |
+| `drivers[]` | **1,313 (81.8%)** | Was 997 before v13, 1,149 before v16. **100% agreement with every decision that states its own subject.** v14: joint summonses hold 4 drivers each. **v16: +164 tabular rulings, 1,127 driver entries, 0 unresolved.** |
 | `involved_drivers` | 297 (18.5%) | **New in v14.** The other cars in the incident — 308 references, 307 resolved to a named driver. Empty by design for the ~80% of rulings that concern one car only. |
-| `penalty_type` | 935 (58.2%) | Tracks the classified set; administrative documents carry no penalty. |
+| `penalty_type` | 1,039 (64.7%) | Tracks the classified set; administrative documents carry no penalty. 11 values, `PIT` added in v15's corpus repair. |
 | `penalty_suspended` | 22 (1.4%) | **New in v15.** 6 `full`, 16 `partial`. NULL means the penalty was served in the ordinary way, which is the overwhelming majority. |
-| `session_key` | 651 (40.5%) | **Not an extractor gap.** OpenF1 has no data before 2023, so 2019–22 is structurally 0/377. Within 2023+ it is 651/1,229 (53%) — that part is improvable. |
-| `corner` | 429 (26.7%) | **Source reality.** Of 400 sampled rows with no corner, **0** name a turn anywhere in the text. |
-| `contact` | 460 (28.6%) | Inferred from infraction type; only meaningful for collision-type rulings. |
-| `weather_context` | 297 (18.5%) | Phase 3 linkage, bounded by session coverage. |
-| `lap` | 121 (7.5%) | **Source reality, not a defect.** Of 400 sampled rows with no lap, **0** contain an explicit lap number. FIA decisions usually cite a time, not a lap. |
+| `session_key` | **1,027 (63.9%)** | Was 651. 2019–22 is structurally 0/377 — OpenF1 has no data before 2023. Within 2023+ it is now **1,027 / 1,229 (83.6%)**, up from 53%, with 0 dangling and 0 cross-event keys, enforced by a real FK (`0016`). |
+| `contact` | **1,142 (71.1%)** | **v16: read from the document's Fact section**, not inferred from the category. Was 460. 113 `true`, 1,029 `false`; NULL means the document does not settle it. |
+| `incident_time` | **686 (42.7%)** | **New in v16.** The time the incident happened, from the Time field above `Session`, converted to UTC via the session's `gmt_offset` and validated against the session window. 262 further candidates were rejected as publication times. |
+| `weather_context` | **673 (41.9%)** | Was 297, and those were keyed off publication time. Now bounded to readings within 10 minutes of the incident: mean 21.9s, worst 577s. |
+| `corner` | 429 (26.7%) | **Source reality.** Of 400 sampled rows with no corner, **0** name a turn anywhere in the text. Re-verified in v16. |
+| `lap` | 121 (7.5%) | **Source reality, not a defect.** Of 400 sampled rows with no lap, **0** contain an explicit lap number. FIA decisions usually cite a time, not a lap. Re-verified in v16. |
 | `penalty_points` | 103 > 0 (6.4%) | Correct — points are rare in real rulings. The other 1,503 are a true `0`, not a missing value. |
-| `grid_positions` · `position_change` · `video_refs` | **0 (0%)** | **Three columns that have never held a value.** Nothing writes them. |
+| `grid_positions` · `position_change` · `video_refs` | **0 (0%)** | **Three columns that have never held a value.** Nothing writes them. See below. |
 
 **What this says.** The fields the FIA actually writes down are extracted at 97–100%. The weak numbers are almost entirely documents that do not contain the fact, which is worth stating plainly because "7.5% lap coverage" reads like a broken extractor and is not one.
 
-**Four things worth revisiting** (none blocking, all recorded in Section 10):
+**Follow-ups** (none blocking, all recorded in Section 10):
 
-1. **`reasoning_text` truncation.** 289 rows are cut at exactly 2,000 characters, mid-sentence, and that text is what the embeddings and the precedent search read. The longest reasoning belongs to the most-argued cases — precisely the precedents that matter most. Raising the cap means re-embedding 1,606 rows.
-2. **The three dead columns.** `grid_positions`, `position_change` and `video_refs` are schema that no code path fills. Either populate them or drop them; leaving them invites a future query to trust an always-empty field.
-3. ~~**One driver per incident.**~~ **Closed in v14.** `drivers[]` now holds every driver a ruling is issued against (the two joint summonses in the corpus carry all four each), and the other cars in an incident are recorded separately in `involved_drivers` — 297 rows, 308 references. See "What changed in v14".
-4. **The `events` table is empty — 0 rows.** `/v1/incidents/variance/by-panel` joins incidents to events to attribute rulings to the steward panel that made them, so it returns `{"chairs": []}` on every call. The endpoint is correct; it has no data to read. Found in v15 while tracing what the season correction affected. Populating it needs a source for per-event steward panels, which the decision PDFs do carry in their signature block.
+1. ~~**`reasoning_text` truncation.**~~ **Closed.** No row is truncated and the corpus has been re-embedded since.
+2. **The three dead columns.** `grid_positions`, `position_change` and `video_refs` are schema that no code path fills. v16 checked whether they *could* be filled: `position_change` is read by the API and by the penalty predictor, but `lap_features` holds no position column, so it is not derivable from any data held — populating it would mean inventing it. `video_refs` has no source at all. Decide between dropping them and finding a source; leaving them invites a future query to trust an always-empty field.
+3. ~~**One driver per incident.**~~ **Closed in v14/v16.** `drivers[]` holds every driver a ruling is issued against, including the 164 rulings that name them in a table (v16), and the other cars in an incident are recorded separately in `involved_drivers`.
+4. ~~**The `events` table is empty.**~~ **Closed.** 158 events with steward panels read from the decisions' signature blocks; `/v1/incidents/variance/by-panel` has data to read.
+5. ~~**Session type is wrong on 42.5% of the corpus.**~~ **Closed in v16.** See Section 3B.
+
+### 3B — Reading the document instead of guessing (v16)
+
+Each stored field was measured against what the document itself states, rather than against whether it was populated. Populated-but-wrong is the failure mode that coverage tables hide.
+
+| Field | Before | After | How it was checked |
+|---|---|---|---|
+| session type | 486 / 1,144 disagreements (**42.5%**) | **1 (0.1%)** | Against the `Session` line printed in each document |
+| `session_key` | 651 rows pointing into an empty table | 1,027, **0 dangling / 0 cross-event** | FK + a join on (event the document names, session it states) |
+| `contact` | inferred from the category label | 689 rows corrected, known on 1,142 | Read from the Fact section; negations and "near collision" handled |
+| incident time | did not exist | 686 stored, 262 rejected | Each converted time must fall inside its session's window |
+| weather | nearest reading to *publication* time, unbounded | 673 rows, mean 21.9s out | 10-minute ceiling; 44 meaningless pre-existing rows cleared |
+| drivers on tabular rulings | 164 documents named nobody | 1,127 entries, 0 unresolved | Every extracted name put through `DriverResolver` |
+
+The recurring bug in every one of these was the same: **scanning the whole document for a pattern instead of reading the section that states the fact.** The Decision section is the operative ruling, the Reason argues about penalties that were *not* imposed, the Fact states the contact, and the Session field states the session. Section-scoped parsing is the defence, and the tests now assert it — a decision whose Reason discusses a suspension, a collision that did not happen, or a Race Director report must not read as any of those things.
 
 ---
 
@@ -479,7 +512,9 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 | `fastf1_slicer.py` telemetry features | ✅ | |
 | `modal_transcribe.py`, `sentiment_backfill.py` | ✅ | |
 | Prefect `live_session_flow.py` | ✅ | |
-| ASR / radio / race-control / telemetry **backfills run** | ✅ | **Done 2026-06 (real data, no synthetic).** `incidents.session_key` on 651 incidents → 182 OpenF1 sessions; **race_control_messages = 12,111** (861 linked to incidents); **weather_context on 297 incidents**; **team_radio_clips = 198** (192 Whisper-`base` transcripts + sentiment/urgency, 192 pyannote driver/engineer `speaker_label`); **lap_features = 105,768** rows across all **182/182** sessions (FastF1). Re-run scripts: `scripts/_populate_session_keys.py`, `backfill_race_control.py`, `_backfill_radio.py`, `_backfill_diarization.py`, `_backfill_telemetry.py`. pyannote needs `HF_TOKEN` (set in `.env`); transcription/telemetry are token-free. |
+| ASR / radio / race-control / telemetry **backfills run** | ✅ | **Done 2026-06 (real data, no synthetic).** `incidents.session_key` on **1,027** incidents (was 651) → **380 sessions now held in the `sessions` table** for the 76 events OpenF1 covers, 182 of them carrying telemetry; **race_control_messages = 12,111** (861 linked to incidents); **weather_context on 673 incidents** (was 297); **team_radio_clips = 198** (192 Whisper-`base` transcripts + sentiment/urgency, 192 pyannote driver/engineer `speaker_label`); **lap_features = 105,768** rows across all **182/182** sessions (FastF1). Re-run scripts: `scripts/_populate_session_keys.py`, `backfill_race_control.py`, `_backfill_radio.py`, `_backfill_diarization.py`, `_backfill_telemetry.py`. pyannote needs `HF_TOKEN` (set in `.env`); transcription/telemetry are token-free. |
+| **`sessions` table populated and made authoritative (v16)** | ✅ | Until v16 `incidents.session_key` was an integer referencing an **empty table** — every join in this section was through a key that pointed at nothing, and nothing could detect a wrong one. 380 sessions loaded with `session_type`, start/end and `gmt_offset`; incidents relinked on *(event named by the document, session stated by the document)*, catching 23 incidents filed against the previous year's Canadian GP sessions. Migration **`0016`** adds `fk_incidents_session_key` (ON DELETE SET NULL) + an index; **`0017`** adds `sessions.gmt_offset` and `incidents.incident_time`. |
+| **Weather linkage corrected (v16)** | ✅ | `weather_linker` fell back to `Decision.published_at` when no race-control message was linked, and accepted the nearest reading at any distance — up to 50 minutes off. It now uses `incidents.incident_time` and enforces `MAX_WEATHER_GAP_S = 600`. Mean distance from the incident: **21.9s**; worst: 577s. |
 
 ---
 
@@ -583,10 +618,15 @@ Almost everything v4 listed here is now done. What genuinely remains:
 |---|---|---|---|
 | 1b | ~~The extractor is under-classifying: 864 real stewards' rulings are unusable~~ | ✅ **Resolved (v11), refined (v12)** — classified incidents **357 → 1,181 (22.2% → 73.5%)**, categories 10 → 24, `penalty_type` recovered for a further 199 rulings. 0 rows deleted. Four distinct bugs fixed in v11, incl. two latent correctness bugs (no fine ever matched; 15s penalties resolvable as 5s); **three more found in v12** while adjudicating the conflicting rows, two of them introduced by v11 itself. 11 stored values corrected on your instruction. See Section 2C. | Done |
 | 1c | **Exclude the ~385 administrative documents from the precedent corpus** | The 425 still-unclassified incidents are Technical Delegate reports and *"PU elements/RNCs used per driver"* notices, not stewarding decisions. They dilute precedent results — a live `/similar` lookup previously returned three of them as the top-3 precedents. | Now that 2C is done, `infraction_category IS NULL` is a **defensible** filter for this (it was not before — it would have discarded 864 real rulings). Apply it at the precedent-retrieval query, not by deleting rows. |
-| 1d | **Retrain the penalty predictor on the widened label set** | The model predicts 7 classes; the DB now holds WARN/FINE/SG. `predict/page.tsx` was deliberately left at 7 classes rather than showing bars the model can never emit. | Phase 5 retrain against the 935 rows now carrying a `penalty_type`. Not urgent — the model is correct for what it was trained on. |
-| 1f | **`reasoning_text` is truncated at 2,000 characters on 289 rows** (v13) | `_extract_reasoning` hard-slices at 2,000 chars, cutting mid-sentence. That text is what gets embedded, so precedent search reads a clipped argument — and the longest reasoning belongs to the most-argued cases, which are exactly the precedents that matter. | Raise or remove the cap, then re-embed. Costs a full 1,606-row re-embed, so it belongs with the next embedding run rather than on its own. |
-| 1g | **Three columns have never held a value** (v13) | `grid_positions`, `position_change` and `video_refs` are 0/1,606. No code path writes them. | Either populate them or drop them in a migration. Live schema that is always empty is a trap for whoever writes the next query against it. |
-| 1h | **`session_key` is missing on 578 of 1,229 post-2023 incidents** (v13) | 2019–22 is structurally unfixable (OpenF1 starts at 2023), but within 2023+ only 53% are linked, which limits the Phase 3 multimodal joins for the rest. | Re-run `_populate_session_keys.py` and inspect the misses — likely circuit-name or session-label mismatches rather than absent upstream data. |
+| 1d | **Retrain the penalty predictor on the widened label set** | The model predicts 7 classes; the DB now holds 11, including `PIT`. **v16 widens the gap further:** `session_type` was wrong on 42.5% of the corpus and `contact` was inferred rather than read, so two of the model's features have materially changed values, and `sprint_qualifying` is a feature value that did not previously exist. `predict/page.tsx` is deliberately still at 7 classes rather than showing bars the model can never emit. | Phase 5 retrain against the 1,039 rows now carrying a `penalty_type`, with the corrected features. **Costs money — your call.** The model remains correct for what it was trained on, but it was trained on the pre-v16 feature values. |
+| 1f | ~~**`reasoning_text` is truncated at 2,000 characters on 289 rows**~~ | ✅ **Resolved.** 0 rows sit at the cap; longest reasoning is 5,986 characters, and all 1,606 rows were re-embedded afterwards (`bge-m3-f1`, 16–17 Aug) — no row has been modified since its embedding. | Done |
+| 1g | **Three columns have never held a value** (v13, re-checked v16) | `grid_positions`, `position_change` and `video_refs` are 0/1,606. **v16 established that `position_change` is not derivable** — the API and the penalty predictor both read it, but `lap_features` carries no position column, so there is nothing to compute it from. `video_refs` has no source at all. | Drop them in a migration, or find a source. Not populated with anything invented. Live schema that is always empty is a trap for whoever writes the next query against it. |
+| 1l | **Two tables have never held a row** (v16) | `embeddings` and `ingested_hashes` are 0 rows with no code path writing them — embeddings live on `incidents.embedding`, and the scraper de-duplicates against `data/ingested_hashes.json` rather than the table. Same trap as 1g, one level up. (`annotation_pairs` is also empty but that is by design — the 359 labelled pairs use the documented JSONL fallback; `push_subscriptions` is empty because nobody has subscribed yet.) | Drop the two dead tables in a migration, or point the code at them. Destructive, so it is your call. |
+| 1m | **The ORM models 16 of the 22 live tables** (v16) | `lap_features`, `push_subscriptions`, `annotation_pairs` and `embeddings` are reached by raw SQL rather than through `packages/db/models.py`, and `incidents.embedding`/`embedded_at`/`embedding_model` plus `decisions.search_vector` are deliberately unmapped (pgvector / tsvector). Column-level drift across the 164 mapped columns is **0**. Not a defect — but v12's "0 mismatches, 158 columns" was checked in one direction only, and the unmapped surface is where a future schema change can drift unnoticed. | Either map them or leave a note in `models.py` saying they are intentionally raw-SQL. No action needed for launch. |
+| 1h | ~~**`session_key` is missing on 578 of 1,229 post-2023 incidents**~~ | ✅ **Resolved (v16).** The real problem was worse than coverage: the `sessions` table was empty, so the 651 keys that existed referenced nothing. 380 sessions loaded, incidents relinked on the event and session each document states, 23 cross-year mislinks caught. **1,027 / 1,229 post-2023 (83.6%), 0 dangling, 0 cross-event**, enforced by an FK (`0016`). The remaining 202 are events OpenF1 does not cover. | Done |
+| 1i | ~~**Session type is wrong on 42.5% of the corpus**~~ | ✅ **Resolved (v16).** Practically every practice, qualifying and sprint ruling was filed as a *race* — the parser scanned the whole document and hit "Race Director" before reaching the `Session` field. 486 disagreements → **1**. | Done |
+| 1j | ~~**`contact` restates the category label**~~ | ✅ **Resolved (v16).** Read from the Fact section; 689 rows corrected; known on 1,142 / 1,606. | Done |
+| 1k | ~~**164 rulings are stored against no driver**~~ | ✅ **Resolved (v16).** Deleted-lap and multi-driver penalty tables are read; 1,127 driver entries recovered, 0 unresolved; driverless incidents 457 → 293, all genuinely driverless. | Done |
 
 ### Config (your accounts)
 
@@ -604,7 +644,7 @@ Almost everything v4 listed here is now done. What genuinely remains:
 |---|---|---|
 | 5 | Penalty model past ship gate | **Tried for real (v8)** — multimodal-feature retrain (0.08) + clean-DB-label retrain (0.14); structural, not tunable to 0.65. Needs the stubbed LLM reasoning layer + much more per-class data. Correctly gated off. |
 | 6 | ~~Expand guideline articles~~ | ✅ **Done (v7)** — 45 articles live (33 curated FIA + 12 empirical penalty norms from real decisions). Official full set still needs the FIA PDF. |
-| 7 | ~~ASR / radio / telemetry backfills~~ | ✅ **Done (v8)** — all run with real data (Section 4): 12,111 RC msgs, 297 weather, 198 radio clips (192 transcribed + diarized), 105,768 lap rows / 182 sessions. |
+| 7 | ~~ASR / radio / telemetry backfills~~ | ✅ **Done (v8), corrected (v16)** — all run with real data (Section 4): 12,111 RC msgs, **673** weather (was 297, and those were keyed off publication time), 198 radio clips (192 transcribed + diarized), 105,768 lap rows / 182 sessions. |
 
 ### Post-launch deferrals (not bugs)
 
@@ -627,11 +667,13 @@ Almost everything v4 listed here is now done. What genuinely remains:
 | 2019 | 92 | ✅ |
 | **Total** | **1,606** | ✅ All seasons 2019–2026 |
 
-Drivers: 40 · Teams: 17 · Incidents extracted: 1,606 · Guidelines articles live: 45 (33 curated FIA + 12 empirical)
+Drivers: **42** · Teams: 17 active (43 rows) · Events: **158** · Sessions: **380** · Incidents extracted: 1,606 · Guidelines articles live: 45 (33 curated FIA + 12 empirical) · Precedent links: **27,133**
 
-**Classification (v12, see Section 2C):** incidents with `infraction_category`: **1,181 / 1,606 (73.5%)** across **24** categories, up from 357 / 10 · incidents with `penalty_type`: **935**, across 10 values (NFA · WARN · REP · FINE · `Ns` · DT · SG · GRID · DSQ). The remaining 425 unclassified are the Technical Delegate / administrative documents identified by the Section 2B scan, not stewarding decisions.
+**Classification (v12, see Section 2C):** incidents with `infraction_category`: **1,181 / 1,606 (73.5%)** across **24** categories, up from 357 / 10 · incidents with `penalty_type`: **1,039**, across 11 values (NFA 396 · 5s 135 · FINE 118 · PIT 80 · 10s 70 · WARN 69 · REP 65 · GRID 55 · DSQ 31 · DT 10 · SG 10). The remaining 425 unclassified are the Technical Delegate / administrative documents identified by the Section 2B scan, not stewarding decisions.
 
-**Multimodal data (Phase 3 backfill, v8):** incidents with `session_key`: 651 / 182 OpenF1 sessions · race-control messages: 12,111 (861 incident-linked) · incidents with weather: 297 · team-radio clips: 198 (192 transcribed + sentiment/urgency, 192 diarized) · FastF1 lap-feature rows: 105,768 / 182 sessions.
+**Multimodal data (Phase 3 backfill, v8; corrected and extended in v16):** incidents with `session_key`: **1,027** (1,027 / 1,229 post-2023, 0 dangling, 0 cross-event) across a **380-row `sessions` table**, 182 of those sessions carrying telemetry · race-control messages: 12,111 (861 incident-linked) · incidents with weather: **673** (mean 21.9s from the incident) · incidents with a real `incident_time`: **686** · team-radio clips: 198 (192 transcribed + sentiment/urgency, 192 diarized) · FastF1 lap-feature rows: 105,768 / 182 sessions.
+
+**Extraction fidelity (v16, measured against the documents rather than against coverage):** session type wrong on **1 / 1,144** documents that state one, down from 486 · `contact` read from the Fact section on 1,142 rows, 689 corrected · drivers named on **1,313 / 1,606** incidents, every extracted name resolving to a known driver · the 293 incidents with no driver are protests, team technical infringements, panel substitutions and promoter decisions, which name none.
 
 ---
 
@@ -651,19 +693,21 @@ Drivers: 40 · Teams: 17 · Incidents extracted: 1,606 · Guidelines articles li
 | `test_auth.py` (dev fallback, prod 401, 403 mismatch, garbage JWT) | ✅ |
 | `test_phase7_routes.py` (billing, apikeys, mcp, review) | ✅ |
 | `test_phase8_routes.py` (stewards, latency, rate_limit) | ✅ |
-| **Total collected** | **323 ✅** (v11: +42 — recovered ruling types, outcome fixes, penalty-type normalisation, and a completeness guard asserting every parser label has a category mapping; v12: +14 — route-shadowing invariant, driver-obligation/practice-start/safety-car regressions) |
+| `test_steward_parser.py` (panel signature blocks) | ✅ |
+| `test_steward_variance.py` (by-panel variance endpoint) | ✅ |
+| **Total collected** | **495 ✅** (v11: +42 — recovered ruling types, outcome fixes, penalty-type normalisation, and a completeness guard asserting every parser label has a category mapping; v12: +14 — route-shadowing invariant, driver-obligation/practice-start/safety-car regressions; **v16: +100** — the `Session` field beating "Race Director", `sprint_qualifying` never collapsing into `sprint`, a document with no stated session inventing none, contact read only from the Fact section with negations and "near collision" handled, the incident time distinguished from the publication time and impossible clock readings rejected, and both table layouts read while a numbered list without a table header is not) |
 
 ---
 
 ## SECTION 13 — CI / Quality Gates
 
-**All re-run locally in v10 with true exit codes checked** — not inherited from a previous claim.
+**All re-run locally in v10 with true exit codes checked** — not inherited from a previous claim. The three Python gates were re-run again in v16.
 
 | Check | Status |
 |---|---|
 | `ruff check packages/ apps/ scripts/ tests/` | ✅ All checks passed |
-| `mypy --explicit-package-bases packages/ apps/ scripts/` | ✅ clean — **108 source files** |
-| `pytest tests/` | ✅ **267 passing** |
+| `mypy --explicit-package-bases packages/ apps/ scripts/` | ✅ clean — **117 source files** (re-run v16) |
+| `pytest tests/` | ✅ **495 passing** (re-run v16, 1.46s) |
 | `tsc --noEmit` | ✅ clean |
 | `npm run build` (Next.js) | ✅ clean — **20 routes** |
 | `npm audit --audit-level=high` | ✅ **0 vulnerabilities** — was 12 (3 high) until v10; fixed via `overrides` pinning `postcss`/`sharp`, avoiding a breaking `next@16` upgrade |
@@ -733,6 +777,8 @@ Already complete: EUIPO/USPTO/UK trademark searches (v9); social handles + 300-p
 Penalty model: two real retrains (v8) confirmed Macro-F1 plateaus ~0.14 (≈5× below the 0.65 gate) due to rare-class data scarcity — feature/label tuning won't close it. Only set `ENABLE_PREDICTIONS=true` once the **LLM reasoning layer (Layer B)** is built out *and* far more per-class labels exist *and* the gate (**Macro-F1 ≥ 0.65 AND ECE < 0.05**) is actually met. Until then it stays correctly gated. ~~Add `SENTRY_DSN`~~ ✅ **done (v9)**; BetterStack status page waits on the Fly deploy (nothing to monitor until then).
 
 ---
+
+*Report v16 — 18 August 2026 — Audited the extraction layer by measuring every stored field against what the document actually says, rather than against whether it was populated. Populated-but-wrong is what a coverage table hides, and the largest defect in the project was exactly that: **session type was wrong on 42.5% of the corpus** — practically every practice, qualifying and sprint ruling filed as a race, because the parser scanned the whole document and met "having received a report from the Race Director" before reaching the `Session` field. 486 disagreements → 1. The same whole-document-scan bug turned up four more times: `contact` restating the category label instead of reading the Fact section (689 rows corrected), the incident time never read at all so weather was being matched against the FIA's publication timestamp hours after the flag (673 rows now within a 10-minute ceiling, mean 21.9s), and **164 rulings that name their drivers in a table stored against nobody** (1,127 driver entries recovered, 0 unresolved, driverless incidents 457 → 293). Underneath all of it, `incidents.session_key` was an integer pointing into an **empty `sessions` table** — 380 sessions loaded, incidents relinked on the event and session each document states, catching 23 filed against the previous year's Canadian GP, now a real FK with 0 dangling and 0 cross-event keys. Migrations `0016` and `0017`. Three further suspected defects were checked and closed as **not** defects: `lap` and `corner` are NULL exactly where the document is silent, and `position_change` is not derivable from anything held — left empty rather than invented. Tests 395 → 495; ruff, mypy (117 files) and pytest all green. **One item now needs your decision:** the penalty predictor was trained on the pre-v16 values of `session_type` and `contact`, so a retrain is warranted — it costs money, so it waits on you.*
 
 *Report v12 — 14 August 2026 — Acted on your two calls: fix the conflicting rows, and fix the `/consistency` 500 now rather than after the Fly migration. **The 500 was a route-declaration-order bug, not a hosting one** — `/incidents/{incident_id}` was declared above the literal `/incidents/consistency`, so Starlette captured the literal path as `incident_id="consistency"`; this corrects the v11 entry, which blamed the Vercel serverless layer on the strength of a plain-text error body that is in fact Starlette's own default. Every route on the app was then scanned for the same defect (0 others) and the ordering invariant is now a test. Adjudicating the 4 conflicting rows against the source documents found the v11 list was partly wrong — one row was the new code erring, not the database — and surfaced **three further pattern bugs, two of them introduced by v11**: a bare "drivers' briefing" match stealing unrelated rulings, "Practice Start **Area**" (a place) read as a practice start and pulling 6 pit-lane rulings out of their category, and Article 55.5 "near collision behind the safety car" matching nothing. **11 corrections applied, 0 rows deleted**; classified 1,181 / 1,606 across 24 categories. Every one of the 26 classifications lost to the tightened patterns was inspected: 8 were real rulings (recovered) and 16 are administrative documents that should never have carried a category — 0 non-administrative losses. Tests 309 → 323. Flagged for your call: `7caff04e`, where the stop-and-go is **suspended** and a reprimand also issued, so `SG` records the headline penalty rather than the one served.*
 
