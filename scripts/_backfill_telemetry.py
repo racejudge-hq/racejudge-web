@@ -26,6 +26,7 @@ from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(".env")
 import fastf1  # noqa: E402
+from fastf1 import _api as fastf1_api  # noqa: E402
 
 fastf1.logger.set_log_level("ERROR")
 os.makedirs("data/fastf1_cache", exist_ok=True)
@@ -106,18 +107,35 @@ def load_fastf1(meta: dict):
     return None, last_err
 
 
+def t0_from_car_data(session):
+    """FastF1's t0_date without paying for the whole telemetry load, or None.
+
+    `Session._calculate_t0_date` is `max(Date - Time)` over the car and position
+    streams — the sample with the least feed delay. Either stream alone reaches
+    the same maximum, so only one is fetched. See scripts/backfill_lap_times.py.
+    """
+    try:
+        car = fastf1_api.car_data(session.api_path)
+    except Exception:  # noqa: BLE001
+        return None
+    offsets = [max(d["Date"] - d["Time"]) for d in car.values() if len(d.get("Date", []))]
+    return max(offsets).round("ms") if offsets else None
+
+
 def lap_rows(session_key: int, laps, t0_date, fallback_start) -> list[tuple]:
     rows = []
     for _, lap in laps.iterrows():
-        # lap_features.time is NOT NULL; LapStartDate is NaT on some out-laps.
-        # Fall back to absolute t0 + lap offset, then to the session start time.
+        # LapStartDate is NaT unless the telemetry was loaded, which this script
+        # does not do — so it is NaT on every lap, not just the odd out-lap, and
+        # the session-start fallback this once had wrote the scheduled start
+        # into all 105,768 rows. LapStartTime is always present; t0_date turns
+        # it absolute. A lap FastF1 cannot place is left NULL (migration 0021)
+        # rather than given a timestamp that merely looks like one.
         ts = _ts(lap.get("LapStartDate"))
         if ts is None and t0_date is not None:
             lst = lap.get("LapStartTime")
             if lst is not None and not pd.isna(lst):
                 ts = _ts(pd.Timestamp(t0_date) + lst)
-        if ts is None:
-            ts = fallback_start
         dn = lap.get("DriverNumber")
         try:
             driver_number = int(dn) if dn not in (None, "") and not pd.isna(dn) else None
@@ -190,12 +208,11 @@ def main() -> None:
                 print(f"[{i}/{len(todo)}] sk={sk} {meta.get('location')} {meta.get('session_name')} — no FastF1 laps ({type(laps).__name__ if laps else 'none'})", flush=True)
                 fail += 1
                 continue
-            try:  # t0_date is unset when telemetry isn't loaded
-                t0 = s.t0_date
-            except Exception:  # noqa: BLE001
-                t0 = None
-            fallback = _ts(meta.get("date_start")) or datetime.now(tz=UTC)
-            rows = lap_rows(sk, laps, t0, fallback)
+            # s.t0_date is only set by the telemetry load, which this script
+            # skips, so it raised every time and left t0 None on every session.
+            # The car_data stream alone reaches the same value.
+            t0 = t0_from_car_data(s)
+            rows = lap_rows(sk, laps, t0, None)
             w = psycopg2.connect(DB)
             wc = w.cursor()
             execute_batch(wc, INSERT, rows, page_size=500)
