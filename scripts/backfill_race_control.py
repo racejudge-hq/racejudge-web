@@ -22,6 +22,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+# Every sibling backfill script loads this; without it the usage line above
+# fails on "DATABASE_URL not set" unless the caller exports it by hand. Has to
+# run before packages.db.database is imported, which reads the environment at
+# import time.
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(ROOT / ".env")
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s %(message)s")
 log = logging.getLogger(__name__)
 

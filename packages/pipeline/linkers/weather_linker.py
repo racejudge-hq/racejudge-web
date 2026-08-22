@@ -106,7 +106,7 @@ class WeatherLinker:
         """
         from sqlalchemy import select
 
-        from packages.db.models import Incident, RaceControlMessage
+        from packages.db.models import Incident, RaceControlMessage, incident_race_control
 
         # Get incidents for session without weather context
         result = await db.execute(
@@ -125,7 +125,11 @@ class WeatherLinker:
             # Use earliest linked RC message time as incident time
             rc_result = await db.execute(
                 select(RaceControlMessage.date)
-                .where(RaceControlMessage.incident_id == incident.incident_id)
+                .join(
+                    incident_race_control,
+                    incident_race_control.c.message_id == RaceControlMessage.message_id,
+                )
+                .where(incident_race_control.c.incident_id == incident.incident_id)
                 .order_by(RaceControlMessage.date)
                 .limit(1)
             )

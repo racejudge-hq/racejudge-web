@@ -125,8 +125,9 @@ def main() -> None:
     # Incidents with a real race-control time + the involved driver numbers.
     cur.execute("""
         SELECT i.incident_id, i.session_key, i.drivers,
-               (SELECT min(r.date) FROM race_control_messages r
-                WHERE r.incident_id = i.incident_id) AS rc_time
+               (SELECT min(r.date) FROM incident_race_control l
+                JOIN race_control_messages r USING (message_id)
+                WHERE l.incident_id = i.incident_id) AS rc_time
         FROM incidents i
         WHERE i.session_key IS NOT NULL
     """)

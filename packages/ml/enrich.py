@@ -83,8 +83,11 @@ def enrich_with_db(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rc: dict[str, dict] = {}
     if incident_ids:
         cur.execute(
-            """SELECT incident_id, COUNT(*), BOOL_OR(flag IS NOT NULL AND flag <> '')
-               FROM race_control_messages WHERE incident_id = ANY(%s) GROUP BY incident_id""",
+            """SELECT l.incident_id, COUNT(*),
+                      BOOL_OR(r.flag IS NOT NULL AND r.flag <> '')
+               FROM incident_race_control l
+               JOIN race_control_messages r USING (message_id)
+               WHERE l.incident_id = ANY(%s) GROUP BY l.incident_id""",
             (incident_ids,),
         )
         for iid, n, f in cur.fetchall():

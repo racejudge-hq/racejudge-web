@@ -16,6 +16,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Column,
     Date,
     DateTime,
     Float,
@@ -23,6 +24,7 @@ from sqlalchemy import (
     Integer,
     Interval,
     SmallInteger,
+    Table,
     Text,
     UniqueConstraint,
     func,
@@ -151,7 +153,9 @@ class Incident(Base):
 
     decision: Mapped[Decision] = relationship("Decision", back_populates="incidents")
     race_control_messages: Mapped[list[RaceControlMessage]] = relationship(
-        "RaceControlMessage", back_populates="incident"
+        "RaceControlMessage",
+        secondary="incident_race_control",
+        back_populates="incidents",
     )
     radio_clips: Mapped[list[TeamRadioClip]] = relationship(
         "TeamRadioClip", back_populates="incident"
@@ -230,10 +234,35 @@ class RaceControlMessage(Base):
     scope:         Mapped[str | None] = mapped_column(Text)
     sector:        Mapped[int | None] = mapped_column(SmallInteger)
     driver_number: Mapped[int | None] = mapped_column(SmallInteger)
-    incident_id:   Mapped[str | None] = mapped_column(ForeignKey("incidents.incident_id"))
     created_at:    Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    incident: Mapped[Incident | None] = relationship("Incident", back_populates="race_control_messages")
+    # Many-to-many: the stewards issue one decision per driver, so a message
+    # about an incident between two cars is the race control record behind two
+    # decisions. The old `incident_id` column could name only one of them and
+    # is emptied and unmapped as of migration 0018.
+    incidents: Mapped[list[Incident]] = relationship(
+        "Incident",
+        secondary="incident_race_control",
+        back_populates="race_control_messages",
+    )
+
+
+incident_race_control = Table(
+    "incident_race_control",
+    Base.metadata,
+    Column(
+        "incident_id",
+        Text,
+        ForeignKey("incidents.incident_id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "message_id",
+        Text,
+        ForeignKey("race_control_messages.message_id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 
 class TeamRadioClip(Base):
