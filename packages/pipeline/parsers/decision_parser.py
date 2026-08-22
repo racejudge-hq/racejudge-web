@@ -322,6 +322,40 @@ _PEN_POINTS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# ── Vision evidence ─────────────────────────────────────────────────────────
+# The evidence the stewards reviewed, for incidents.video_refs. See
+# extract_video_refs for why this is descriptive and not a URL.
+_EVIDENCE_VERB_RE = re.compile(
+    r"\b(?:review(?:ed|ing)?|examin(?:ed|ing)?|view(?:ed|ing)?)\b",
+    re.IGNORECASE,
+)
+
+# Where the evidence list stops: the sentence ends, or it returns to who was
+# heard and what was concluded ("…reviewed video evidence, heard from the
+# driver of car 33 and team representatives and determined the following").
+_EVIDENCE_CLAUSE_END_RE = re.compile(
+    r"[.;]|\band\s+(?:heard|determined|concluded|decided|noted)\b|\bheard\s+from\b",
+    re.IGNORECASE,
+)
+
+# Canonical label -> how the FIA writes it. The corpus spells the same three
+# things a dozen ways, including hyphens broken across a line break by the PDF
+# text layer ("in- car video", "on- board cameras"), so the spacing around
+# every hyphen is optional. In-car and on-board are the same camera.
+#
+# The named cameras are matched together with the noun they govern so the whole
+# phrase can be cut out of the clause before the generic pattern runs. Without
+# that, "reviewed in-car video evidence" would report plain "video" as well,
+# off the very words that already produced "in-car video".
+_SPECIFIC_VIDEO_EVIDENCE: list[tuple[str, re.Pattern]] = [
+    ("in-car video", re.compile(
+        r"\b(?:in\s*-?\s*car|on\s*-?\s*board|onboard)"
+        r"(?:\s+(?:video|camera|footage)s?)?\b", re.IGNORECASE)),
+    ("cctv", re.compile(
+        r"\bcctv(?:\s+(?:video|camera|footage)s?)?\b", re.IGNORECASE)),
+]
+_GENERIC_VIDEO_RE = re.compile(r"\bvideo\b|\bcameras?\b|\bfootage\b", re.IGNORECASE)
+
 # ── Grid penalties ──────────────────────────────────────────────────────────
 # A grid drop is the one penalty whose severity lives entirely in a number:
 # a one-place drop and a ten-place drop are wholly different precedents, and
@@ -841,6 +875,19 @@ def extract_incident_time(text: str) -> tuple[int, int] | None:
     before = [m for m in _TIME_FIELD_RE.finditer(text) if m.start() < session.start()]
     if not before:
         return None
+
+    # "Directly above" has to be enforced, not merely described. A ruling that
+    # covers many drivers at once — deleted lap times, SC2-SC1 times — has no
+    # incident block and therefore no incident Time, so the last Time before
+    # Session is the letterhead's, separated from Session by the "having
+    # received a report from the Race Director" preamble. Taking it read the
+    # publication time as the incident on 185 documents, putting the incident
+    # up to 75 minutes after the session's final race control message.
+    # splitlines()[1:] skips the remainder of the Time line itself.
+    between = text[before[-1].end():session.start()]
+    if any(line.strip() for line in between.splitlines()[1:]):
+        return None
+
     hour, minute = int(before[-1].group(1)), int(before[-1].group(2))
     if hour > 23 or minute > 59:
         return None
@@ -884,6 +931,50 @@ def extract_turn_number(text: str) -> int | None:
 def extract_penalty_points(text: str) -> int | None:
     m = _PEN_POINTS_RE.search(text)
     return int(m.group(1)) if m else None
+
+
+def extract_video_refs(text: str) -> list[str] | None:
+    """The vision evidence the stewards state they reviewed.
+
+    `incidents.video_refs` has never held a value, and it cannot hold what its
+    name first suggests: not one of the 1,606 decision documents contains a URL
+    of any kind, so there is no link to store and none can be constructed
+    without inventing it.
+
+    What the documents do record is which evidence was examined, in a sentence
+    the FIA writes to a near-fixed formula — "The Stewards reviewed positioning/
+    marshalling system data, video, timing, team radio and in-car video
+    evidence." 803 documents carry such a clause. That is a real reference to
+    video, read from the ruling itself like every other extracted field, and it
+    is what the stewards' own account of the evidence rests on.
+
+    Only the vision items are returned, because that is what the column is for:
+    telemetry, timing, GPS, team radio and positioning/marshalling data appear
+    in the same list and are deliberately not stored here.
+
+    The clause is required to follow a reviewing verb. "Video" also appears in
+    narrative prose — a driver complaining about a video, a reference to video
+    review procedure — and taking every mention would record evidence that was
+    never examined. Returns None, not [], when the document names none, so
+    "the stewards reviewed no video" stays distinguishable from "this document
+    does not say".
+    """
+    flat = _collapse_spaces(text or "")
+    refs: list[str] = []
+    for m in _EVIDENCE_VERB_RE.finditer(flat):
+        # The evidence list runs to the end of its sentence, or to the point
+        # the sentence turns back to who was heard or what was decided.
+        clause = _EVIDENCE_CLAUSE_END_RE.split(flat[m.end():m.end() + 300])[0]
+        for label, pattern in _SPECIFIC_VIDEO_EVIDENCE:
+            if pattern.search(clause):
+                if label not in refs:
+                    refs.append(label)
+                clause = pattern.sub(" ", clause)
+        if _GENERIC_VIDEO_RE.search(clause) and "video" not in refs:
+            refs.append("video")
+    # Stable, most-specific-first, so equal evidence compares equal.
+    order = {"video": 0, "in-car video": 1, "cctv": 2}
+    return sorted(refs, key=lambda r: order[r]) or None
 
 
 def extract_grid_positions(text: str) -> int | None:
@@ -963,6 +1054,9 @@ def extract_incident(record: dict) -> dict[str, Any]:
         "penalty_points": extract_penalty_points(combined),
         "lap_number":     extract_lap_number(text),
         "session_type":   extract_session_type(combined),
+        # The body only: the title never states the evidence, and the reviewing
+        # verb this looks for appears in the title of review-procedure notices.
+        "video_refs":     extract_video_refs(text),
     }
 
 

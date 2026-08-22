@@ -44,6 +44,9 @@ class ExtractionResult:
     session_type:        str | None = None
     corner:              str | None = None
     contact:             bool | None = None
+    # The vision evidence the stewards state they reviewed. Not URLs — no
+    # decision document in the corpus contains one. See extract_video_refs.
+    video_refs:          list[str] | None = None
     article_cited:       list[str] = field(default_factory=list)
     reasoning_text:      str = ""
     drivers:             list[dict] = field(default_factory=list)
@@ -72,6 +75,7 @@ class ExtractionResult:
             "session_type":        self.session_type,
             "corner":              self.corner,
             "contact":             self.contact,
+            "video_refs":          self.video_refs,
             "article_cited":       self.article_cited,
             "reasoning_text":      self.reasoning_text,
             "drivers":             self.drivers,
@@ -292,6 +296,7 @@ class IncidentExtractor:
             extract_suspension,
             extract_table_subjects,
             extract_turn_number,
+            extract_video_refs,
         )
         from packages.pipeline.parsers.text_cleaner import (
             clean_decision_text,
@@ -329,6 +334,7 @@ class IncidentExtractor:
             "session_type":    extract_session_type(combined),
             "corner":          extract_turn_number(cleaned),
             "contact":         extract_contact(cleaned),
+            "video_refs":      extract_video_refs(cleaned),
             "article_cited":   extract_article_citations(cleaned),
             "reasoning_text":  _extract_reasoning(cleaned),
         }
@@ -353,6 +359,7 @@ class IncidentExtractor:
             extract_suspension,
             extract_table_subjects,
             extract_turn_number,
+            extract_video_refs,
         )
         from packages.pipeline.parsers.tesseract_fallback import ocr_pdf
         from packages.pipeline.parsers.text_cleaner import (
@@ -384,6 +391,7 @@ class IncidentExtractor:
             "session_type":    extract_session_type(cleaned),
             "corner":          extract_turn_number(cleaned),
             "contact":         extract_contact(cleaned),
+            "video_refs":      extract_video_refs(cleaned),
             "article_cited":   extract_article_citations(cleaned),
             "reasoning_text":  _extract_reasoning(cleaned),
         }
@@ -524,6 +532,7 @@ class IncidentExtractor:
             # disagrees with the document in both directions. See extract_contact.
             contact             = (best["contact"] if best.get("contact") is not None
                                    else _infer_contact(best.get("infraction_type"))),
+            video_refs          = best.get("video_refs"),
             article_cited       = articles_raw,
             reasoning_text      = best.get("reasoning_text", ""),
             drivers             = drivers,

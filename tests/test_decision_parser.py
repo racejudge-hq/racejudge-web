@@ -21,6 +21,7 @@ from packages.pipeline.parsers.decision_parser import (
     extract_subjects,
     extract_suspension,
     extract_table_subjects,
+    extract_video_refs,
 )
 
 # ---------------------------------------------------------------------------
@@ -890,18 +891,48 @@ def test_incident_time_is_not_the_publication_time():
     assert extract_incident_time(_TIMED_DOC) == (17, 17)
 
 
+# A ruling covering many drivers at once has no incident block, so the only
+# Time it prints is the letterhead's. Structure taken verbatim from the 2025
+# Italian Grand Prix Document 41: the letterhead repeats on the second page,
+# and the preamble sits between it and the Session field.
+_MULTI_DRIVER_DOC = """2025 ITALIAN GRAND PRIX
+From The Stewards Document 41
+To All Teams, All Officials Date 07 September 2025
+Time 17:05
+Title Infringement - Race Deleted Lap Times
+2025 I G P
+From The Stewards Document 41
+To All Officials, All Teams Date 07 September 2025
+Time 17:05
+The Stewards, having received a report from the Race Director, have considered
+and determine the following:
+Session Race
+Fact The cars below did not use the track at turns 1, 2, 4, 5, and 7
+No Turn Car Driver Competitor Time of Day Lap Time
+1 4 18 Lance Stroll Aston Martin Aramco F1 Team 15:05:41 1:26.506
+2 1 16 Charles Leclerc Scuderia Ferrari HP 15:08:05 1:24.525
+"""
+
+
 def test_a_notice_with_only_a_publication_time_yields_none():
-    """An 'All Teams' notice carries the letterhead time and no incident block.
-    Reading that as the incident time puts the incident after the session."""
-    notice = ("2024 UNITED STATES GRAND PRIX\n"
-              "From The Stewards Document 53\n"
-              "To All Teams, All Officials Date 19 October 2024\n"
-              "Time 18:42\n"
-              "Session Qualifying\n"
-              "Fact The cars below exceeded the 1:55.0 time limit.\n")
-    assert extract_incident_time(notice) == (18, 42)
-    # …which is why the caller checks it against the session window before
-    # storing it. The parser reports what is printed; it does not vouch for it.
+    """17:05 is when the FIA issued the document — over an hour after the race.
+
+    The incident Time sits directly above Session, and this document has none
+    because it rules on twenty-one deletions at once. Taking the letterhead
+    put the incident after the session's last race control message on 34 of
+    40 documents checked, and the real deletion times are in the table below.
+    """
+    assert extract_incident_time(_MULTI_DRIVER_DOC) is None
+
+
+def test_the_preamble_is_what_separates_the_letterhead_from_an_incident_time():
+    """The same document with an incident block does report its time."""
+    with_block = _MULTI_DRIVER_DOC.replace(
+        "The Stewards, having received a report from the Race Director, have considered\n"
+        "and determine the following:\n",
+        "No / Driver 18 - Lance Stroll\nCompetitor Aston Martin Aramco F1 Team\nTime 15:05\n",
+    )
+    assert extract_incident_time(with_block) == (15, 5)
 
 
 def test_no_session_field_means_no_anchor_for_the_time():
@@ -976,3 +1007,49 @@ def test_a_lowercase_particle_belongs_to_the_name():
     text = ("No Turn Car Driver Competitor Time of Day Lap Time\n"
             "1 4 21 Nyck de Vries Scuderia AlphaTauri 14:02:11 1:31.402\n")
     assert extract_table_subjects(text) == [(21, "Nyck de Vries")]
+
+
+# ---------------------------------------------------------------------------
+# extract_video_refs
+# ---------------------------------------------------------------------------
+# The FIA writes the evidence sentence to a near-fixed formula, so these are
+# the real shapes it takes across the corpus rather than invented ones.
+@pytest.mark.parametrize("text,expected", [
+    ("Reason The Stewards reviewed video evidence.", ["video"]),
+    ("Reason The Stewards reviewed video, in-car video evidence.",
+     ["video", "in-car video"]),
+    ("Reason The Stewards reviewed positioning/marshalling system data, video,"
+     " timing, team radio and in-car video evidence.", ["video", "in-car video"]),
+    ("Reason The Stewards examined CCTV cameras and video evidence.",
+     ["video", "cctv"]),
+    # The PDF text layer breaks hyphenated words across a line.
+    ("Reason The Stewards reviewed in- car video evidence.", ["in-car video"]),
+    ("Reason The Stewards reviewed on-board cameras.", ["in-car video"]),
+])
+def test_extract_video_refs(text, expected):
+    assert extract_video_refs(text) == expected
+
+
+def test_evidence_that_is_not_vision_is_not_stored():
+    """Telemetry and radio are listed in the same sentence and belong elsewhere."""
+    text = ("Reason The Stewards heard from the driver of Car 44 and reviewed"
+            " positioning/marshalling system data, timing, telemetry and team radio.")
+    assert extract_video_refs(text) is None
+
+
+def test_a_named_camera_does_not_also_report_generic_video():
+    """"in-car video" contains the word "video"; it must be read once, not twice."""
+    text = "Reason The Stewards reviewed in-car video evidence."
+    assert extract_video_refs(text) == ["in-car video"]
+
+
+def test_video_must_have_been_reviewed_to_count():
+    """Narrative mentions are not evidence the stewards examined."""
+    text = ("Reason The driver stated that he had seen the video on television"
+            " after the race and disagreed with it.")
+    assert extract_video_refs(text) is None
+
+
+def test_a_document_naming_no_evidence_yields_none():
+    """None, not [], so "reviewed no video" stays distinct from "does not say"."""
+    assert extract_video_refs("Reason The car was underweight.") is None
