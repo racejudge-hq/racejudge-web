@@ -38,9 +38,10 @@ async def bm25_search(
     # silently returned nothing and hybrid search ran on vectors alone.
     conditions = ["(to_tsvector('english', i.reasoning_text) @@ query.q OR "
                   " d.search_vector @@ query.q)",
-                  # Same exclusion as the vector leg — a hybrid search is only
+                  # Same exclusions as the vector leg — a hybrid search is only
                   # as clean as its dirtiest branch. See semantic_search.
-                  "d.is_precedent IS NOT FALSE"]
+                  "d.is_precedent IS NOT FALSE",
+                  "(i.infraction_category IS NOT NULL OR i.penalty_type IS NOT NULL)"]
     params: dict[str, Any] = {"q": query, "top_k": top_k}
 
     if season:

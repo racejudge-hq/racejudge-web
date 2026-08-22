@@ -50,6 +50,23 @@ def embed_query(text: str) -> list[float] | None:
         return None
 
 
+# A document earns its place in the precedent corpus by deciding something: it
+# either names the offence or records the penalty. The ones that do neither are
+# the paperwork the FIA publishes through the same feed — Stewards Bulletins and
+# Substitutions, "Formation of the Grid", protests, summonses, permissions to
+# start — 96 of them, and they were being returned as precedent.
+#
+# The obvious filter, `infraction_category IS NULL`, is the wrong one and was
+# measured before being adopted: it drops 249 genuine rulings that the taxonomy
+# has no label for but which carry a real penalty — 134 No Further Action, 27
+# five-second penalties, 13 disqualifications, 10 grid drops. An NFA on a Turn 2
+# incident is precedent of exactly the kind a steward searches for. Requiring
+# *both* to be absent keeps all 249 and still excludes all 96.
+_DECIDES_SOMETHING = (
+    "(i.infraction_category IS NOT NULL OR i.penalty_type IS NOT NULL)"
+)
+
+
 async def semantic_search(
     query: str,
     db,
@@ -79,7 +96,8 @@ async def semantic_search(
     # They decide nothing, so a hit on one is a wrong answer, not a weak one.
     # IS NOT FALSE, not = TRUE: a document whose signature block has not been
     # read yet is unknown, and dropping it silently is the worse mistake.
-    conditions = ["i.embedding IS NOT NULL", "d.is_precedent IS NOT FALSE"]
+    conditions = ["i.embedding IS NOT NULL", "d.is_precedent IS NOT FALSE",
+                  _DECIDES_SOMETHING]
     params: dict[str, Any] = {
         "embedding": str(embedding),
         "top_k":     top_k,
