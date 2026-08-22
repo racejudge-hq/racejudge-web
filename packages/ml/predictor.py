@@ -89,6 +89,23 @@ def _require_xgboost():
         ) from exc
 
 
+def dense_label_space(y_full) -> tuple[list[int], dict[int, int]]:
+    """Map the PENALTY_CLASSES indices actually present onto a gapless 0..k-1.
+
+    XGBoost's sklearn wrapper infers its classes from `y` and rejects a label
+    set with a hole in it ("Expected: [0 1 2 3 4 5], got [0 1 2 3 5 6]").
+    A hole is normal here: DT appears in no ruling before 2024, so a train
+    split of 2019-2023 simply has no example of class 4.
+
+    Returns the present classes in full-space order and the forward map.
+    `PenaltyPredictor` keeps the first so `predict` can put the columns back
+    where the class names expect them -- see `_expand_proba`. Without that,
+    every class after the hole is read under its neighbour's name.
+    """
+    classes = sorted({int(v) for v in y_full})
+    return classes, {c: i for i, c in enumerate(classes)}
+
+
 def _build_pipeline(n_classes: int):
     """Build sklearn Pipeline: OneHotEncoder + StandardScaler + XGBClassifier."""
     _require_sklearn()
@@ -163,9 +180,11 @@ class PenaltyPredictor:
         log.info("Training on %d labelled records", len(df))
 
         X = df[CAT_COLS + NUM_COLS]
-        y = df["penalty_class"].map(PENALTY_CLASS_TO_IDX)
+        y_full = df["penalty_class"].map(PENALTY_CLASS_TO_IDX)
+        classes, dense = dense_label_space(y_full)
+        y = y_full.map(dense)
 
-        pipeline = _build_pipeline(n_classes=len(PENALTY_CLASSES))
+        pipeline = _build_pipeline(n_classes=len(classes))
 
         fit_kwargs: dict[str, Any] = {}
 
@@ -179,7 +198,11 @@ class PenaltyPredictor:
             val_df = val_df[val_df["penalty_class"].notna()].copy()
             if not val_df.empty:
                 X_val = val_df[CAT_COLS + NUM_COLS]
-                y_val = val_df["penalty_class"].map(PENALTY_CLASS_TO_IDX)
+                # Same dense space as the training labels, and rows whose class
+                # the training split never saw are dropped rather than mapped
+                # to NaN, which XGBoost reads as a label of its own.
+                y_val = val_df["penalty_class"].map(PENALTY_CLASS_TO_IDX).map(dense)
+                X_val, y_val = X_val[y_val.notna()], y_val.dropna().astype(int)
                 fit_kwargs["clf__eval_set"] = [(pipeline["prep"].fit_transform(X), y),
                                                (pipeline["prep"].transform(X_val), y_val)]
                 fit_kwargs["clf__verbose"] = verbose
@@ -198,7 +221,8 @@ class PenaltyPredictor:
                 from sklearn.frozen import FrozenEstimator
 
                 X_val = val_df[CAT_COLS + NUM_COLS]
-                y_val = val_df["penalty_class"].map(PENALTY_CLASS_TO_IDX)
+                y_val = val_df["penalty_class"].map(PENALTY_CLASS_TO_IDX).map(dense)
+                X_val, y_val = X_val[y_val.notna()], y_val.dropna().astype(int)
                 try:
                     calibrated = CalibratedClassifierCV(
                         FrozenEstimator(pipeline), method="sigmoid"
@@ -209,7 +233,7 @@ class PenaltyPredictor:
                     log.warning("Calibration failed (%s) — using raw probabilities", exc)
                     calibrated = None
 
-        return cls(pipeline=pipeline, calibrated=calibrated)
+        return cls(pipeline=pipeline, label_encoder=classes, calibrated=calibrated)
 
     # ------------------------------------------------------------------
     # Inference
@@ -228,7 +252,7 @@ class PenaltyPredictor:
         feat = extract_features(record)
         X = pd.DataFrame([feat])[CAT_COLS + NUM_COLS]
         model = self._calibrated if self._calibrated is not None else self._pipeline
-        proba = model.predict_proba(X)[0]
+        proba = self._expand_proba(model.predict_proba(X)[0])
 
         class_idx = int(proba.argmax())
         predicted_class = PENALTY_CLASSES[class_idx]
@@ -236,10 +260,29 @@ class PenaltyPredictor:
         return {
             "predicted_class": predicted_class,
             "predicted_class_idx": class_idx,
-            "proba": {cls: round(float(p), 4) for cls, p in zip(PENALTY_CLASSES, proba, strict=False)},
+            # strict: the columns and the names must line up exactly. They did
+            # not when a class was missing from training, and strict=False hid
+            # it by truncating the names instead of raising.
+            "proba": {cls: round(float(p), 4) for cls, p in zip(PENALTY_CLASSES, proba, strict=True)},
             "confidence": round(float(proba.max()), 4),
             "penalty_points_delta": feat.get("penalty_points_delta", 0),
         }
+
+    def _expand_proba(self, proba):
+        """Put a dense probability row back into full PENALTY_CLASSES order.
+
+        A class the training split never contained gets 0.0 -- the model has
+        no evidence for it, which is the honest value, and it keeps every
+        other class under its own name.
+        """
+        import numpy as np
+
+        if self._label_encoder is None or len(proba) == len(PENALTY_CLASSES):
+            return proba
+        full = np.zeros(len(PENALTY_CLASSES), dtype=float)
+        for dense_idx, full_idx in enumerate(self._label_encoder):
+            full[full_idx] = proba[dense_idx]
+        return full
 
     def predict_batch(self, records: list[dict]) -> list[dict]:
         return [self.predict(r) for r in records]
@@ -251,7 +294,8 @@ class PenaltyPredictor:
     def save(self, path: str | Path | None = None) -> Path:
         import joblib
         path = Path(path) if path else MODELS_DIR / "penalty_v1.pkl"
-        joblib.dump({"pipeline": self._pipeline, "calibrated": self._calibrated}, path)
+        joblib.dump({"pipeline": self._pipeline, "calibrated": self._calibrated,
+                     "label_encoder": self._label_encoder}, path)
         log.info("Model saved to %s", path)
         return path
 
@@ -262,7 +306,10 @@ class PenaltyPredictor:
         if not path.exists():
             raise FileNotFoundError(f"Model file not found: {path}")
         state = joblib.load(path)
-        return cls(pipeline=state["pipeline"], calibrated=state.get("calibrated"))
+        # A model saved before the label space was stored covers all classes,
+        # which is what a missing key means here.
+        return cls(pipeline=state["pipeline"], calibrated=state.get("calibrated"),
+                   label_encoder=state.get("label_encoder"))
 
     # ------------------------------------------------------------------
     # Evaluation
