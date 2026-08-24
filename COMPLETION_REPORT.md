@@ -1,14 +1,27 @@
-# RACEJUDGE — Final Completion Report v17
+# RACEJUDGE — Final Completion Report v18
 
-> **Updated: 19 August 2026**
-> Tests: **558 passing** | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Migrations: **0001–0021 applied** | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
+> **Updated: 24 August 2026**
+> Tests: **579 passing** | **CI: all 4 jobs verified green by execution** (v10/v11 — not merely asserted) | Decisions: 1,606 (2019–2026) | Migrations: **0001–0021 applied** | Phases code-complete: Pre-Work · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8
 > **Precedent search is LIVE** on a LoRA-fine-tuned BGE-M3 — 1,606 incidents embedded in Neon, semantic search verified. **27,133 precedent links materialised** (re-computed after the corpus repair; v10's 32,120 predated it).
 > **Currently LIVE on Vercel (interim)** — API: https://racejudge-api.vercel.app · Web: https://racejudge-web.vercel.app
 > **Migrating to Fly.io** per the implementation plan (Vercel was a deviation from the spec). Container config staged; blocked only on Fly billing — see Section 2A.
 > ✅ **v10's biggest open defect is closed:** classified incidents went **357 → 1,181 (22.2% → 73.5%)** across 24 categories. Nothing was deleted. Section 2C.
 > ✅ **v12: the `/consistency` 500 is fixed at its real cause** (route-declaration order, not Vercel — v11 misdiagnosed it) and the 4 conflicting rows are adjudicated and corrected. Section 10 row 1e.
 > ✅ **v16: the extractor now reads the document rather than guessing from it.** Session type was 42.5% wrong and is now 0.1% wrong; `sessions` and `events` are no longer empty; contact, incident time and the drivers named in tables are read from the text. Section 3B.
-> ✅ **v17: race control messages are attached to the incidents they are actually about.** The linker anchored on the FIA's publication time, kept one incident per message when a message routinely belongs to several, and read only the first driver on the ruling. Rebuilt on a join table (migration `0018`): **861 → 1,874 links**, 0 cross-session. Section 4A.
+> ✅ **v17: race control messages are attached to the incidents they are actually about.** The linker anchored on the FIA's publication time, kept one incident per message when a message routinely belongs to several, and read only the first driver on the ruling. Rebuilt on a join table (migration `0018`): **861 → 3,293 links**, 0 cross-session. Section 4A.
+> ✅ **v18: a quarter of every cited article was a fragment of an ordinary word.** `article_cited` was reported "97.4%, healthy" by counting filled rows — 1,254 of the 5,048 values in them were debris like `artin`, from steward *Martin*'s name. Fixed at both causes and backfilled: **0 fragments, 573 references recovered.** Section 3C.
+
+## What changed in v18 (24 August 2026)
+
+A coverage table asks whether a column is filled. It cannot ask whether what fills it is real — and this one was 97.4% filled with a quarter of its contents nonsense.
+
+- **`Art` had no word boundary in front of it.** The citation pattern began `(?:Art(?:icle)?\.?\s*|Appendix\s+)`, so it matched inside ordinary words, and `_normalize_article` returned whatever it could not parse instead of rejecting it. Steward **Martin** Donnelly's surname was stored as a cited FIA article **402 times**; `art the` 151, `art of` 84, `Articles` 57, `articipates` 52, `arts` 47, `arties` 39, `articular` 38. **1,254 of 5,048 stored citations (24.8%) named no article**, and 194 incidents cited nothing else. This is the project's fifth recurring-pattern instance and a new variant of it: **a loose pattern paired with a normaliser whose failure path returns its input unchanged**, so junk flows to the database rather than being dropped.
+- **Requiring a real article number fixes both halves.** Text carrying no number cites nothing and now returns empty for the caller to drop. A rule that only accepts an article number cannot resurrect the word-fragment problem by another route.
+- **Rewriting the pattern exposed four things it had been getting wrong**, all of them silent: *"Articles 28.2 and 29.2"* names two articles and **only the first was ever recorded**; `12.4.1.e` was truncated to `12.4.1.`, losing the paragraph letter and keeping a trailing dot; `B1.8.6` was missed entirely because the number could not begin with a letter; and `Appendix L` swallowed its own `, Chapter IV`.
+- **The same article sat in the column under two keys.** The corpus writes both `12.4.1.e` (86×) and `12.4.1e` (9×), so four articles were split across two spellings of themselves and no query could group their precedents — the project's second recurring pattern, **comparing two spellings of the same value**. The separator dot is now dropped after a digit only, which leaves `B1.6.2b.i` intact rather than mangling a number whose letter is part of the article.
+- **Result: 5,048 references with 1,254 fragments → 3,854 with none**, 573 recovered. Every dropped value is a malformed spelling of one that replaced it — `26.1` became `26.1a`, `Appendix L` became `Appendix L, Chapter IV`, and `11.00` was a time misread as an article. The **233 documents now citing nothing contain no article pattern anywhere in their text**; they are the *"PU elements used per driver up to now"* tallies.
+- **The backfill re-runs the fixed extractor over the stored rows**, which the pipeline does not revisit on its own. Nothing is re-parsed from a PDF: every incident is `v2.0-layer1`, so recomputing from `decisions.raw_text` is exactly what the corrected extractor would have written the first time. `scripts/backfill_article_citations.py`, with `--dry-run` and `--backup`.
+- **Two stale headline figures corrected.** Sections 4A's summary line and the Section 15 checklist row still carried the intermediate **1,874** race-control links; the live figure is **3,293** across 712 incidents, which the body of Section 4A already stated.
 
 ## What changed in v17 (19–22 August 2026)
 
@@ -487,7 +500,7 @@ Phase 2's stated milestone is >90% F1 on field extraction. That was never measur
 
 | Field | Populated | Reading |
 |---|---|---|
-| `article_cited` | 1,564 (97.4%) | Healthy. |
+| `article_cited` | **1,373 (85.5%)** | **v13–v17 read 1,564 (97.4%) and called this "healthy"; it was 24.8% debris (corrected v18).** Counting filled rows could not see that 1,254 of the 5,048 values in them named no article — `artin` 402 times, from a steward's surname. Now **0 fragments across 3,854 references**, with 573 recovered that the old pattern silently dropped. The count *fell* because junk-only rows became empty, not because anything real was lost. Section 3C. |
 | `reasoning_text` | 1,606 (100%) | Healthy. The 2,000-character hard slice reported in v13 is **gone** — 0 rows sit at the cap, longest is 5,986 characters, and all 1,606 were re-embedded afterwards (no row has been edited since its embedding). |
 | `infraction_category` | 1,181 (73.5%) | **The 425 gaps are *not* all administrative — v13–v16 said they were and were wrong (corrected v17).** 249 of them record a real penalty; only 96 decide neither an offence nor a penalty. Row 1c. |
 | `drivers[]` | **1,313 (81.8%)** | Was 997 before v13, 1,149 before v16. **100% agreement with every decision that states its own subject.** v14: joint summonses hold 4 drivers each. **v16: +164 tabular rulings, 1,127 driver entries, 0 unresolved.** |
@@ -532,7 +545,35 @@ Each stored field was measured against what the document itself states, rather t
 | weather | nearest reading to *publication* time, unbounded | 673 rows, mean 21.9s out | 10-minute ceiling; 44 meaningless pre-existing rows cleared |
 | drivers on tabular rulings | 164 documents named nobody | 1,127 entries, 0 unresolved | Every extracted name put through `DriverResolver` |
 
-The recurring bug in every one of these was the same: **scanning the whole document for a pattern instead of reading the section that states the fact.** The Decision section is the operative ruling, the Reason argues about penalties that were *not* imposed, the Fact states the contact, and the Session field states the session. Section-scoped parsing is the defence, and the tests now assert it — a decision whose Reason discusses a suspension, a collision that did not happen, or a Race Director report must not read as any of those things.
+The recurring bug in every one of these was the same: **scanning the whole document for a pattern instead of reading the section that states the fact.** (v18: the same table, applied to `article_cited`, found the field 24.8% wrong — see 3C. Populated-but-wrong is exactly what 3A's coverage number could not see.) The Decision section is the operative ruling, the Reason argues about penalties that were *not* imposed, the Fact states the contact, and the Session field states the session. Section-scoped parsing is the defence, and the tests now assert it — a decision whose Reason discusses a suspension, a collision that did not happen, or a Race Director report must not read as any of those things.
+
+### 3C — The cited articles were a quarter debris (v18)
+
+`article_cited` is what makes "show me every precedent under Article 33.3" answerable, and it is the feature the penalty predictor reads. 3A measured it as **1,564 populated (97.4%)** and wrote "Healthy." Measuring the *contents* instead:
+
+| | References stored | Naming no article | Share |
+|---|---|---|---|
+| Before | 5,048 | **1,254** | **24.8%** |
+| After | 3,854 | **0** | **0.0%** |
+
+**Two causes, both required.** The pattern began `(?:Art(?:icle)?\.?\s*|Appendix\s+)` with **no leading `\b`**, so `Art` matched inside ordinary words. `_normalize_article` then **returned its input unchanged** when it found no article number, so the fragment was stored rather than dropped. Either one alone is harmless; together they put a quarter of a steward-facing column beyond use.
+
+| Stored as a cited FIA article | Times | Actually |
+|---|---|---|
+| `artin` | 402 | steward **Mart**in Donnelly's surname |
+| `art the` | 151 | "…p**art the** driver played…" |
+| `art of` | 84 | "p**art of** the track" |
+| `Articles` | 57 | the bare word, citing nothing |
+| `articipates` | 52 | "p**articipates** in the sprint" |
+| `arts` / `arties` / `articular` | 124 | "spare p**arts**", "both p**arties**", "no p**articular** advantage" |
+
+**Fixing it recovered more than it removed.** Requiring a real article number after the prefix is what makes the fragments impossible, and rewriting the pattern to do that exposed four silent failures: enumerated citations (*"Articles 28.2 and 29.2"*) recorded only their first article; `12.4.1.e` was truncated to `12.4.1.`; `B1.8.6` was never matched at all, the number being unable to start with a letter; and `Appendix L` swallowed its own `, Chapter IV`. **573 references were recovered** — `Appendix L, Chapter IV` ×111, `12.4.1e` ×95, `B1.8.6` ×34, `12.2.1i` ×25, `40.3` ×14, `28.2` ×12.
+
+**Every value dropped is a malformed spelling of one that replaced it.** Verified individually across all 74 non-fragment losses: `26.1` → `26.1a`/`26.1b` (the sub-clause the document actually names), `12.4.1` → `12.4.1e`, `Article\nB1.8.6` → `B1.8.6`, `Appendix L` → `Appendix L, Chapter IV`, `2` → `Appendix 2`, and `11.00` was a **time** misread as an article. The **233 documents left citing nothing contain no `Art`+digit and no `Appendix` anywhere in their text** — their titles are *"PU elements used per driver up to now"* and *"RNCs used per driver up to now"*.
+
+**One article, one key.** The corpus writes `12.4.1.e` 86 times and `12.4.1e` 9 times; four articles were split across two spellings of themselves, so a precedent query on either found only part of the set. The separator dot is now dropped **after a digit only** — `B1.6.2b.i` keeps its dot, because there the preceding letter is part of the article number and removing it would rewrite the citation.
+
+**Applied to the stored rows.** `scripts/backfill_article_citations.py` (with `--dry-run` and `--backup`) re-runs the two fixed functions over `decisions.raw_text` for all 1,606 incidents, updating 1,001. It re-parses no PDF and invents nothing: every incident is `v2.0-layer1`, so this is precisely what the corrected extractor would have produced on the first pass. Verified in the live database afterwards — 0 fragments, 0 values still carrying an `Art`/`Article` prefix.
 
 ---
 
@@ -549,7 +590,7 @@ The recurring bug in every one of these was the same: **scanning the whole docum
 | ASR / radio / race-control / telemetry **backfills run** | ✅ | **Done 2026-06 (real data, no synthetic).** `incidents.session_key` on **1,027** incidents (was 651) → **380 sessions now held in the `sessions` table** for the 76 events OpenF1 covers, 182 of them carrying telemetry; **race_control_messages = 12,111** (861 linked to incidents); **weather_context on 673 incidents** (was 297); **team_radio_clips = 198** (192 Whisper-`base` transcripts + sentiment/urgency, 192 pyannote driver/engineer `speaker_label`); **lap_features = 105,768** rows across all **182/182** sessions (FastF1). Re-run scripts: `scripts/_populate_session_keys.py`, `backfill_race_control.py`, `_backfill_radio.py`, `_backfill_diarization.py`, `_backfill_telemetry.py`. pyannote needs `HF_TOKEN` (set in `.env`); transcription/telemetry are token-free. |
 | **`sessions` table populated and made authoritative (v16)** | ✅ | Until v16 `incidents.session_key` was an integer referencing an **empty table** — every join in this section was through a key that pointed at nothing, and nothing could detect a wrong one. 380 sessions loaded with `session_type`, start/end and `gmt_offset`; incidents relinked on *(event named by the document, session stated by the document)*, catching 23 incidents filed against the previous year's Canadian GP sessions. Migration **`0016`** adds `fk_incidents_session_key` (ON DELETE SET NULL) + an index; **`0017`** adds `sessions.gmt_offset` and `incidents.incident_time`. |
 | **Weather linkage corrected (v16)** | ✅ | `weather_linker` fell back to `Decision.published_at` when no race-control message was linked, and accepted the nearest reading at any distance — up to 50 minutes off. It now uses `incidents.incident_time` and enforces `MAX_WEATHER_GAP_S = 600`. Mean distance from the incident: **21.9s**; worst: 577s. |
-| **Race control linkage rebuilt (v17)** | ✅ | See Section 4A. **861 → 1,874 links** over a join table (migration `0018`), 448 incidents, 1,562 distinct messages, 271 shared between rulings, **0 cross-session**. |
+| **Race control linkage rebuilt (v17)** | ✅ | See Section 4A. **861 → 3,293 links** over a join table (migration `0018`), 712 incidents, 2,798 distinct messages, 427 shared between rulings, **0 cross-session**. |
 
 ---
 
@@ -761,7 +802,8 @@ Drivers: **42** · Teams: 17 active (43 rows) · Events: **158** · Sessions: **
 | `test_race_control_linker.py` (window, car agreement, deleted-lap offence match) | ✅ |
 | `test_precedent_filter.py` (a ruling with a penalty but no category is precedent) | ✅ |
 | `test_predictor_label_space.py` (a missing penalty class does not rename the others) | ✅ |
-| **Total collected** | **558 ✅** (v11: +42 — recovered ruling types, outcome fixes, penalty-type normalisation, and a completeness guard asserting every parser label has a category mapping; v12: +14 — route-shadowing invariant, driver-obligation/practice-start/safety-car regressions; **v16: +100** — the `Session` field beating "Race Director", `sprint_qualifying` never collapsing into `sprint`, a document with no stated session inventing none, contact read only from the Fact section with negations and "near collision" handled, the incident time distinguished from the publication time and impossible clock readings rejected, and both table layouts read while a numbered list without a table header is not; **v17: +37** — a race control message about another car not attaching itself to a nearby ruling, the measured asymmetric window, a turn disagreement rejecting, a deleted lap time belonging only to the offence it names, and an untimed ruling requiring the offence to agree unless race control has no word for it; **+26 more in v17** — the evidence clause read for vision evidence only and a named camera not double-counting as generic video, the precedent filter keeping a ruling that carries a penalty but no category and both retrieval legs applying the same one, and a penalty class missing from the training split keeping every other class under its own name) |
+| `test_text_cleaner.py` (an ordinary word is not a cited article) | ✅ |
+| **Total collected** | **579 ✅** (**v18: +21** — every word that put a fragment in the column asserted to cite nothing, a bare `Articles` with no number citing nothing, enumerated citations recording every article and not just the first, a chapter written with and without its comma being one citation, a citation wrapped across a line break collapsing, and a paragraph letter being the same article however the dot falls while `B1.6.2b.i` keeps its own; v11: +42 — recovered ruling types, outcome fixes, penalty-type normalisation, and a completeness guard asserting every parser label has a category mapping; v12: +14 — route-shadowing invariant, driver-obligation/practice-start/safety-car regressions; **v16: +100** — the `Session` field beating "Race Director", `sprint_qualifying` never collapsing into `sprint`, a document with no stated session inventing none, contact read only from the Fact section with negations and "near collision" handled, the incident time distinguished from the publication time and impossible clock readings rejected, and both table layouts read while a numbered list without a table header is not; **v17: +37** — a race control message about another car not attaching itself to a nearby ruling, the measured asymmetric window, a turn disagreement rejecting, a deleted lap time belonging only to the offence it names, and an untimed ruling requiring the offence to agree unless race control has no word for it; **+26 more in v17** — the evidence clause read for vision evidence only and a named camera not double-counting as generic video, the precedent filter keeping a ruling that carries a penalty but no category and both retrieval legs applying the same one, and a penalty class missing from the training split keeping every other class under its own name) |
 
 ---
 
@@ -772,8 +814,8 @@ Drivers: **42** · Teams: 17 active (43 rows) · Events: **158** · Sessions: **
 | Check | Status |
 |---|---|
 | `ruff check packages/ apps/ scripts/ tests/` | ✅ All checks passed |
-| `mypy --explicit-package-bases packages/ apps/ scripts/` | ✅ clean — **118 source files** (re-run v17) |
-| `pytest tests/` | ✅ **558 passing** (re-run v17, 1.55s) |
+| `mypy --explicit-package-bases packages/ apps/ scripts/` | ✅ clean — **126 source files** (re-run v18) |
+| `pytest tests/` | ✅ **579 passing** (re-run v18, 2.00s) |
 | `tsc --noEmit` | ✅ clean |
 | `npm run build` (Next.js) | ✅ clean — **20 routes** |
 | `npm audit --audit-level=high` | ✅ **0 vulnerabilities** — was 12 (3 high) until v10; fixed via `overrides` pinning `postcss`/`sharp`, avoiding a breaking `next@16` upgrade |
