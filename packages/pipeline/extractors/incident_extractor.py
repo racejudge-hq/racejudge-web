@@ -509,7 +509,8 @@ class IncidentExtractor:
         if isinstance(articles_raw, str):
             articles_raw = [articles_raw]
         # Normalize: "Art. 48.1" → "48.1", "Appendix L Ch.4" stays as-is
-        articles_raw = [_normalize_article(a) for a in articles_raw if a]
+        # Drop what normalises to nothing -- text carrying no article number.
+        articles_raw = [n for a in articles_raw if a and (n := _normalize_article(a))]
         articles_raw = list(dict.fromkeys(articles_raw))  # dedup, preserve order
 
         return ExtractionResult(
@@ -575,13 +576,31 @@ class IncidentExtractor:
 # ---------------------------------------------------------------------------
 
 def _normalize_article(raw: str) -> str:
-    """Strip 'Art.' / 'Article' prefix, return just the number or 'Appendix X' form."""
+    """Strip an 'Art.'/'Article' prefix, leaving the article number.
+
+    `extract_article_citations` now returns references already in this form, so
+    this is a no-op on its output. It stays for the callers that still hand
+    over raw matched text.
+
+    What it no longer does is return the input unchanged when it finds no
+    article number. That fallback is the reason `artin` -- the tail of steward
+    *Martin*'s name -- was stored as a cited article 402 times: the prefix
+    regex matched inside the word, and anything the number regex then failed
+    to parse was passed straight through to the database. Text with no article
+    number in it cites no article, and now returns empty for the caller to drop.
+    """
     import re
-    raw = raw.strip()
-    m = re.match(r"art(?:icle)?\.?\s*(\d[\d.]*)", raw, re.IGNORECASE)
+    raw = " ".join(raw.split())
+    if re.match(r"^Appendix\b", raw, re.IGNORECASE):
+        return raw
+    m = re.match(
+        r"^art(?:icle)?s?\.?\s*([A-Z]?\d+(?:\.[0-9A-Za-z]+)*(?:[a-z](?![a-z]))?)$",
+        raw,
+        re.IGNORECASE,
+    )
     if m:
-        return m.group(1)
-    return raw
+        return m.group(1).rstrip(".")
+    return raw if any(ch.isdigit() for ch in raw) else ""
 
 
 def _parse_penalty_seconds(outcome: str | None) -> int | None:

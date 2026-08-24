@@ -145,22 +145,73 @@ def extract_stewards_names(text: str) -> list[str]:
     return names[:5]  # max 5 stewards
 
 
+_ARTICLE_RE = re.compile(
+    # "Art 15", "Art. 27.3", "Article 12.4.1.e", "Articles 2", "Article B1.6.3a",
+    # "Article 2c" (Appendix L's driving-standards articles carry a bare letter).
+    r"\bArt(?:icle)?s?\.?\s*(?P<article>[A-Z]?\d+(?:\.[0-9A-Za-z]+)*(?:[a-z](?![a-z]))?"
+    # "Articles 28.2 and 29.2", "Articles 40.3, 40.6" -- one prefix, several
+    # articles. Only the first was ever recorded; the rest were dropped.
+    r"(?:\s*(?:,|and)\s*\d+(?:\.\d+)*(?:[a-z](?![a-z]))?)*)"
+    # "Appendix L", "Appendix H", "Appendix 1", each optionally with its chapter.
+    r"|\bAppendix\s+(?P<appendix>[A-Z](?![a-z])|\d+)"
+    r"(?P<chapter>\s*,?\s*(?:Chapter|Section)\s+[IVXLCDM0-9]+)?",
+    re.IGNORECASE,
+)
+
+# The separator before a paragraph letter: "12.4.1.e" -> "12.4.1e". Only after a
+# digit, so "B1.6.2b.i" is left alone. See extract_article_citations.
+_PARA_DOT_RE = re.compile(r"(?<=\d)\.(?=[a-z]$)")
+
+
 def extract_article_citations(text: str) -> list[str]:
+    """Return the FIA articles a decision cites, normalised: "38.1", "Appendix L".
+
+    Two things here are load-bearing.
+
+    The leading `\\b` is the whole reason this was rewritten. Without it `Art`
+    matched inside ordinary words, and a quarter of every citation in the
+    database was debris: `artin` 402 times from steward *Martin*, plus `arts`,
+    `arties`, `articular`, `articipates`, `arting`, `artment`. 191 documents
+    had nothing stored but debris.
+
+    Requiring a number after the prefix is the other half. `Art` on its own,
+    or the bare word `Articles`, cites nothing -- and a rule that only accepts
+    a real article number cannot resurrect the word-fragment problem by a
+    different route.
+
+    The chapter comma is optional because the corpus writes it both ways:
+    "Appendix L, Chapter IV" and "Appendix L Chapter IV" are the same citation
+    and must not become two.
+
+    The dot before a paragraph letter goes the same way, and for the same
+    reason: the corpus writes "Article 12.4.1.e" 86 times and "Article 12.4.1e"
+    9 times, and this column exists to group precedents by the article they
+    cite. Four articles were split across two spellings of themselves. Only the
+    separator is dropped, and only after a digit -- "B1.6.2b.i" keeps its dot,
+    because there the letter before it is part of the article, not a number.
     """
-    Extract all FIA article citations from decision text.
-    e.g. "Article 38.1", "Art. 27.3", "Appendix L, Chapter IV"
-    """
-    pattern = re.compile(
-        r"(?:Art(?:icle)?\.?\s*|Appendix\s+)(\w+(?:\.\w+)*(?:,\s*(?:Chapter|Section)\s*\w+)?)",
-        re.IGNORECASE,
-    )
-    matches = [m.group(0).strip() for m in pattern.finditer(text)]
-    # Deduplicate while preserving order
+    out: list[str] = []
     seen: set[str] = set()
-    result = []
-    for m in matches:
-        normalized = m.lower()
-        if normalized not in seen:
-            seen.add(normalized)
-            result.append(m)
-    return result
+
+    def add(ref: str) -> None:
+        ref = _PARA_DOT_RE.sub("", ref)
+        key = ref.lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(ref)
+
+    for m in _ARTICLE_RE.finditer(text):
+        article = m.group("article")
+        if article:
+            for part in re.split(r"\s*(?:,|and)\s*", article):
+                if part:
+                    add(part.rstrip("."))
+            continue
+
+        ref = "Appendix " + m.group("appendix").upper()
+        chapter = m.group("chapter")
+        if chapter:
+            # Collapse the newlines the PDFs wrap citations across.
+            ref += ", " + re.sub(r"^[\s,]*", "", " ".join(chapter.split()))
+        add(ref)
+    return out
