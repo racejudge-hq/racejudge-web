@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS decisions (
     r2_key          TEXT,                                  -- Cloudflare R2 object key
     season          SMALLINT    NOT NULL CHECK (season >= 2018),
     published_at    TEXT,                                  -- raw string from FIA page
+    published_at_utc TIMESTAMPTZ,                          -- parsed from it; Paris local -> UTC (0022)
     raw_text        TEXT        NOT NULL DEFAULT '',
     char_count      INTEGER     NOT NULL DEFAULT 0,
     needs_ocr       BOOLEAN     NOT NULL DEFAULT FALSE,

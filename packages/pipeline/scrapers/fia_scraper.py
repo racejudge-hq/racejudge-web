@@ -32,6 +32,7 @@ import re
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pdfplumber
 import requests
@@ -231,6 +232,46 @@ def _parse_decision_links(soup: BeautifulSoup, season: int) -> list[dict]:
             "season": _season_from_url(full_url) or season,
         })
     return docs
+
+
+# The date element on the FIA listing page, in the two shapes it comes in:
+# "Published on08.10.23 20:58CET" and a bare "07.12.25 15:59". Both are the
+# same clock in different markup -- measured against the incidents whose UTC
+# time is known, the two shapes have the same publication lag and neither
+# produces a document published before the incident it describes.
+_PUBLISHED_RE = re.compile(
+    r"(?P<d>\d{2})\.(?P<m>\d{2})\.(?P<y>\d{2})\s+(?P<H>\d{2}):(?P<M>\d{2})"
+)
+
+# The page says "CET" on every row, in July as well as January. It means Paris
+# local time, not a fixed UTC+1: read as fixed, summer publication lag inflates
+# from 132 to 192 minutes against a winter figure of 114 that neither reading
+# changes -- almost exactly the hour a missed DST change would add. See
+# migration 0022.
+_FIA_TZ = ZoneInfo("Europe/Paris")
+
+
+def parse_published_at(raw: str | None) -> datetime | None:
+    """Turn the FIA listing page's date string into an aware UTC datetime.
+
+    Returns None for anything that does not carry a full date and time, so a
+    row whose element held something unexpected stays NULL rather than being
+    given a plausible-looking wrong instant. The raw string is kept alongside
+    in `decisions.published_at`; this is derived from it, not a replacement.
+    """
+    if not raw:
+        return None
+    m = _PUBLISHED_RE.search(raw)
+    if not m:
+        return None
+    try:
+        local = datetime(
+            2000 + int(m.group("y")), int(m.group("m")), int(m.group("d")),
+            int(m.group("H")), int(m.group("M")), tzinfo=_FIA_TZ,
+        )
+    except ValueError:
+        return None  # 31.02, hour 25 -- a misread element, not a date
+    return local.astimezone(UTC)
 
 
 def _extract_date_near_link(a_tag) -> str | None:
@@ -453,6 +494,7 @@ def ingest_season(
             "raw_text": raw_text,
             "season": doc_season,
             "published_at": doc.get("published_at"),
+            "published_at_utc": parse_published_at(doc.get("published_at")),
             "parser_version": "v1.1-pdfplumber",
             "parsed_at": datetime.now(UTC).isoformat(),
             "char_count": len(raw_text),

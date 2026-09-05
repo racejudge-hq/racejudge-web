@@ -299,7 +299,12 @@ def main() -> None:
         JOIN decisions d ON i.doc_id = d.doc_id
         WHERE i.penalty_type IS NOT NULL
           AND i.reasoning_text IS NOT NULL
-        ORDER BY d.season, d.published_at
+        -- published_at is the raw FIA string ("Published on08.10.23 20:58CET"),
+        -- so ordering by it sorted every prefixed row after every bare one and
+        -- then by day-of-month before month. published_at_utc is the same
+        -- instant with a type (0022). NULLS LAST keeps a row whose date could
+        -- not be parsed in the set rather than at the front of it.
+        ORDER BY d.season, d.published_at_utc NULLS LAST
     """)
     rows = cur.fetchall()
     cur.close()

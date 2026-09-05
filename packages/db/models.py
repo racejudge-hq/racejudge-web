@@ -93,7 +93,13 @@ class Decision(Base):
     # is signed by one delegate. NULL means not yet determined, and retrieval
     # keeps those — excluding must be something we established, not assumed.
     is_precedent:   Mapped[bool | None] = mapped_column(Boolean, index=True)
+    # The raw string the FIA listing page carried, kept as the source of record.
     published_at:   Mapped[str | None] = mapped_column(Text)
+    # The same instant with a type, so it can be ordered and compared (0022).
+    # Parsed by `fia_scraper.parse_published_at`; NULL where the raw string
+    # carries no full date rather than guessed at.
+    published_at_utc: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True)
     raw_text:       Mapped[str]      = mapped_column(Text, nullable=False, default="")
     char_count:     Mapped[int]      = mapped_column(Integer, nullable=False, default=0)
     needs_ocr:      Mapped[bool]     = mapped_column(Boolean, nullable=False, default=False)

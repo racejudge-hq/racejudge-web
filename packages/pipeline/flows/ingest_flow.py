@@ -90,10 +90,11 @@ def load_to_postgres_task(records: list[dict]) -> int:
             """
             INSERT INTO decisions
                 (doc_id, sha256_hash, title, pdf_url, r2_key, season,
-                 published_at, raw_text, char_count, needs_ocr,
-                 parser_version, parsed_at)
+                 published_at, published_at_utc, raw_text, char_count,
+                 needs_ocr, parser_version, parsed_at)
             VALUES (%(doc_id)s, %(sha256_hash)s, %(title)s, %(pdf_url)s,
-                    %(r2_key)s, %(season)s, %(published_at)s, %(raw_text)s,
+                    %(r2_key)s, %(season)s, %(published_at)s,
+                    %(published_at_utc)s, %(raw_text)s,
                     %(char_count)s, %(needs_ocr)s, %(parser_version)s,
                     %(parsed_at)s)
             ON CONFLICT (sha256_hash) DO NOTHING
